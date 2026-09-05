@@ -1,0 +1,23 @@
+package transactiongraphqlmapper
+
+import (
+	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
+	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
+)
+
+type TransactionGraphqlMapper interface {
+	ToGraphqlResponseTransaction(res *pb.ApiResponseTransaction) *model.APIResponseTransaction
+	ToGraphqlResponsesTransaction(res *pb.ApiResponsesTransaction) *model.APIResponsesTransaction
+	ToGraphqlResponseTransactionDeleteAt(res *pb.ApiResponseTransactionDeleteAt) *model.APIResponseTransactionDeleteAt
+	ToGraphqlResponseTransactionDelete(res *pb.ApiResponseTransactionDelete) *model.APIResponseTransactionDelete
+	ToGraphqlResponseTransactionAll(res *pb.ApiResponseTransactionAll) *model.APIResponseTransactionAll
+	ToGraphqlResponsePaginationTransaction(res *pb.ApiResponsePaginationTransaction) *model.APIResponsePaginationTransaction
+	ToGraphqlResponsePaginationTransactionDeleteAt(res *pb.ApiResponsePaginationTransactionDeleteAt) *model.APIResponsePaginationTransactionDeleteAt
+	ToGraphqlResponseMonthAmountSuccess(res *pbstats.ApiResponseTransactionMonthAmountSuccess) *model.APIResponseTransactionMonthAmountSuccess
+	ToGraphqlResponseYearAmountSuccess(res *pbstats.ApiResponseTransactionYearAmountSuccess) *model.APIResponseTransactionYearAmountSuccess
+	ToGraphqlResponseMonthAmountFailed(res *pbstats.ApiResponseTransactionMonthAmountFailed) *model.APIResponseTransactionMonthAmountFailed
+	ToGraphqlResponseYearAmountFailed(res *pbstats.ApiResponseTransactionYearAmountFailed) *model.APIResponseTransactionYearAmountFailed
+	ToGraphqlResponseMonthMethod(res *pbstats.ApiResponseTransactionMonthPaymentMethod) *model.APIResponseTransactionMonthPaymentMethod
+	ToGraphqlResponseYearMethod(res *pbstats.ApiResponseTransactionYearPaymentmethod) *model.APIResponseTransactionYearPaymentMethod
+}

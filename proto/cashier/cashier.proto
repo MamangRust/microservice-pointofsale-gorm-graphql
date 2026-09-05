@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package pb.cashier;
+
+option go_package = "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier";
+
+import "common/api.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/empty.proto";
+
+message FindAllCashierRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+    string search = 3;
+}
+
+message FindByMerchantCashierRequest {
+    int32 merchant_id = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+    string search = 4;
+}
+
+message FindByIdCashierRequest {
+    int32 id = 1;
+}
+
+message CreateCashierRequest {
+    int32 merchant_id = 1;
+    int32 user_id = 2;
+    string name = 3;
+}
+
+message UpdateCashierRequest {
+    int32 cashier_id = 1;
+    string name = 2;
+}
+
+message CashierResponse {
+    int32 id = 1;
+    int32 merchant_id = 2;
+    string name = 3;
+    string created_at = 4;
+    string updated_at = 5;
+}
+
+message CashierResponseDeleteAt {
+    int32 id = 1;
+    int32 merchant_id = 2;
+    string name = 3;
+    string created_at = 4;
+    string updated_at = 5;
+    google.protobuf.StringValue deleted_at = 6;
+}
+
+message ApiResponseCashier {
+    string status = 1;
+    string message = 2;
+    CashierResponse data = 3;
+}
+
+message ApiResponseCashierDeleteAt {
+    string status = 1;
+    string message = 2;
+    CashierResponseDeleteAt data = 3;
+}
+
+message ApiResponsesCashier {
+    string status = 1;
+    string message = 2;
+    repeated CashierResponse data = 3;
+}
+
+message ApiResponseCashierDelete {
+    string status = 1;
+    string message = 2;
+}
+
+message ApiResponseCashierAll {
+    string status = 1;
+    string message = 2;
+}
+
+message ApiResponsePaginationCashierDeleteAt {
+    string status = 1;
+    string message = 2;
+    repeated CashierResponseDeleteAt data = 3;
+    pb.common.PaginationMeta pagination = 4;
+}
+
+message ApiResponsePaginationCashier {
+    string status = 1;
+    string message = 2;
+    repeated CashierResponse data = 3;
+    pb.common.PaginationMeta pagination = 4;
+}
+
+service CashierService {
+    rpc FindAll(FindAllCashierRequest) returns (ApiResponsePaginationCashier);
+    rpc FindById(FindByIdCashierRequest) returns (ApiResponseCashier);
+    rpc FindByActive(FindAllCashierRequest) returns (ApiResponsePaginationCashierDeleteAt) {}
+    rpc FindByTrashed(FindAllCashierRequest) returns (ApiResponsePaginationCashierDeleteAt) {}
+    rpc FindByMerchant(FindByMerchantCashierRequest) returns (ApiResponsePaginationCashier);
+    rpc CreateCashier(CreateCashierRequest) returns (ApiResponseCashier);
+    rpc UpdateCashier(UpdateCashierRequest) returns (ApiResponseCashier);
+    rpc TrashedCashier(FindByIdCashierRequest) returns (ApiResponseCashierDeleteAt);
+    rpc RestoreCashier(FindByIdCashierRequest) returns (ApiResponseCashierDeleteAt);
+    rpc DeleteCashierPermanent(FindByIdCashierRequest) returns (ApiResponseCashierDelete);
+    rpc RestoreAllCashier(google.protobuf.Empty) returns (ApiResponseCashierAll);
+    rpc DeleteAllCashierPermanent(google.protobuf.Empty) returns (ApiResponseCashierAll);
+}

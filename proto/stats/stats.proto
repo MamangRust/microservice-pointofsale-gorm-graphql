@@ -1,0 +1,621 @@
+syntax = "proto3";
+
+package pb.stats;
+
+option go_package = "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats";
+
+// ── Shared requests ────────────────────────────────────────────────────────
+
+message FindYearMonthStatsRequest {
+    int32 year = 1;
+    int32 month = 2;
+}
+
+message FindYearStatsRequest {
+    int32 year = 1;
+}
+
+message FindCashierStatsRequest {
+    int32 cashier_id = 1;
+}
+
+// ── Category stats requests ───────────────────────────────────────────────
+
+message FindYearCategory {
+    int32 year = 1;
+}
+
+message FindYearCategoryByMerchant {
+    int32 merchant_id = 1;
+    int32 year = 2;
+}
+
+message FindYearCategoryById {
+    int32 category_id = 1;
+    int32 year = 2;
+}
+
+message FindYearMonthTotalPrices {
+    int32 year = 1;
+    int32 month = 2;
+}
+
+message FindYearTotalPrices {
+    int32 year = 1;
+}
+
+message FindYearMonthTotalPriceById {
+    int32 year = 1;
+    int32 month = 2;
+    int32 category_id = 3;
+}
+
+message FindYearTotalPriceById {
+    int32 year = 1;
+    int32 category_id = 2;
+}
+
+message FindYearMonthTotalPriceByMerchant {
+    int32 year = 1;
+    int32 month = 2;
+    int32 merchant_id = 3;
+}
+
+message FindYearTotalPriceByMerchant {
+    int32 year = 1;
+    int32 merchant_id = 2;
+}
+
+// ── Category stats responses ──────────────────────────────────────────────
+
+message CategoryMonthPriceResponse {
+    string month = 1;
+    int32 category_id = 2;
+    string category_name = 3;
+    int32 order_count = 4;
+    int32 items_sold = 5;
+    int32 total_revenue = 6;
+}
+
+message CategoryYearPriceResponse {
+    string year = 1;
+    int32 category_id = 2;
+    string category_name = 3;
+    int32 order_count = 4;
+    int32 items_sold = 5;
+    int32 total_revenue = 6;
+    int32 unique_products_sold = 7;
+}
+
+message ApiResponseCategoryMonthPrice {
+    string status = 1;
+    string message = 2;
+    repeated CategoryMonthPriceResponse data = 3;
+}
+
+message ApiResponseCategoryYearPrice {
+    string status = 1;
+    string message = 2;
+    repeated CategoryYearPriceResponse data = 3;
+}
+
+message CategoriesMonthlyTotalPriceResponse {
+    string year = 1;
+    string month = 2;
+    int32 total_revenue = 3;
+}
+
+message CategoriesYearlyTotalPriceResponse {
+    string year = 1;
+    int32 total_revenue = 2;
+}
+
+message ApiResponseCategoryMonthlyTotalPrice {
+    string status = 1;
+    string message = 2;
+    repeated CategoriesMonthlyTotalPriceResponse data = 3;
+}
+
+message ApiResponseCategoryYearlyTotalPrice {
+    string status = 1;
+    string message = 2;
+    repeated CategoriesYearlyTotalPriceResponse data = 3;
+}
+
+// ── Category monthly sold (from order_item_daily) ──────────────────────────
+
+message CategoryMonthlySoldResponse {
+    string month = 1;
+    int32 category_id = 2;
+    int64 quantity = 3;
+    int64 subtotal = 4;
+}
+
+message ApiResponseCategoryMonthlySold {
+    string status = 1;
+    string message = 2;
+    repeated CategoryMonthlySoldResponse data = 3;
+}
+
+// ── Order stats requests ──────────────────────────────────────────────────
+
+message FindYearOrder {
+    int32 year = 1;
+}
+
+message FindYearOrderByMerchant {
+    int32 merchant_id = 1;
+    int32 year = 2;
+}
+
+message FindYearMonthTotalRevenue {
+    int32 year = 1;
+    int32 month = 2;
+}
+
+message FindYearTotalRevenue {
+    int32 year = 1;
+}
+
+message FindYearMonthTotalRevenueById {
+    int32 year = 1;
+    int32 month = 2;
+    int32 order_id = 3;
+}
+
+message FindYearTotalRevenueById {
+    int32 year = 1;
+    int32 order_id = 2;
+}
+
+message FindYearMonthTotalRevenueByMerchant {
+    int32 year = 1;
+    int32 month = 2;
+    int32 merchant_id = 3;
+}
+
+message FindYearTotalRevenueByMerchant {
+    int32 year = 1;
+    int32 merchant_id = 2;
+}
+
+// ── Order stats responses ─────────────────────────────────────────────────
+
+message OrderMonthlyResponse {
+    string month = 1;
+    int32 order_count = 2;
+    int32 total_revenue = 3;
+    int32 total_items_sold = 4;
+}
+
+message OrderYearlyResponse {
+    string year = 1;
+    int32 order_count = 2;
+    int32 total_revenue = 3;
+    int32 total_items_sold = 4;
+    int32 active_cashiers = 5;
+    int32 unique_products_sold = 6;
+}
+
+message OrderMonthlyTotalRevenueResponse {
+    string year = 1;
+    string month = 2;
+    int32 order_count = 3;
+    int32 total_revenue = 4;
+    int32 total_items_sold = 5;
+}
+
+message OrderYearlyTotalRevenueResponse {
+    string year = 1;
+    int32 order_count = 2;
+    int32 total_revenue = 3;
+    int32 total_items_sold = 4;
+    int32 active_cashiers = 5;
+    int32 unique_products_sold = 6;
+}
+
+message ApiResponseOrderMonthly {
+    string status = 1;
+    string message = 2;
+    repeated OrderMonthlyResponse data = 3;
+}
+
+message ApiResponseOrderYearly {
+    string status = 1;
+    string message = 2;
+    repeated OrderYearlyResponse data = 3;
+}
+
+message ApiResponseOrderMonthlyTotalRevenue {
+    string status = 1;
+    string message = 2;
+    repeated OrderMonthlyTotalRevenueResponse data = 3;
+}
+
+message ApiResponseOrderYearlyTotalRevenue {
+    string status = 1;
+    string message = 2;
+    repeated OrderYearlyTotalRevenueResponse data = 3;
+}
+
+// ── Order stats responses (reader-style, from ClickHouse) ─────────────────
+
+message OrderMonthlyRevenueResponse {
+    string year = 1;
+    string month = 2;
+    int64 total_revenue = 3;
+    int32 order_count = 4;
+}
+
+message OrderYearlyRevenueResponse {
+    string year = 1;
+    int64 total_revenue = 2;
+    int32 order_count = 3;
+}
+
+message ApiResponseOrderMonthlyRevenue {
+    string status = 1;
+    string message = 2;
+    repeated OrderMonthlyRevenueResponse data = 3;
+}
+
+message ApiResponseOrderYearlyRevenue {
+    string status = 1;
+    string message = 2;
+    repeated OrderYearlyRevenueResponse data = 3;
+}
+
+// ── Transaction stats requests ────────────────────────────────────────────
+
+message FindMonthlyTransactionStatus {
+    int32 year = 1;
+    int32 month = 2;
+}
+
+message FindYearlyTransactionStatus {
+    int32 year = 1;
+    int32 month = 2;
+}
+
+message FindMonthlyTransactionStatusByMerchant {
+    int32 year = 1;
+    int32 month = 2;
+    int32 merchant_id = 3;
+}
+
+message FindYearlyTransactionStatusByMerchant {
+    int32 year = 1;
+    int32 merchant_id = 2;
+}
+
+message YearTransactionMethod {
+    int32 year = 1;
+}
+
+message MonthTransactionMethod {
+    int32 year = 1;
+    int32 month = 2;
+}
+
+message MonthTransactionMethodByMerchant {
+    int32 merchant_id = 1;
+    int32 year = 2;
+    int32 month = 3;
+}
+
+message YearTransactionMethodByMerchant {
+    int32 merchant_id = 1;
+    int32 year = 2;
+}
+
+// ── Transaction stats responses ───────────────────────────────────────────
+
+message TransactionMonthlyAmountSuccess {
+    string year = 1;
+    string month = 2;
+    int32 total_success = 3;
+    int32 total_amount = 4;
+}
+
+message TransactionMonthlyAmountFailed {
+    string year = 1;
+    string month = 2;
+    int32 total_failed = 3;
+    int32 total_amount = 4;
+}
+
+message TransactionYearlyAmountSuccess {
+    string year = 1;
+    int32 total_success = 2;
+    int32 total_amount = 3;
+}
+
+message TransactionYearlyAmountFailed {
+    string year = 1;
+    int32 total_failed = 2;
+    int32 total_amount = 3;
+}
+
+message TransactionMonthlyMethod {
+    string month = 1;
+    string payment_method = 2;
+    int32 total_transactions = 3;
+    int32 total_amount = 4;
+}
+
+message TransactionYearlyMethod {
+    string year = 1;
+    string payment_method = 2;
+    int32 total_transactions = 3;
+    int32 total_amount = 4;
+}
+
+message ApiResponseTransactionMonthAmountSuccess {
+    string status = 1;
+    string message = 2;
+    repeated TransactionMonthlyAmountSuccess data = 3;
+}
+
+message ApiResponseTransactionYearAmountSuccess {
+    string status = 1;
+    string message = 2;
+    repeated TransactionYearlyAmountSuccess data = 3;
+}
+
+message ApiResponseTransactionMonthAmountFailed {
+    string status = 1;
+    string message = 2;
+    repeated TransactionMonthlyAmountFailed data = 3;
+}
+
+message ApiResponseTransactionYearAmountFailed {
+    string status = 1;
+    string message = 2;
+    repeated TransactionYearlyAmountFailed data = 3;
+}
+
+message ApiResponseTransactionMonthPaymentMethod {
+    string status = 1;
+    string message = 2;
+    repeated TransactionMonthlyMethod data = 3;
+}
+
+message ApiResponseTransactionYearPaymentmethod {
+    string status = 1;
+    string message = 2;
+    repeated TransactionYearlyMethod data = 3;
+}
+
+// ── Transaction monthly success (from ClickHouse) ─────────────────────────
+
+message TransactionMonthlySuccessResponse {
+    string month = 1;
+    int64 total_count = 2;
+    int64 total_amount = 3;
+}
+
+message ApiResponseTransactionMonthlySuccess {
+    string status = 1;
+    string message = 2;
+    repeated TransactionMonthlySuccessResponse data = 3;
+}
+
+// ── Cashier stats requests ────────────────────────────────────────────────
+
+message FindYearCashier {
+    int32 year = 1;
+}
+
+message FindYearCashierByMerchant {
+    int32 merchant_id = 1;
+    int32 year = 2;
+}
+
+message FindYearCashierById {
+    int32 cashier_id = 1;
+    int32 year = 2;
+}
+
+message FindYearMonthTotalSales {
+    int32 year = 1;
+    int32 month = 2;
+}
+
+message FindYearTotalSales {
+    int32 year = 1;
+}
+
+message FindYearMonthTotalSalesById {
+    int32 year = 1;
+    int32 month = 2;
+    int32 cashier_id = 3;
+}
+
+message FindYearTotalSalesById {
+    int32 year = 1;
+    int32 cashier_id = 2;
+}
+
+message FindYearMonthTotalSalesByMerchant {
+    int32 year = 1;
+    int32 month = 2;
+    int32 merchant_id = 3;
+}
+
+message FindYearTotalSalesByMerchant {
+    int32 year = 1;
+    int32 merchant_id = 2;
+}
+
+// ── Cashier stats responses ───────────────────────────────────────────────
+
+message CashierResponseMonthSales {
+    string month = 1;
+    int32 cashier_id = 2;
+    string cashier_name = 3;
+    int32 order_count = 4;
+    int32 total_sales = 5;
+}
+
+message CashierResponseYearSales {
+    string year = 1;
+    int32 cashier_id = 2;
+    string cashier_name = 3;
+    int32 order_count = 4;
+    int32 total_sales = 5;
+}
+
+message CashierResponseMonthTotalSales {
+    string year = 1;
+    string month = 2;
+    int32 total_sales = 6;
+}
+
+message CashierResponseYearTotalSales {
+    string year = 1;
+    int32 total_sales = 2;
+}
+
+message ApiResponseCashierMonthSales {
+    string status = 1;
+    string message = 2;
+    repeated CashierResponseMonthSales data = 3;
+}
+
+message ApiResponseCashierYearSales {
+    string status = 1;
+    string message = 2;
+    repeated CashierResponseYearSales data = 3;
+}
+
+message ApiResponseCashierMonthlyTotalSales {
+    string status = 1;
+    string message = 2;
+    repeated CashierResponseMonthTotalSales data = 3;
+}
+
+message ApiResponseCashierYearlyTotalSales {
+    string status = 1;
+    string message = 2;
+    repeated CashierResponseYearTotalSales data = 3;
+}
+
+// ── Cashier monthly orders (from ClickHouse) ──────────────────────────────
+
+message CashierMonthlyOrdersResponse {
+    string month = 1;
+    int32 cashier_id = 2;
+    int64 order_count = 3;
+    int64 total_amount = 4;
+}
+
+message ApiResponseCashierMonthlyOrders {
+    string status = 1;
+    string message = 2;
+    repeated CashierMonthlyOrdersResponse data = 3;
+}
+
+// ── Cashier monthly revenue (from ClickHouse) ─────────────────────────────
+
+message CashierMonthlyRevenueResponse {
+    string year = 1;
+    string month = 2;
+    int32 cashier_id = 3;
+    int64 total_revenue = 4;
+    int32 order_count = 5;
+}
+
+message ApiResponseCashierMonthlyRevenue {
+    string status = 1;
+    string message = 2;
+    repeated CashierMonthlyRevenueResponse data = 3;
+}
+
+// ── Product stats responses ───────────────────────────────────────────────
+
+message ProductMonthlySoldResponse {
+    string month = 1;
+    int32 product_id = 2;
+    int64 quantity = 3;
+    int64 subtotal = 4;
+}
+
+message ApiResponseProductMonthlySold {
+    string status = 1;
+    string message = 2;
+    repeated ProductMonthlySoldResponse data = 3;
+}
+
+// ── Services ─────────────────────────────────────────────────────────────
+
+service CategoryStatsService {
+    rpc FindMonthPrice(FindYearCategory) returns (ApiResponseCategoryMonthPrice);
+    rpc FindYearPrice(FindYearCategory) returns (ApiResponseCategoryYearPrice);
+    rpc FindMonthPriceByMerchant(FindYearCategoryByMerchant) returns (ApiResponseCategoryMonthPrice);
+    rpc FindYearPriceByMerchant(FindYearCategoryByMerchant) returns (ApiResponseCategoryYearPrice);
+    rpc FindMonthPriceById(FindYearCategoryById) returns (ApiResponseCategoryMonthPrice);
+    rpc FindYearPriceById(FindYearCategoryById) returns (ApiResponseCategoryYearPrice);
+    rpc FindMonthlyTotalPrices(FindYearMonthTotalPrices) returns (ApiResponseCategoryMonthlyTotalPrice);
+    rpc FindYearlyTotalPrices(FindYearTotalPrices) returns (ApiResponseCategoryYearlyTotalPrice);
+    rpc FindMonthlyTotalPricesById(FindYearMonthTotalPriceById) returns (ApiResponseCategoryMonthlyTotalPrice);
+    rpc FindYearlyTotalPricesById(FindYearTotalPriceById) returns (ApiResponseCategoryYearlyTotalPrice);
+    rpc FindMonthlyTotalPricesByMerchant(FindYearMonthTotalPriceByMerchant) returns (ApiResponseCategoryMonthlyTotalPrice);
+    rpc FindYearlyTotalPricesByMerchant(FindYearTotalPriceByMerchant) returns (ApiResponseCategoryYearlyTotalPrice);
+    rpc FindMonthlySold(FindYearMonthStatsRequest) returns (ApiResponseCategoryMonthlySold);
+}
+
+service OrderStatsService {
+    rpc FindMonthlyRevenue(FindYearOrder) returns (ApiResponseOrderMonthly);
+    rpc FindYearlyRevenue(FindYearOrder) returns (ApiResponseOrderYearly);
+    rpc FindMonthlyRevenueByMerchant(FindYearOrderByMerchant) returns (ApiResponseOrderMonthly);
+    rpc FindYearlyRevenueByMerchant(FindYearOrderByMerchant) returns (ApiResponseOrderYearly);
+    rpc FindMonthlyTotalRevenue(FindYearMonthTotalRevenue) returns (ApiResponseOrderMonthlyTotalRevenue);
+    rpc FindYearlyTotalRevenue(FindYearTotalRevenue) returns (ApiResponseOrderYearlyTotalRevenue);
+    rpc FindMonthlyTotalRevenueById(FindYearMonthTotalRevenueById) returns (ApiResponseOrderMonthlyTotalRevenue);
+    rpc FindYearlyTotalRevenueById(FindYearTotalRevenueById) returns (ApiResponseOrderYearlyTotalRevenue);
+    rpc FindMonthlyTotalRevenueByMerchant(FindYearMonthTotalRevenueByMerchant) returns (ApiResponseOrderMonthlyTotalRevenue);
+    rpc FindYearlyTotalRevenueByMerchant(FindYearTotalRevenueByMerchant) returns (ApiResponseOrderYearlyTotalRevenue);
+    rpc FindMonthlyTotalRevenueFromCH(FindYearMonthStatsRequest) returns (ApiResponseOrderMonthlyRevenue);
+    rpc FindYearlyTotalRevenueFromCH(FindYearStatsRequest) returns (ApiResponseOrderYearlyRevenue);
+    rpc FindCashierMonthlyRevenue(FindCashierStatsRequest) returns (ApiResponseCashierMonthlyRevenue);
+}
+
+service TransactionStatsService {
+    rpc FindMonthStatusSuccess(FindMonthlyTransactionStatus) returns (ApiResponseTransactionMonthAmountSuccess);
+    rpc FindYearStatusSuccess(FindYearlyTransactionStatus) returns (ApiResponseTransactionYearAmountSuccess);
+    rpc FindMonthStatusFailed(FindMonthlyTransactionStatus) returns (ApiResponseTransactionMonthAmountFailed);
+    rpc FindYearStatusFailed(FindYearlyTransactionStatus) returns (ApiResponseTransactionYearAmountFailed);
+    rpc FindMonthStatusSuccessByMerchant(FindMonthlyTransactionStatusByMerchant) returns (ApiResponseTransactionMonthAmountSuccess);
+    rpc FindYearStatusSuccessByMerchant(FindYearlyTransactionStatusByMerchant) returns (ApiResponseTransactionYearAmountSuccess);
+    rpc FindMonthStatusFailedByMerchant(FindMonthlyTransactionStatusByMerchant) returns (ApiResponseTransactionMonthAmountFailed);
+    rpc FindYearStatusFailedByMerchant(FindYearlyTransactionStatusByMerchant) returns (ApiResponseTransactionYearAmountFailed);
+    rpc FindMonthMethodSuccess(MonthTransactionMethod) returns (ApiResponseTransactionMonthPaymentMethod);
+    rpc FindYearMethodSuccess(YearTransactionMethod) returns (ApiResponseTransactionYearPaymentmethod);
+    rpc FindMonthMethodByMerchantSuccess(MonthTransactionMethodByMerchant) returns (ApiResponseTransactionMonthPaymentMethod);
+    rpc FindYearMethodByMerchantSuccess(YearTransactionMethodByMerchant) returns (ApiResponseTransactionYearPaymentmethod);
+    rpc FindMonthMethodFailed(MonthTransactionMethod) returns (ApiResponseTransactionMonthPaymentMethod);
+    rpc FindYearMethodFailed(YearTransactionMethod) returns (ApiResponseTransactionYearPaymentmethod);
+    rpc FindMonthMethodByMerchantFailed(MonthTransactionMethodByMerchant) returns (ApiResponseTransactionMonthPaymentMethod);
+    rpc FindYearMethodByMerchantFailed(YearTransactionMethodByMerchant) returns (ApiResponseTransactionYearPaymentmethod);
+    rpc FindMonthlySuccess(FindYearMonthStatsRequest) returns (ApiResponseTransactionMonthlySuccess);
+}
+
+service CashierStatsService {
+    rpc FindMonthlyTotalSales(FindYearMonthTotalSales) returns (ApiResponseCashierMonthlyTotalSales);
+    rpc FindYearlyTotalSales(FindYearTotalSales) returns (ApiResponseCashierYearlyTotalSales);
+    rpc FindMonthlyTotalSalesById(FindYearMonthTotalSalesById) returns (ApiResponseCashierMonthlyTotalSales);
+    rpc FindYearlyTotalSalesById(FindYearTotalSalesById) returns (ApiResponseCashierYearlyTotalSales);
+    rpc FindMonthlyTotalSalesByMerchant(FindYearMonthTotalSalesByMerchant) returns (ApiResponseCashierMonthlyTotalSales);
+    rpc FindYearlyTotalSalesByMerchant(FindYearTotalSalesByMerchant) returns (ApiResponseCashierYearlyTotalSales);
+    rpc FindMonthSales(FindYearCashier) returns (ApiResponseCashierMonthSales);
+    rpc FindYearSales(FindYearCashier) returns (ApiResponseCashierYearSales);
+    rpc FindMonthSalesByMerchant(FindYearCashierByMerchant) returns (ApiResponseCashierMonthSales);
+    rpc FindYearSalesByMerchant(FindYearCashierByMerchant) returns (ApiResponseCashierYearSales);
+    rpc FindMonthSalesById(FindYearCashierById) returns (ApiResponseCashierMonthSales);
+    rpc FindYearSalesById(FindYearCashierById) returns (ApiResponseCashierYearSales);
+    rpc FindMonthlyOrders(FindCashierStatsRequest) returns (ApiResponseCashierMonthlyOrders);
+}
+
+service ProductStatsService {
+    rpc FindMonthlySold(FindYearMonthStatsRequest) returns (ApiResponseProductMonthlySold);
+}

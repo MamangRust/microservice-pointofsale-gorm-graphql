@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package pb.transaction;
+
+option go_package = "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction";
+
+import "common/api.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/empty.proto";
+
+message FindAllTransactionRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+    string search = 3;
+}
+
+message FindAllTransactionMerchantRequest {
+    int32 merchant_id = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+    string search = 4;
+}
+
+message FindByIdTransactionRequest {
+    int32 id = 1;
+}
+
+message CreateTransactionRequest {
+    int32 order_id = 1;
+    int32 cashier_id = 2;
+    string payment_method = 3;
+    int32 amount = 4;
+    string payment_status = 5;
+}
+
+message UpdateTransactionRequest {
+    int32 transaction_id = 1;
+    int32 order_id = 2;
+    int32 cashier_id = 3;
+    string payment_method = 4;
+    int32 amount = 5;
+    string payment_status = 6;
+}
+
+message TransactionResponse {
+    int32 id = 1;
+    int32 order_id = 2;
+    int32 merchant_id = 3;
+    string payment_method = 4;
+    int32 amount = 5;
+    int32 change_amount = 6;
+    string payment_status = 7;
+    string created_at = 8;
+    string updated_at = 9;
+}
+
+message TransactionResponseDeleteAt {
+    int32 id = 1;
+    int32 order_id = 2;
+    int32 merchant_id = 3;
+    string payment_method = 4;
+    int32 amount = 5;
+    int32 change_amount = 6;
+    string payment_status = 7;
+    string created_at = 8;
+    string updated_at = 9;
+    google.protobuf.StringValue deleted_at = 10;
+}
+
+message ApiResponseTransaction {
+    string status = 1;
+    string message = 2;
+    TransactionResponse data = 3;
+}
+
+message ApiResponseTransactionDeleteAt {
+    string status = 1;
+    string message = 2;
+    TransactionResponseDeleteAt data = 3;
+}
+
+message ApiResponsesTransaction {
+    string status = 1;
+    string message = 2;
+    repeated TransactionResponse data = 3;
+}
+
+message ApiResponseTransactionDelete {
+    string status = 1;
+    string message = 2;
+}
+
+message ApiResponseTransactionAll {
+    string status = 1;
+    string message = 2;
+}
+
+message ApiResponsePaginationTransactionDeleteAt {
+    string status = 1;
+    string message = 2;
+    repeated TransactionResponseDeleteAt data = 3;
+    pb.common.PaginationMeta pagination = 4;
+}
+
+message ApiResponsePaginationTransaction {
+    string status = 1;
+    string message = 2;
+    repeated TransactionResponse data = 3;
+    pb.common.PaginationMeta pagination = 4;
+}
+
+service TransactionService {
+    rpc FindAll(FindAllTransactionRequest) returns (ApiResponsePaginationTransaction);
+    rpc FindByMerchant(FindAllTransactionMerchantRequest) returns (ApiResponsePaginationTransaction);
+    rpc FindById(FindByIdTransactionRequest) returns (ApiResponseTransaction);
+    rpc FindByActive(FindAllTransactionRequest) returns (ApiResponsePaginationTransactionDeleteAt) {}
+    rpc FindByTrashed(FindAllTransactionRequest) returns (ApiResponsePaginationTransactionDeleteAt) {}
+    rpc Create(CreateTransactionRequest) returns (ApiResponseTransaction);
+    rpc Update(UpdateTransactionRequest) returns (ApiResponseTransaction);
+    rpc TrashedTransaction(FindByIdTransactionRequest) returns (ApiResponseTransactionDeleteAt);
+    rpc RestoreTransaction(FindByIdTransactionRequest) returns (ApiResponseTransactionDeleteAt);
+    rpc DeleteTransactionPermanent(FindByIdTransactionRequest) returns (ApiResponseTransactionDelete);
+    rpc RestoreAllTransaction(google.protobuf.Empty) returns (ApiResponseTransactionAll);
+    rpc DeleteAllTransactionPermanent(google.protobuf.Empty) returns (ApiResponseTransactionAll);
+}

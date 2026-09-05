@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package pb.category;
+
+option go_package = "github.com/MamangRust/microservice-pointofsale-grpc/pb/category";
+
+import "common/api.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/empty.proto";
+
+message FindAllCategoryRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+    string search = 3;
+}
+
+message FindByIdCategoryRequest {
+    int32 id = 1;
+}
+
+message CreateCategoryRequest {
+    string name = 1;
+    string description = 2;
+}
+
+message UpdateCategoryRequest {
+    int32 category_id = 1;
+    string name = 2;
+    string description = 3;
+}
+
+message CategoryResponse {
+    int32 id = 1;
+    string name = 2;
+    string description = 3;
+    string slug_category = 4;
+    string image_category = 5;
+    string created_at = 6;
+    string updated_at = 7;
+}
+
+message CategoryResponseDeleteAt {
+    int32 id = 1;
+    string name = 2;
+    string description = 3;
+    string slug_category = 4;
+    string image_category = 5;
+    string created_at = 6;
+    string updated_at = 7;
+    google.protobuf.StringValue deleted_at = 8;
+}
+
+message ApiResponseCategory {
+    string status = 1;
+    string message = 2;
+    CategoryResponse data = 3;
+}
+
+message ApiResponseCategoryDeleteAt {
+    string status = 1;
+    string message = 2;
+    CategoryResponseDeleteAt data = 3;
+}
+
+message ApiResponsesCategory {
+    string status = 1;
+    string message = 2;
+    repeated CategoryResponse data = 3;
+}
+
+message ApiResponseCategoryDelete {
+    string status = 1;
+    string message = 2;
+}
+
+message ApiResponseCategoryAll {
+    string status = 1;
+    string message = 2;
+}
+
+message ApiResponsePaginationCategoryDeleteAt {
+    string status = 1;
+    string message = 2;
+    repeated CategoryResponseDeleteAt data = 3;
+    pb.common.PaginationMeta pagination = 4;
+}
+
+message ApiResponsePaginationCategory {
+    string status = 1;
+    string message = 2;
+    repeated CategoryResponse data = 3;
+    pb.common.PaginationMeta pagination = 4;
+}
+
+service CategoryService {
+    rpc FindByActive(FindAllCategoryRequest) returns (ApiResponsePaginationCategoryDeleteAt) {}
+    rpc FindByTrashed(FindAllCategoryRequest) returns (ApiResponsePaginationCategoryDeleteAt) {}
+    rpc FindAll(FindAllCategoryRequest) returns (ApiResponsePaginationCategory);
+    rpc FindById(FindByIdCategoryRequest) returns (ApiResponseCategory);
+    rpc Create(CreateCategoryRequest) returns (ApiResponseCategory);
+    rpc Update(UpdateCategoryRequest) returns (ApiResponseCategory);
+    rpc TrashedCategory(FindByIdCategoryRequest) returns (ApiResponseCategoryDeleteAt);
+    rpc RestoreCategory(FindByIdCategoryRequest) returns (ApiResponseCategoryDeleteAt);
+    rpc DeleteCategoryPermanent(FindByIdCategoryRequest) returns (ApiResponseCategoryDelete);
+    rpc RestoreAllCategory(google.protobuf.Empty) returns (ApiResponseCategoryAll);
+    rpc DeleteAllCategoryPermanent(google.protobuf.Empty) returns (ApiResponseCategoryAll);
+}
