@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	graphtest "github.com/MamangRust/microservice-point-of-sale-apigateway/graphtest_wrapper"
+	graphtest "github.com/MamangRust/microservice-point-of-sale-apigateway/graphtest"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -35,7 +35,19 @@ func (s *ProductApiTestSuite) SetupSuite() {
 	s.categoryID = s.SeedCategory(ctx)
 	s.merchantID = s.SeedMerchant(ctx, userID)
 
-	resolver := graphtest.NewResolver(graphtest.ConnMap(s.Conns), s.Log, s.RedisClient())
+	resolver := graphtest.NewResolver(&graphtest.ServiceConnections{
+		AuthClient:        s.Conns["auth"],
+		CashierClient:     s.Conns["cashier"],
+		CategoryClient:    s.Conns["category"],
+		MerchantClient:    s.Conns["merchant"],
+		OrderClient:       s.Conns["order"],
+		OrderItemClient:   s.Conns["order-item"],
+		ProductClient:     s.Conns["product"],
+		RoleClient:        s.Conns["role"],
+		StatsReaderClient: s.Conns["stats-reader"],
+		TransactionClient: s.Conns["transaction"],
+		UserClient:        s.Conns["user"],
+	}, s.Log, s.RedisClient())
 	s.handler = graphtest.NewHandler(resolver)
 }
 

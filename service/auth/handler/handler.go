@@ -2,8 +2,8 @@ package handler
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-auth/service"
+	pbauth "github.com/MamangRust/microservice-point-of-sale-pb/auth"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
 )
 
 type Deps struct {
@@ -12,14 +12,14 @@ type Deps struct {
 }
 
 type Handler struct {
-	Auth pb.AuthServiceServer
+	AuthQuery   pbauth.AuthServiceServer
+	AuthCommand pbauth.AuthServiceServer
 }
 
 func NewHandler(deps *Deps) *Handler {
+	grpcHandler := NewAuthHandleGrpc(deps.Service, deps.Logger)
 	return &Handler{
-		Auth: NewAuthHandleGrpc(
-			deps.Service,
-			deps.Logger,
-		),
+		AuthQuery:   grpcHandler,
+		AuthCommand: grpcHandler,
 	}
 }

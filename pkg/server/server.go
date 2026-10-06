@@ -53,10 +53,11 @@ func New(cfg *Config) (*GRPCServer, error) {
 		log.Printf("Warning: Failed to initialize pyroscope: %v", err)
 	}
 
-	shutdownFunc, err := otel_pkg.InitTracerProvider(cfg.ServiceName, context.Background())
-	if err != nil {
+	telemetry := initTelemetry(cfg)
+	if err := telemetry.Init(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to initialize telemetry: %w", err)
 	}
+	shutdownFunc := telemetry.Shutdown
 
 	cacheMetrics, err := observability.NewCacheMetrics("cache")
 	if err != nil {
@@ -66,7 +67,7 @@ func New(cfg *Config) (*GRPCServer, error) {
 		return nil, fmt.Errorf("failed to initialize cache metrics: %w", err)
 	}
 
-	l, err := logger.NewLogger(cfg.ServiceName)
+	l, err := logger.NewLogger(cfg.ServiceName, telemetry.GetLogger())
 	if err != nil {
 		if shutdownFunc != nil {
 			_ = shutdownFunc(context.Background())
@@ -354,4 +355,22 @@ func (s *GRPCServer) spawnCleanupTask() <-chan struct{} {
 		}
 	}()
 	return done
+}
+
+func initTelemetry(cfg *Config) *otel_pkg.Telemetry {
+	endpoint := cfg.OtelEndpoint
+	if env := viper.GetString("OTEL_ENDPOINT"); env != "" {
+		endpoint = env
+	}
+
+	return otel_pkg.NewTelemetry(otel_pkg.Config{
+		ServiceName:            cfg.ServiceName,
+		ServiceVersion:         cfg.ServiceVersion,
+		Environment:            cfg.Environment,
+		Endpoint:               endpoint,
+		Insecure:               true,
+		EnableRuntimeMetrics:   os.Getenv("OTEL_ENABLED") != "false",
+		RuntimeMetricsInterval: 15 * time.Second,
+		Disabled:               os.Getenv("OTEL_ENABLED") == "false",
+	})
 }

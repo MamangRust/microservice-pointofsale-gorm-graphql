@@ -3,8 +3,7 @@ package cashiergraphqlmapper
 import (
 	graphqlmapper "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/mapper"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
+	cashierpb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
 )
 
 type cashierGraphqlMapper struct {
@@ -14,7 +13,7 @@ func NewCashierGraphqlMapper() *cashierGraphqlMapper {
 	return &cashierGraphqlMapper{}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseCashier(res *pb.ApiResponseCashier) *model.APIResponseCashier {
+func (c *cashierGraphqlMapper) ToGraphqlResponseCashier(res *cashierpb.ApiResponseCashier) *model.APIResponseCashier {
 	return &model.APIResponseCashier{
 		Status:  res.Status,
 		Message: res.Message,
@@ -22,7 +21,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponseCashier(res *pb.ApiResponseCashi
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponsesCashier(res *pb.ApiResponsesCashier) *model.APIResponsesCashier {
+func (c *cashierGraphqlMapper) ToGraphqlResponsesCashier(res *cashierpb.ApiResponsesCashier) *model.APIResponsesCashier {
 	return &model.APIResponsesCashier{
 		Status:  res.Status,
 		Message: res.Message,
@@ -30,7 +29,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponsesCashier(res *pb.ApiResponsesCas
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseCashierDeleteAt(res *pb.ApiResponseCashierDeleteAt) *model.APIResponseCashierDeleteAt {
+func (c *cashierGraphqlMapper) ToGraphqlResponseCashierDeleteAt(res *cashierpb.ApiResponseCashierDeleteAt) *model.APIResponseCashierDeleteAt {
 	return &model.APIResponseCashierDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -38,21 +37,21 @@ func (c *cashierGraphqlMapper) ToGraphqlResponseCashierDeleteAt(res *pb.ApiRespo
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseCashierDelete(res *pb.ApiResponseCashierDelete) *model.APIResponseCashierDelete {
+func (c *cashierGraphqlMapper) ToGraphqlResponseCashierDelete(res *cashierpb.ApiResponseCashierDelete) *model.APIResponseCashierDelete {
 	return &model.APIResponseCashierDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseCashierAll(res *pb.ApiResponseCashierAll) *model.APIResponseCashierAll {
+func (c *cashierGraphqlMapper) ToGraphqlResponseCashierAll(res *cashierpb.ApiResponseCashierAll) *model.APIResponseCashierAll {
 	return &model.APIResponseCashierAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponsePaginationCashier(res *pb.ApiResponsePaginationCashier) *model.APIResponsePaginationCashier {
+func (c *cashierGraphqlMapper) ToGraphqlResponsePaginationCashier(res *cashierpb.ApiResponsePaginationCashier) *model.APIResponsePaginationCashier {
 	return &model.APIResponsePaginationCashier{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -61,7 +60,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponsePaginationCashier(res *pb.ApiRes
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponsePaginationCashierDeleteAt(res *pb.ApiResponsePaginationCashierDeleteAt) *model.APIResponsePaginationCashierDeleteAt {
+func (c *cashierGraphqlMapper) ToGraphqlResponsePaginationCashierDeleteAt(res *cashierpb.ApiResponsePaginationCashierDeleteAt) *model.APIResponsePaginationCashierDeleteAt {
 	return &model.APIResponsePaginationCashierDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -70,7 +69,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponsePaginationCashierDeleteAt(res *p
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseMonthlyTotalSales(res *pbstats.ApiResponseCashierMonthlyTotalSales) *model.APIResponseCashierMonthlyTotalSales {
+func (c *cashierGraphqlMapper) ToGraphqlResponseMonthlyTotalSales(res *cashierpb.ApiResponseCashierMonthlyTotalSales) *model.APIResponseCashierMonthlyTotalSales {
 	return &model.APIResponseCashierMonthlyTotalSales{
 		Status:  res.Status,
 		Message: res.Message,
@@ -78,7 +77,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponseMonthlyTotalSales(res *pbstats.A
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseMonthlySales(res *pbstats.ApiResponseCashierMonthSales) *model.APIResponseCashierMonthSales {
+func (c *cashierGraphqlMapper) ToGraphqlResponseMonthlySales(res *cashierpb.ApiResponseCashierMonthSales) *model.APIResponseCashierMonthSales {
 	return &model.APIResponseCashierMonthSales{
 		Status:  res.Status,
 		Message: res.Message,
@@ -86,7 +85,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponseMonthlySales(res *pbstats.ApiRes
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseYearlySales(res *pbstats.ApiResponseCashierYearSales) *model.APIResponseCashierYearSales {
+func (c *cashierGraphqlMapper) ToGraphqlResponseYearlySales(res *cashierpb.ApiResponseCashierYearSales) *model.APIResponseCashierYearSales {
 	return &model.APIResponseCashierYearSales{
 		Status:  res.Status,
 		Message: res.Message,
@@ -94,7 +93,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponseYearlySales(res *pbstats.ApiResp
 	}
 }
 
-func (c *cashierGraphqlMapper) ToGraphqlResponseYearlyTotalSales(res *pbstats.ApiResponseCashierYearlyTotalSales) *model.APIResponseCashierYearlyTotalSales {
+func (c *cashierGraphqlMapper) ToGraphqlResponseYearlyTotalSales(res *cashierpb.ApiResponseCashierYearlyTotalSales) *model.APIResponseCashierYearlyTotalSales {
 	return &model.APIResponseCashierYearlyTotalSales{
 		Status:  res.Status,
 		Message: res.Message,
@@ -102,7 +101,7 @@ func (c *cashierGraphqlMapper) ToGraphqlResponseYearlyTotalSales(res *pbstats.Ap
 	}
 }
 
-func (c *cashierGraphqlMapper) mapResponseCashier(cashier *pb.CashierResponse) *model.CashierResponse {
+func (c *cashierGraphqlMapper) mapResponseCashier(cashier *cashierpb.CashierResponse) *model.CashierResponse {
 	if cashier == nil {
 		return nil
 	}
@@ -115,7 +114,7 @@ func (c *cashierGraphqlMapper) mapResponseCashier(cashier *pb.CashierResponse) *
 	}
 }
 
-func (c *cashierGraphqlMapper) mapResponsesCashier(cashiers []*pb.CashierResponse) []*model.CashierResponse {
+func (c *cashierGraphqlMapper) mapResponsesCashier(cashiers []*cashierpb.CashierResponse) []*model.CashierResponse {
 	var responses []*model.CashierResponse
 	for _, cashier := range cashiers {
 		responses = append(responses, c.mapResponseCashier(cashier))
@@ -123,7 +122,7 @@ func (c *cashierGraphqlMapper) mapResponsesCashier(cashiers []*pb.CashierRespons
 	return responses
 }
 
-func (c *cashierGraphqlMapper) mapResponseCashierDeleteAt(cashier *pb.CashierResponseDeleteAt) *model.CashierResponseDeleteAt {
+func (c *cashierGraphqlMapper) mapResponseCashierDeleteAt(cashier *cashierpb.CashierResponseDeleteAt) *model.CashierResponseDeleteAt {
 	if cashier == nil {
 		return nil
 	}
@@ -142,7 +141,7 @@ func (c *cashierGraphqlMapper) mapResponseCashierDeleteAt(cashier *pb.CashierRes
 	}
 }
 
-func (c *cashierGraphqlMapper) mapResponsesCashierDeleteAt(cashiers []*pb.CashierResponseDeleteAt) []*model.CashierResponseDeleteAt {
+func (c *cashierGraphqlMapper) mapResponsesCashierDeleteAt(cashiers []*cashierpb.CashierResponseDeleteAt) []*model.CashierResponseDeleteAt {
 	var responses []*model.CashierResponseDeleteAt
 	for _, cashier := range cashiers {
 		responses = append(responses, c.mapResponseCashierDeleteAt(cashier))
@@ -150,7 +149,7 @@ func (c *cashierGraphqlMapper) mapResponsesCashierDeleteAt(cashiers []*pb.Cashie
 	return responses
 }
 
-func (c *cashierGraphqlMapper) mapResponseCashierMonthlySales(s *pbstats.CashierResponseMonthSales) *model.CashierResponseMonthSales {
+func (c *cashierGraphqlMapper) mapResponseCashierMonthlySales(s *cashierpb.CashierResponseMonthSales) *model.CashierResponseMonthSales {
 	if s == nil {
 		return nil
 	}
@@ -163,7 +162,7 @@ func (c *cashierGraphqlMapper) mapResponseCashierMonthlySales(s *pbstats.Cashier
 	}
 }
 
-func (c *cashierGraphqlMapper) mapResponsesCashierMonthlySales(s []*pbstats.CashierResponseMonthSales) []*model.CashierResponseMonthSales {
+func (c *cashierGraphqlMapper) mapResponsesCashierMonthlySales(s []*cashierpb.CashierResponseMonthSales) []*model.CashierResponseMonthSales {
 	var responses []*model.CashierResponseMonthSales
 	for _, cashier := range s {
 		responses = append(responses, c.mapResponseCashierMonthlySales(cashier))
@@ -171,7 +170,7 @@ func (c *cashierGraphqlMapper) mapResponsesCashierMonthlySales(s []*pbstats.Cash
 	return responses
 }
 
-func (c *cashierGraphqlMapper) mapResponseCashierYearlySales(s *pbstats.CashierResponseYearSales) *model.CashierResponseYearSales {
+func (c *cashierGraphqlMapper) mapResponseCashierYearlySales(s *cashierpb.CashierResponseYearSales) *model.CashierResponseYearSales {
 	if s == nil {
 		return nil
 	}
@@ -184,7 +183,7 @@ func (c *cashierGraphqlMapper) mapResponseCashierYearlySales(s *pbstats.CashierR
 	}
 }
 
-func (c *cashierGraphqlMapper) mapResponsesCashierYearlySales(s []*pbstats.CashierResponseYearSales) []*model.CashierResponseYearSales {
+func (c *cashierGraphqlMapper) mapResponsesCashierYearlySales(s []*cashierpb.CashierResponseYearSales) []*model.CashierResponseYearSales {
 	var responses []*model.CashierResponseYearSales
 	for _, cashier := range s {
 		responses = append(responses, c.mapResponseCashierYearlySales(cashier))
@@ -192,7 +191,7 @@ func (c *cashierGraphqlMapper) mapResponsesCashierYearlySales(s []*pbstats.Cashi
 	return responses
 }
 
-func (c *cashierGraphqlMapper) mapResponseCashierMonthlyTotalSales(s *pbstats.CashierResponseMonthTotalSales) *model.CashierResponseMonthTotalSales {
+func (c *cashierGraphqlMapper) mapResponseCashierMonthlyTotalSales(s *cashierpb.CashierResponseMonthTotalSales) *model.CashierResponseMonthTotalSales {
 	if s == nil {
 		return nil
 	}
@@ -203,7 +202,7 @@ func (c *cashierGraphqlMapper) mapResponseCashierMonthlyTotalSales(s *pbstats.Ca
 	}
 }
 
-func (c *cashierGraphqlMapper) mapResponsesCashierMonthlyTotalSales(s []*pbstats.CashierResponseMonthTotalSales) []*model.CashierResponseMonthTotalSales {
+func (c *cashierGraphqlMapper) mapResponsesCashierMonthlyTotalSales(s []*cashierpb.CashierResponseMonthTotalSales) []*model.CashierResponseMonthTotalSales {
 	var responses []*model.CashierResponseMonthTotalSales
 	for _, cashier := range s {
 		responses = append(responses, c.mapResponseCashierMonthlyTotalSales(cashier))
@@ -211,7 +210,7 @@ func (c *cashierGraphqlMapper) mapResponsesCashierMonthlyTotalSales(s []*pbstats
 	return responses
 }
 
-func (c *cashierGraphqlMapper) mapResponseCashierYearlyTotalSales(s *pbstats.CashierResponseYearTotalSales) *model.CashierResponseYearTotalSales {
+func (c *cashierGraphqlMapper) mapResponseCashierYearlyTotalSales(s *cashierpb.CashierResponseYearTotalSales) *model.CashierResponseYearTotalSales {
 	if s == nil {
 		return nil
 	}
@@ -221,7 +220,7 @@ func (c *cashierGraphqlMapper) mapResponseCashierYearlyTotalSales(s *pbstats.Cas
 	}
 }
 
-func (c *cashierGraphqlMapper) mapResponsesCashierYearlyTotalSales(s []*pbstats.CashierResponseYearTotalSales) []*model.CashierResponseYearTotalSales {
+func (c *cashierGraphqlMapper) mapResponsesCashierYearlyTotalSales(s []*cashierpb.CashierResponseYearTotalSales) []*model.CashierResponseYearTotalSales {
 	var responses []*model.CashierResponseYearTotalSales
 	for _, cashier := range s {
 		responses = append(responses, c.mapResponseCashierYearlyTotalSales(cashier))

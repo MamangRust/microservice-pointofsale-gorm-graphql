@@ -6,18 +6,19 @@ import (
 	"log"
 	"time"
 
-	"github.com/spf13/viper"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Config struct {
@@ -28,28 +29,7 @@ type Config struct {
 	Insecure               bool
 	EnableRuntimeMetrics   bool
 	RuntimeMetricsInterval time.Duration
-}
-
-// InitTracerProvider initializes OpenTelemetry (trace/metric/log) for the given
-// service and returns a shutdown function. It reads OTEL_ENDPOINT from viper
-// (falling back to otel-collector:4317) and keeps the same signature the
-// services call at startup.
-func InitTracerProvider(service string, ctx context.Context) (func(context.Context) error, error) {
-	endpoint := viper.GetString("OTEL_ENDPOINT")
-	if endpoint == "" {
-		endpoint = "otel-collector:4317"
-	}
-	t := NewTelemetry(Config{
-		ServiceName:    service,
-		ServiceVersion: "1.0.0",
-		Environment:    "production",
-		Endpoint:       endpoint,
-		Insecure:       true,
-	})
-	if err := t.Init(ctx); err != nil {
-		return nil, err
-	}
-	return t.Shutdown, nil
+	Disabled               bool
 }
 
 type Telemetry struct {
@@ -70,6 +50,13 @@ func NewTelemetry(config Config) *Telemetry {
 }
 
 func (t *Telemetry) Init(ctx context.Context) error {
+	if t.config.Disabled {
+		otel.SetTracerProvider(trace.NewNoopTracerProvider())
+		otel.SetMeterProvider(noop.NewMeterProvider())
+		t.loggerProvider = sdklog.NewLoggerProvider()
+		return nil
+	}
+
 	if err := t.InitTracer(ctx); err != nil {
 		return fmt.Errorf("failed to initialize tracer: %w", err)
 	}

@@ -1,18 +1,31 @@
 package apps
 
 import (
-	
 	"context"
+	"os"
+	"time"
 
+	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/adapter"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/resilience"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/server"
-	"github.com/MamangRust/microservice-point-of-sale-product/handler"
 	mencache "github.com/MamangRust/microservice-point-of-sale-product/cache"
+	"github.com/MamangRust/microservice-point-of-sale-product/handler"
 	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-product/service"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
 
 func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	srv, err := server.New(cfg)
@@ -20,7 +33,45 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		return nil, err
 	}
 
-	repos := repository.NewRepositories(srv.GormDB)
+	categoryAddr := getEnv("GRPC_CATEGORY_ADDR", "localhost:50054")
+	merchantAddr := getEnv("GRPC_MERCHANT_ADDR", "localhost:50056")
+
+	srv.Logger.Info("Connecting to gRPC microservices from Product microservice",
+		zap.String("category", categoryAddr),
+		zap.String("merchant", merchantAddr),
+	)
+
+	categoryConn, err := server.NewGRPCClient(categoryAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	merchantConn, err := server.NewGRPCClient(merchantAddr)
+	if err != nil {
+		categoryConn.Close()
+		return nil, err
+	}
+
+	go func() {
+		<-srv.Ctx.Done()
+		srv.Logger.Info("Closing gRPC client connections in Product microservice")
+		categoryConn.Close()
+		merchantConn.Close()
+	}()
+
+	categoryClient := pbcategory.NewCategoryQueryServiceClient(categoryConn)
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(merchantConn)
+
+	guardCategory := resilience.NewDependencyGuard("category", 5, 30, 100, 3*time.Second, srv.Logger)
+	guardMerchant := resilience.NewDependencyGuard("merchant", 5, 30, 100, 3*time.Second, srv.Logger)
+
+	repos := repository.NewRepositories(
+		srv.GormDB, categoryClient, merchantClient,
+		repository.GuardOptions{
+			Category: []adapter.GuardOption{adapter.WithDependencyGuard(guardCategory)},
+			Merchant: []adapter.GuardOption{adapter.WithDependencyGuard(guardMerchant)},
+		},
+	)
 
 	mencacheObj := mencache.NewMencache(srv.CacheStore)
 
@@ -34,13 +85,11 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: obs,
 	})
 
-	handlers := handler.NewHandler(&handler.Deps{
-		Service: services,
-		Logger:  srv.Logger,
-	})
+	handlers := handler.NewHandler(services)
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterProductServiceServer(gs, handlers.Product)
+		pbproduct.RegisterProductQueryServiceServer(gs, handlers)
+		pbproduct.RegisterProductCommandServiceServer(gs, handlers)
 	}
 
 	return srv, nil

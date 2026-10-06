@@ -3,7 +3,7 @@ package merchantgraphqlmapper
 import (
 	graphqlmapper "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/mapper"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
+	merchantpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
 )
 
 type merchantGraphqlMapper struct {
@@ -13,7 +13,7 @@ func NewMerchantGraphqlMapper() *merchantGraphqlMapper {
 	return &merchantGraphqlMapper{}
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponseMerchant(res *pb.ApiResponseMerchant) *model.APIResponseMerchant {
+func (m *merchantGraphqlMapper) ToGraphqlResponseMerchant(res *merchantpb.ApiResponseMerchant) *model.APIResponseMerchant {
 	return &model.APIResponseMerchant{
 		Status:  res.Status,
 		Message: res.Message,
@@ -21,7 +21,7 @@ func (m *merchantGraphqlMapper) ToGraphqlResponseMerchant(res *pb.ApiResponseMer
 	}
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponsesMerchant(res *pb.ApiResponsesMerchant) *model.APIResponsesMerchant {
+func (m *merchantGraphqlMapper) ToGraphqlResponsesMerchant(res *merchantpb.ApiResponsesMerchant) *model.APIResponsesMerchant {
 	return &model.APIResponsesMerchant{
 		Status:  res.Status,
 		Message: res.Message,
@@ -29,7 +29,7 @@ func (m *merchantGraphqlMapper) ToGraphqlResponsesMerchant(res *pb.ApiResponsesM
 	}
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantDeleteAt(res *pb.ApiResponseMerchantDeleteAt) *model.APIResponseMerchantDeleteAt {
+func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantDeleteAt(res *merchantpb.ApiResponseMerchantDeleteAt) *model.APIResponseMerchantDeleteAt {
 	return &model.APIResponseMerchantDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -37,21 +37,21 @@ func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantDeleteAt(res *pb.ApiRes
 	}
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantDelete(res *pb.ApiResponseMerchantDelete) *model.APIResponseMerchantDelete {
+func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantDelete(res *merchantpb.ApiResponseMerchantDelete) *model.APIResponseMerchantDelete {
 	return &model.APIResponseMerchantDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantAll(res *pb.ApiResponseMerchantAll) *model.APIResponseMerchantAll {
+func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantAll(res *merchantpb.ApiResponseMerchantAll) *model.APIResponseMerchantAll {
 	return &model.APIResponseMerchantAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponsePaginationMerchant(res *pb.ApiResponsePaginationMerchant) *model.APIResponsePaginationMerchant {
+func (m *merchantGraphqlMapper) ToGraphqlResponsePaginationMerchant(res *merchantpb.ApiResponsePaginationMerchant) *model.APIResponsePaginationMerchant {
 	return &model.APIResponsePaginationMerchant{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -60,7 +60,7 @@ func (m *merchantGraphqlMapper) ToGraphqlResponsePaginationMerchant(res *pb.ApiR
 	}
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponsePaginationMerchantDeleteAt(res *pb.ApiResponsePaginationMerchantDeleteAt) *model.APIResponsePaginationMerchantDeleteAt {
+func (m *merchantGraphqlMapper) ToGraphqlResponsePaginationMerchantDeleteAt(res *merchantpb.ApiResponsePaginationMerchantDeleteAt) *model.APIResponsePaginationMerchantDeleteAt {
 	return &model.APIResponsePaginationMerchantDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -69,7 +69,7 @@ func (m *merchantGraphqlMapper) ToGraphqlResponsePaginationMerchantDeleteAt(res 
 	}
 }
 
-func (m *merchantGraphqlMapper) mapResponseMerchant(merchant *pb.MerchantResponse) *model.MerchantResponse {
+func (m *merchantGraphqlMapper) mapResponseMerchant(merchant *merchantpb.MerchantResponse) *model.MerchantResponse {
 	if merchant == nil {
 		return nil
 	}
@@ -87,7 +87,7 @@ func (m *merchantGraphqlMapper) mapResponseMerchant(merchant *pb.MerchantRespons
 	}
 }
 
-func (m *merchantGraphqlMapper) mapResponsesMerchant(merchants []*pb.MerchantResponse) []*model.MerchantResponse {
+func (m *merchantGraphqlMapper) mapResponsesMerchant(merchants []*merchantpb.MerchantResponse) []*model.MerchantResponse {
 	var responses []*model.MerchantResponse
 	for _, merchant := range merchants {
 		responses = append(responses, m.mapResponseMerchant(merchant))
@@ -95,7 +95,7 @@ func (m *merchantGraphqlMapper) mapResponsesMerchant(merchants []*pb.MerchantRes
 	return responses
 }
 
-func (m *merchantGraphqlMapper) mapResponseMerchantDeleteAt(merchant *pb.MerchantResponseDeleteAt) *model.MerchantResponseDeleteAt {
+func (m *merchantGraphqlMapper) mapResponseMerchantDeleteAt(merchant *merchantpb.MerchantResponseDeleteAt) *model.MerchantResponseDeleteAt {
 	if merchant == nil {
 		return nil
 	}
@@ -114,7 +114,7 @@ func (m *merchantGraphqlMapper) mapResponseMerchantDeleteAt(merchant *pb.Merchan
 	}
 }
 
-func (m *merchantGraphqlMapper) mapResponsesMerchantDeleteAt(merchants []*pb.MerchantResponseDeleteAt) []*model.MerchantResponseDeleteAt {
+func (m *merchantGraphqlMapper) mapResponsesMerchantDeleteAt(merchants []*merchantpb.MerchantResponseDeleteAt) []*model.MerchantResponseDeleteAt {
 	var responses []*model.MerchantResponseDeleteAt
 	for _, merchant := range merchants {
 		responses = append(responses, m.mapResponseMerchantDeleteAt(merchant))
@@ -122,7 +122,7 @@ func (m *merchantGraphqlMapper) mapResponsesMerchantDeleteAt(merchants []*pb.Mer
 	return responses
 }
 
-func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantRestore(res *pb.ApiResponseMerchant) *model.APIResponseMerchantDeleteAt {
+func (m *merchantGraphqlMapper) ToGraphqlResponseMerchantRestore(res *merchantpb.ApiResponseMerchant) *model.APIResponseMerchantDeleteAt {
 	var deletedAt string = ""
 	var data *model.MerchantResponseDeleteAt
 	if res.Data != nil {

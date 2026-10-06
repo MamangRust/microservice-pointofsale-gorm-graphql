@@ -29,6 +29,3 @@ type CashierCommandCache interface {
 	DeleteCashierCache(ctx context.Context, id int)
 	DeleteCashierListCache(ctx context.Context)
 }
-
-
-

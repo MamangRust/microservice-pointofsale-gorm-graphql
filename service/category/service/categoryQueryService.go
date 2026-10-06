@@ -5,9 +5,9 @@ import (
 
 	mencache "github.com/MamangRust/microservice-point-of-sale-category/cache"
 	"github.com/MamangRust/microservice-point-of-sale-category/repository"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	sharederrorhandler "github.com/MamangRust/microservice-point-of-sale-shared/errorhandler"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	"go.opentelemetry.io/otel/attribute"
@@ -175,6 +175,59 @@ func (s *categoryQueryService) FindById(ctx context.Context, category_id int) (*
 	s.mencache.SetCachedCategoryCache(ctx, category)
 	logSuccess("Successfully fetched category", zap.Int("category.id", category_id))
 	return category, nil
+}
+
+func (s *categoryQueryService) FindByName(ctx context.Context, name string) (*models.Category, error) {
+	const method = "FindByName"
+
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
+		attribute.String("category.name", name),
+	)
+	defer func() {
+		end(status)
+	}()
+
+	category, err := s.categoryQueryRepository().FindByName(ctx, name)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.Category](
+			s.logger,
+			err,
+			method,
+			span,
+			zap.Error(err),
+		)
+	}
+
+	logSuccess("Successfully fetched category by name", zap.String("category.name", name))
+	return category, nil
+}
+
+func (s *categoryQueryService) FindByIds(ctx context.Context, ids []int) ([]*models.Category, error) {
+	const method = "FindByIds"
+
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
+		attribute.Int("category.id_count", len(ids)),
+	)
+	defer func() {
+		end(status)
+	}()
+
+	categories, err := s.categoryQueryRepository().FindByIds(ctx, ids)
+	if err != nil {
+		status = "error"
+		_, mappedErr := sharederrorhandler.HandleError[[]*models.Category](
+			s.logger,
+			err,
+			method,
+			span,
+			zap.Error(err),
+		)
+		return nil, mappedErr
+	}
+
+	logSuccess("Successfully fetched categories by ids", zap.Int("category.id_count", len(ids)))
+	return categories, nil
 }
 
 func (s *categoryQueryService) categoryQueryRepository() repository.CategoryQueryRepository {

@@ -7,16 +7,15 @@ package graph
 import (
 	"context"
 	"fmt"
+	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
 
-	errors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
-
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	productpb "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -64,7 +63,7 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.CreateProductRequest{
+		reqPb := &productpb.CreateProductRequest{
 			MerchantId:   int32(req.MerchantID),
 			CategoryId:   int32(req.CategoryID),
 			Name:         req.Name,
@@ -143,7 +142,7 @@ func (r *mutationResolver) UpdateProduct(ctx context.Context, input model.Update
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.UpdateProductRequest{
+		reqPb := &productpb.UpdateProductRequest{
 			ProductId:    int32(id),
 			MerchantId:   int32(req.MerchantID),
 			CategoryId:   int32(req.CategoryID),
@@ -178,7 +177,7 @@ func (r *mutationResolver) TrashedProduct(ctx context.Context, input model.FindB
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdProductRequest{
+		reqPb := &productpb.FindByIdProductRequest{
 			Id: int32(id),
 		}
 
@@ -204,7 +203,7 @@ func (r *mutationResolver) RestoreProduct(ctx context.Context, input model.FindB
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdProductRequest{
+		reqPb := &productpb.FindByIdProductRequest{
 			Id: int32(id),
 		}
 
@@ -230,7 +229,7 @@ func (r *mutationResolver) DeleteProductPermanent(ctx context.Context, input mod
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdProductRequest{
+		reqPb := &productpb.FindByIdProductRequest{
 			Id: int32(id),
 		}
 
@@ -278,14 +277,8 @@ func (r *mutationResolver) DeleteAllProductPermanent(ctx context.Context) (*mode
 // FindAllProduct is the resolver for the findAllProduct field.
 func (r *queryResolver) FindAllProduct(ctx context.Context, input *model.FindAllProductInput) (*model.APIResponsePaginationProduct, error) {
 	return ResolverHandle(r.ResolverHandle, "FindAllProduct", ctx, func(ctx context.Context) (*model.APIResponsePaginationProduct, error) {
-		page := int32(1)
-		pageSize := int32(10)
-		if input != nil && input.Page != nil {
-			page = *input.Page
-		}
-		if input != nil && input.PageSize != nil {
-			pageSize = *input.PageSize
-		}
+		page := int32(*input.Page)
+		pageSize := int32(*input.PageSize)
 		if page <= 0 {
 			page = 1
 		}
@@ -303,7 +296,7 @@ func (r *queryResolver) FindAllProduct(ctx context.Context, input *model.FindAll
 			return cached, nil
 		}
 
-		req := &pb.FindAllProductRequest{
+		req := &productpb.FindAllProductRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -325,19 +318,20 @@ func (r *queryResolver) FindAllProduct(ctx context.Context, input *model.FindAll
 func (r *queryResolver) FindByMerchantProduct(ctx context.Context, input model.FindAllProductMerchantInput) (*model.APIResponsePaginationProduct, error) {
 	return ResolverHandle(r.ResolverHandle, "FindByMerchantProduct", ctx, func(ctx context.Context) (*model.APIResponsePaginationProduct, error) {
 		page := int32(1)
-		pageSize := int32(10)
-		var min_price, max_price int32
 		if input.Page != nil {
-			page = *input.Page
+			page = int32(*input.Page)
 		}
+		pageSize := int32(10)
 		if input.PageSize != nil {
-			pageSize = *input.PageSize
+			pageSize = int32(*input.PageSize)
 		}
+		min_price := int32(0)
 		if input.MinPrice != nil {
-			min_price = *input.MinPrice
+			min_price = int32(*input.MinPrice)
 		}
+		max_price := int32(0)
 		if input.MaxPrice != nil {
-			max_price = *input.MaxPrice
+			max_price = int32(*input.MaxPrice)
 		}
 
 		if page <= 0 {
@@ -367,7 +361,7 @@ func (r *queryResolver) FindByMerchantProduct(ctx context.Context, input model.F
 			return cached, nil
 		}
 
-		req := &pb.FindAllProductMerchantRequest{
+		req := &productpb.FindAllProductMerchantRequest{
 			Page:       int32(page),
 			PageSize:   int32(pageSize),
 			Search:     safeString(input.Search),
@@ -392,19 +386,20 @@ func (r *queryResolver) FindByMerchantProduct(ctx context.Context, input model.F
 func (r *queryResolver) FindByCategoryProduct(ctx context.Context, input model.FindAllProductCategoryInput) (*model.APIResponsePaginationProduct, error) {
 	return ResolverHandle(r.ResolverHandle, "FindByCategoryProduct", ctx, func(ctx context.Context) (*model.APIResponsePaginationProduct, error) {
 		page := int32(1)
-		pageSize := int32(10)
-		var min_price, max_price int32
 		if input.Page != nil {
-			page = *input.Page
+			page = int32(*input.Page)
 		}
+		pageSize := int32(10)
 		if input.PageSize != nil {
-			pageSize = *input.PageSize
+			pageSize = int32(*input.PageSize)
 		}
+		min_price := int32(0)
 		if input.MinPrice != nil {
-			min_price = *input.MinPrice
+			min_price = int32(*input.MinPrice)
 		}
+		max_price := int32(0)
 		if input.MaxPrice != nil {
-			max_price = *input.MaxPrice
+			max_price = int32(*input.MaxPrice)
 		}
 
 		if page <= 0 {
@@ -434,7 +429,7 @@ func (r *queryResolver) FindByCategoryProduct(ctx context.Context, input model.F
 			return cached, nil
 		}
 
-		req := &pb.FindAllProductCategoryRequest{
+		req := &productpb.FindAllProductCategoryRequest{
 			Page:         int32(page),
 			PageSize:     int32(pageSize),
 			Search:       safeString(input.Search),
@@ -468,7 +463,7 @@ func (r *queryResolver) FindByIDProduct(ctx context.Context, input model.FindByI
 			return cached, nil
 		}
 
-		res, err := r.ProductGraphql.ProductClient.FindById(ctx, &pb.FindByIdProductRequest{Id: int32(id)})
+		res, err := r.ProductGraphql.ProductClient.FindById(ctx, &productpb.FindByIdProductRequest{Id: int32(id)})
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "FindByIDProduct")
 		}
@@ -484,14 +479,8 @@ func (r *queryResolver) FindByIDProduct(ctx context.Context, input model.FindByI
 // FindByActiveProduct is the resolver for the findByActiveProduct field.
 func (r *queryResolver) FindByActiveProduct(ctx context.Context, input *model.FindAllProductInput) (*model.APIResponsePaginationProductDeleteAt, error) {
 	return ResolverHandle(r.ResolverHandle, "FindByActiveProduct", ctx, func(ctx context.Context) (*model.APIResponsePaginationProductDeleteAt, error) {
-		page := int32(1)
-		pageSize := int32(10)
-		if input != nil && input.Page != nil {
-			page = *input.Page
-		}
-		if input != nil && input.PageSize != nil {
-			pageSize = *input.PageSize
-		}
+		page := int32(*input.Page)
+		pageSize := int32(*input.PageSize)
 		if page <= 0 {
 			page = 1
 		}
@@ -509,7 +498,7 @@ func (r *queryResolver) FindByActiveProduct(ctx context.Context, input *model.Fi
 			return cached, nil
 		}
 
-		req := &pb.FindAllProductRequest{
+		req := &productpb.FindAllProductRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -530,14 +519,8 @@ func (r *queryResolver) FindByActiveProduct(ctx context.Context, input *model.Fi
 // FindByTrashedProduct is the resolver for the findByTrashedProduct field.
 func (r *queryResolver) FindByTrashedProduct(ctx context.Context, input *model.FindAllProductInput) (*model.APIResponsePaginationProductDeleteAt, error) {
 	return ResolverHandle(r.ResolverHandle, "FindByTrashedProduct", ctx, func(ctx context.Context) (*model.APIResponsePaginationProductDeleteAt, error) {
-		page := int32(1)
-		pageSize := int32(10)
-		if input != nil && input.Page != nil {
-			page = *input.Page
-		}
-		if input != nil && input.PageSize != nil {
-			pageSize = *input.PageSize
-		}
+		page := int32(*input.Page)
+		pageSize := int32(*input.PageSize)
 		if page <= 0 {
 			page = 1
 		}
@@ -555,7 +538,7 @@ func (r *queryResolver) FindByTrashedProduct(ctx context.Context, input *model.F
 			return cached, nil
 		}
 
-		req := &pb.FindAllProductRequest{
+		req := &productpb.FindAllProductRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),

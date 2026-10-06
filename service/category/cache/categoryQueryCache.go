@@ -22,17 +22,17 @@ const (
 
 type categoryCacheResponse struct {
 	Data         []*repository.CategoryResult `json:"data"`
-	TotalRecords *int                   `json:"totalRecords"`
+	TotalRecords *int                         `json:"totalRecords"`
 }
 
 type categoryCacheResponseActive struct {
 	Data         []*repository.CategoryResultDeleteAt `json:"data"`
-	TotalRecords *int                         `json:"totalRecords"`
+	TotalRecords *int                                 `json:"totalRecords"`
 }
 
 type categoryCacheResponseTrashed struct {
 	Data         []*repository.CategoryResultDeleteAt `json:"data"`
-	TotalRecords *int                          `json:"totalRecords"`
+	TotalRecords *int                                 `json:"totalRecords"`
 }
 
 type categoryQueryCache struct {

@@ -1,7 +1,10 @@
 package handler
 
-import pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
+import (
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+)
 
-type CashierHandleGrpc interface {
-	pb.CashierServiceServer
+type CashierQueryHandleGrpc interface {
+	pb.CashierQueryServiceServer
+	pb.CashierCommandServiceServer
 }

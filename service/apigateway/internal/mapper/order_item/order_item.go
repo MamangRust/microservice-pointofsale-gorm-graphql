@@ -3,7 +3,7 @@ package orderitemgraphqlmapper
 import (
 	graphqlmapper "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/mapper"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
+	orderitempb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 )
 
 type orderItemGraphqlMapper struct {
@@ -13,7 +13,7 @@ func NewOrderItemGraphqlMapper() *orderItemGraphqlMapper {
 	return &orderItemGraphqlMapper{}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItem(res *pb.ApiResponseOrderItem) *model.APIResponseOrderItem {
+func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItem(res *orderitempb.ApiResponseOrderItem) *model.APIResponseOrderItem {
 	return &model.APIResponseOrderItem{
 		Status:  res.Status,
 		Message: res.Message,
@@ -21,7 +21,7 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItem(res *pb.ApiResponseO
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponsesOrderItem(res *pb.ApiResponsesOrderItem) *model.APIResponsesOrderItem {
+func (o *orderItemGraphqlMapper) ToGraphqlResponsesOrderItem(res *orderitempb.ApiResponsesOrderItem) *model.APIResponsesOrderItem {
 	return &model.APIResponsesOrderItem{
 		Status:  res.Status,
 		Message: res.Message,
@@ -29,21 +29,21 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponsesOrderItem(res *pb.ApiResponse
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGrapqhlResponseOrderItemDelete(res *pb.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete {
+func (o *orderItemGraphqlMapper) ToGrapqhlResponseOrderItemDelete(res *orderitempb.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete {
 	return &model.APIResponseOrderItemDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGrapqhlResponseOrderItemAll(res *pb.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll {
+func (o *orderItemGraphqlMapper) ToGrapqhlResponseOrderItemAll(res *orderitempb.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll {
 	return &model.APIResponseOrderItemAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItem(res *pb.ApiResponsePaginationOrderItem) *model.APIResponsePaginationOrderItem {
+func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItem(res *orderitempb.ApiResponsePaginationOrderItem) *model.APIResponsePaginationOrderItem {
 	return &model.APIResponsePaginationOrderItem{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -52,7 +52,7 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItem(res *pb.Ap
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItemDeleteAt(res *pb.ApiResponsePaginationOrderItemDeleteAt) *model.APIResponsePaginationOrderItemDeleteAt {
+func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItemDeleteAt(res *orderitempb.ApiResponsePaginationOrderItemDeleteAt) *model.APIResponsePaginationOrderItemDeleteAt {
 	return &model.APIResponsePaginationOrderItemDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -61,7 +61,7 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItemDeleteAt(re
 	}
 }
 
-func (o *orderItemGraphqlMapper) mapResponseOrderItem(orderItem *pb.OrderItemResponse) *model.OrderItemResponse {
+func (o *orderItemGraphqlMapper) mapResponseOrderItem(orderItem *orderitempb.OrderItemResponse) *model.OrderItemResponse {
 	if orderItem == nil {
 		return nil
 	}
@@ -76,7 +76,7 @@ func (o *orderItemGraphqlMapper) mapResponseOrderItem(orderItem *pb.OrderItemRes
 	}
 }
 
-func (o *orderItemGraphqlMapper) mapResponsesOrderItem(orderItems []*pb.OrderItemResponse) []*model.OrderItemResponse {
+func (o *orderItemGraphqlMapper) mapResponsesOrderItem(orderItems []*orderitempb.OrderItemResponse) []*model.OrderItemResponse {
 	var responses []*model.OrderItemResponse
 	for _, orderitem := range orderItems {
 		responses = append(responses, o.mapResponseOrderItem(orderitem))
@@ -84,7 +84,7 @@ func (o *orderItemGraphqlMapper) mapResponsesOrderItem(orderItems []*pb.OrderIte
 	return responses
 }
 
-func (o *orderItemGraphqlMapper) mapResponseOrderItemDeleteAt(orderItem *pb.OrderItemResponseDeleteAt) *model.OrderItemResponseDeleteAt {
+func (o *orderItemGraphqlMapper) mapResponseOrderItemDeleteAt(orderItem *orderitempb.OrderItemResponseDeleteAt) *model.OrderItemResponseDeleteAt {
 	if orderItem == nil {
 		return nil
 	}
@@ -105,7 +105,7 @@ func (o *orderItemGraphqlMapper) mapResponseOrderItemDeleteAt(orderItem *pb.Orde
 	}
 }
 
-func (o *orderItemGraphqlMapper) mapResponsesOrderItemDeleteAt(orderItems []*pb.OrderItemResponseDeleteAt) []*model.OrderItemResponseDeleteAt {
+func (o *orderItemGraphqlMapper) mapResponsesOrderItemDeleteAt(orderItems []*orderitempb.OrderItemResponseDeleteAt) []*model.OrderItemResponseDeleteAt {
 	var responses []*model.OrderItemResponseDeleteAt
 	for _, orderitem := range orderItems {
 		responses = append(responses, o.mapResponseOrderItemDeleteAt(orderitem))

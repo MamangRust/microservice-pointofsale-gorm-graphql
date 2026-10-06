@@ -2,20 +2,19 @@ package ordergraphqlmapper
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
+	orderpb "github.com/MamangRust/microservice-point-of-sale-pb/order"
 )
 
 type OrderGraphqlMapper interface {
-	ToGraphqlResponseOrder(res *pb.ApiResponseOrder) *model.APIResponseOrder
-	ToGraphqlResponsesOrder(res *pb.ApiResponsesOrder) *model.APIResponsesOrder
-	ToGraphqlResponseOrderDeleteAt(res *pb.ApiResponseOrderDeleteAt) *model.APIResponseOrderDeleteAt
-	ToGraphqlResponseOrderDelete(res *pb.ApiResponseOrderDelete) *model.APIResponseOrderDelete
-	ToGraphqlResponseOrderAll(res *pb.ApiResponseOrderAll) *model.APIResponseOrderAll
-	ToGraphqlResponsePaginationOrder(res *pb.ApiResponsePaginationOrder) *model.APIResponsePaginationOrder
-	ToGraphqlResponsePaginationOrderDeleteAt(res *pb.ApiResponsePaginationOrderDeleteAt) *model.APIResponsePaginationOrderDeleteAt
-	ToGraphqlResponseMonthlyRevenue(res *pbstats.ApiResponseOrderMonthly) *model.APIResponseOrderMonthly
-	ToGraphqlResponseYearlyRevenue(res *pbstats.ApiResponseOrderYearly) *model.APIResponseOrderYearly
-	ToGraphqlResponseMonthlyTotalRevenue(res *pbstats.ApiResponseOrderMonthlyTotalRevenue) *model.APIResponseOrderMonthlyTotalRevenue
-	ToGraphqlResponseYearlyTotalRevenue(res *pbstats.ApiResponseOrderYearlyTotalRevenue) *model.APIResponseOrderYearlyTotalRevenue
+	ToGraphqlResponseOrder(res *orderpb.ApiResponseOrder) *model.APIResponseOrder
+	ToGraphqlResponsesOrder(res *orderpb.ApiResponsesOrder) *model.APIResponsesOrder
+	ToGraphqlResponseOrderDeleteAt(res *orderpb.ApiResponseOrderDeleteAt) *model.APIResponseOrderDeleteAt
+	ToGraphqlResponseOrderDelete(res *orderpb.ApiResponseOrderDelete) *model.APIResponseOrderDelete
+	ToGraphqlResponseOrderAll(res *orderpb.ApiResponseOrderAll) *model.APIResponseOrderAll
+	ToGraphqlResponsePaginationOrder(res *orderpb.ApiResponsePaginationOrder) *model.APIResponsePaginationOrder
+	ToGraphqlResponsePaginationOrderDeleteAt(res *orderpb.ApiResponsePaginationOrderDeleteAt) *model.APIResponsePaginationOrderDeleteAt
+	ToGraphqlResponseMonthlyRevenue(res *orderpb.ApiResponseOrderMonthly) *model.APIResponseOrderMonthly
+	ToGraphqlResponseYearlyRevenue(res *orderpb.ApiResponseOrderYearly) *model.APIResponseOrderYearly
+	ToGraphqlResponseMonthlyTotalRevenue(res *orderpb.ApiResponseOrderMonthlyTotalRevenue) *model.APIResponseOrderMonthlyTotalRevenue
+	ToGraphqlResponseYearlyTotalRevenue(res *orderpb.ApiResponseOrderYearlyTotalRevenue) *model.APIResponseOrderYearlyTotalRevenue
 }

@@ -20,6 +20,8 @@ type ProductQueryService interface {
 type ProductCommandService interface {
 	CreateProduct(ctx context.Context, req *requests.CreateProductRequest) (*models.Product, error)
 	UpdateProduct(ctx context.Context, req *requests.UpdateProductRequest) (*models.Product, error)
+	DecrementProductCountStock(ctx context.Context, productID int, quantity int) (*models.Product, error)
+	IncrementProductCountStock(ctx context.Context, productID int, quantity int) (*models.Product, error)
 	TrashProduct(ctx context.Context, productID int) (*models.Product, error)
 	RestoreProduct(ctx context.Context, productID int) (*models.Product, error)
 	DeleteProductPermanent(ctx context.Context, productID int) (bool, error)

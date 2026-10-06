@@ -1,8 +1,8 @@
 package response
 
 import (
+	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
-	pbcommon "github.com/MamangRust/microservice-pointofsale-grpc/pb/common"
 
 	"github.com/labstack/echo/v4"
 	"google.golang.org/grpc/codes"

@@ -59,7 +59,9 @@ func (s *userQueryService) FindAll(ctx context.Context, req *requests.FindAllUse
 	}
 
 	var totalCount int
-	if len(users) > 0 { totalCount = int(users[0].TotalCount) }
+	if len(users) > 0 {
+		totalCount = int(users[0].TotalCount)
+	}
 	s.mencache.SetCachedUsersCache(ctx, req, users, &totalCount)
 	logSuccess("Successfully fetched users", zap.Int("totalRecords", totalCount), zap.Int("page", page))
 	return users, &totalCount, nil
@@ -86,6 +88,67 @@ func (s *userQueryService) FindByID(ctx context.Context, id int) (*models.User, 
 	return user, nil
 }
 
+// FindByEmail returns the user with the password hash. It is used by the auth
+// service for credential checks, so the result is deliberately not cached.
+func (s *userQueryService) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	const method = "FindByEmail"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method, attribute.String("email", email))
+	defer func() { end(status) }()
+
+	user, err := s.userQuery.FindByEmail(ctx, email)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, err, method, span, zap.String("email", email))
+	}
+	if user == nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, user_errors.ErrUserNotFound, method, span, zap.String("email", email))
+	}
+
+	logSuccess("Successfully fetched user by email", zap.String("email", email))
+	return user, nil
+}
+
+// FindByEmailAndVerify mirrors the auth login lookup: only verified users are
+// returned. The password hash is included and never cached.
+func (s *userQueryService) FindByEmailAndVerify(ctx context.Context, email string) (*models.User, error) {
+	const method = "FindByEmailAndVerify"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method, attribute.String("email", email))
+	defer func() { end(status) }()
+
+	user, err := s.userQuery.FindByEmailAndVerify(ctx, email)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, err, method, span, zap.String("email", email))
+	}
+	if user == nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, user_errors.ErrUserNotFound, method, span, zap.String("email", email))
+	}
+
+	logSuccess("Successfully fetched verified user by email", zap.String("email", email))
+	return user, nil
+}
+
+func (s *userQueryService) FindByVerificationCode(ctx context.Context, code string) (*models.User, error) {
+	const method = "FindByVerificationCode"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method, attribute.String("verification_code", code))
+	defer func() { end(status) }()
+
+	user, err := s.userQuery.FindByVerificationCode(ctx, code)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, err, method, span, zap.String("verification_code", code))
+	}
+	if user == nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, user_errors.ErrUserNotFound, method, span, zap.String("verification_code", code))
+	}
+
+	logSuccess("Successfully fetched user by verification code")
+	return user, nil
+}
+
 func (s *userQueryService) FindByActive(ctx context.Context, req *requests.FindAllUsers) ([]*repository.UserResult, *int, error) {
 	const method = "FindByActive"
 	page, pageSize := s.normalizePagination(req.Page, req.PageSize)
@@ -107,7 +170,9 @@ func (s *userQueryService) FindByActive(ctx context.Context, req *requests.FindA
 	}
 
 	var totalCount int
-	if len(users) > 0 { totalCount = int(users[0].TotalCount) }
+	if len(users) > 0 {
+		totalCount = int(users[0].TotalCount)
+	}
 	s.mencache.SetCachedUserActiveCache(ctx, req, users, &totalCount)
 	logSuccess("Successfully fetched active users", zap.Int("totalRecords", totalCount), zap.Int("page", page))
 	return users, &totalCount, nil
@@ -134,14 +199,20 @@ func (s *userQueryService) FindByTrashed(ctx context.Context, req *requests.Find
 	}
 
 	var totalCount int
-	if len(users) > 0 { totalCount = int(users[0].TotalCount) }
+	if len(users) > 0 {
+		totalCount = int(users[0].TotalCount)
+	}
 	s.mencache.SetCachedUserTrashedCache(ctx, req, users, &totalCount)
 	logSuccess("Successfully fetched trashed users", zap.Int("totalRecords", totalCount), zap.Int("page", page))
 	return users, &totalCount, nil
 }
 
 func (s *userQueryService) normalizePagination(page, pageSize int) (int, int) {
-	if page <= 0 { page = 1 }
-	if pageSize <= 0 { pageSize = 10 }
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
 	return page, pageSize
 }

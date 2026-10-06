@@ -96,12 +96,10 @@ func (r *productQueryRepository) FindByMerchant(ctx context.Context, req *reques
 	offset := (req.Page - 1) * req.PageSize
 	var results []*ProductByMerchantResult
 	err := r.db.WithContext(ctx).Raw(`
-		SELECT COUNT(*) OVER() as total_count, p.product_id, p.name, p.description,
+		SELECT COUNT(*) OVER() as total_count, p.product_id, p.category_id, p.name, p.description,
 			p.price, p.count_in_stock, p.brand, p.image_product,
-			COALESCE(TO_CHAR(p.created_at, 'YYYY-MM-DD HH24:MI:SS'), '') as created_at,
-			c.name as category_name
+			COALESCE(TO_CHAR(p.created_at, 'YYYY-MM-DD HH24:MI:SS'), '') as created_at
 		FROM products p
-		LEFT JOIN categories c ON p.category_id = c.category_id AND c.deleted_at IS NULL
 		WHERE p.deleted_at IS NULL AND p.merchant_id = ?
 		ORDER BY p.product_id DESC LIMIT ? OFFSET ?
 	`, req.MerchantID, req.PageSize, offset).Scan(&results).Error
@@ -115,17 +113,16 @@ func (r *productQueryRepository) FindByMerchant(ctx context.Context, req *reques
 	return results, &total, nil
 }
 
-func (r *productQueryRepository) FindByCategory(ctx context.Context, req *requests.ProductByCategoryRequest) ([]*ProductByCategoryResult, *int, error) {
+func (r *productQueryRepository) FindByCategoryID(ctx context.Context, categoryID int32, req *requests.ProductByCategoryRequest) ([]*ProductByCategoryResult, *int, error) {
 	offset := (req.Page - 1) * req.PageSize
 	var results []*ProductByCategoryResult
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT COUNT(*) OVER() as total_count, p.product_id, p.merchant_id, p.category_id,
 			p.slug_product, p.weight, p.name, p.description, p.price, p.count_in_stock
 		FROM products p
-		JOIN categories c ON p.category_id = c.category_id AND c.deleted_at IS NULL
-		WHERE p.deleted_at IS NULL AND c.name = ?
+		WHERE p.deleted_at IS NULL AND p.category_id = ?
 		ORDER BY p.product_id DESC LIMIT ? OFFSET ?
-	`, req.CategoryName, req.PageSize, offset).Scan(&results).Error
+	`, categoryID, req.PageSize, offset).Scan(&results).Error
 	if err != nil {
 		return nil, nil, product_errors.ErrFindByCategory
 	}

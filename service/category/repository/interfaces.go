@@ -7,7 +7,7 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 
-// Local result types for stats queries (replaces sqlc row types)
+// Local result types for stats queries
 
 type CategoryResult struct {
 	CategoryID   int32
@@ -30,12 +30,12 @@ type CategoryResultDeleteAt struct {
 	TotalCount   int64
 }
 
-
 type CategoryQueryRepository interface {
 	FindAllCategory(ctx context.Context, req *requests.FindAllCategory) ([]*CategoryResult, *int, error)
 	FindById(ctx context.Context, category_id int) (*models.Category, error)
 	FindByNameAndId(ctx context.Context, req *requests.CategoryNameAndId) (*models.Category, error)
 	FindByName(ctx context.Context, name string) (*models.Category, error)
+	FindByIds(ctx context.Context, ids []int) ([]*models.Category, error)
 	FindByIdTrashed(ctx context.Context, category_id int) (*models.Category, error)
 	FindByActive(ctx context.Context, req *requests.FindAllCategory) ([]*CategoryResultDeleteAt, *int, error)
 	FindByTrashed(ctx context.Context, req *requests.FindAllCategory) ([]*CategoryResultDeleteAt, *int, error)

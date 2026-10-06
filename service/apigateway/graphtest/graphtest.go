@@ -10,10 +10,11 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	mycontext "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/context"
 	graph "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/handler"
+	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/middlewares"
 	mencache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -42,10 +43,28 @@ func NewResolver(conns *ServiceConnections, log logger.LoggerInterface, redisCli
 	})
 }
 
+// permissiveRoleChecker stands in for the RBAC checker of the running gateway.
+//
+// The harness mounts the schema without AuthMiddleware, and that middleware is
+// what puts the authenticated user in the request context, so there is no user
+// for the @hasRole directive to authorise and it passes every field through.
+// The checker is wired anyway so the directive is never left nil (gqlgen fails
+// an annotated field when DirectiveRoot.HasRole is unset).
+type permissiveRoleChecker struct{}
+
+func (permissiveRoleChecker) CheckRole(context.Context, int, ...string) error { return nil }
+
 // NewHandler creates a GraphQL HTTP handler from a resolver.
 func NewHandler(resolver *Resolver) *handler.Server {
+	return NewHandlerWithRoleChecker(resolver, permissiveRoleChecker{})
+}
+
+// NewHandlerWithRoleChecker creates a GraphQL HTTP handler with an explicit RBAC
+// checker, so a test can exercise the @hasRole directive.
+func NewHandlerWithRoleChecker(resolver *Resolver, checker middlewares.RoleChecker) *handler.Server {
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
-		Resolvers: resolver,
+		Resolvers:  resolver,
+		Directives: graph.DirectiveRoot{HasRole: middlewares.HasRole(checker)},
 	}))
 	srv.AddTransport(transport.POST{})
 	srv.AddTransport(transport.MultipartForm{})

@@ -2,14 +2,14 @@ package orderitemgraphqlmapper
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
+	orderitempb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 )
 
 type OrderItemGraphqlMapper interface {
-	ToGraphqlResponseOrderItem(res *pb.ApiResponseOrderItem) *model.APIResponseOrderItem
-	ToGraphqlResponsesOrderItem(res *pb.ApiResponsesOrderItem) *model.APIResponsesOrderItem
-	ToGrapqhlResponseOrderItemDelete(res *pb.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete
-	ToGrapqhlResponseOrderItemAll(res *pb.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll
-	ToGraphqlResponsePaginationOrderItem(res *pb.ApiResponsePaginationOrderItem) *model.APIResponsePaginationOrderItem
-	ToGraphqlResponsePaginationOrderItemDeleteAt(res *pb.ApiResponsePaginationOrderItemDeleteAt) *model.APIResponsePaginationOrderItemDeleteAt
+	ToGraphqlResponseOrderItem(res *orderitempb.ApiResponseOrderItem) *model.APIResponseOrderItem
+	ToGraphqlResponsesOrderItem(res *orderitempb.ApiResponsesOrderItem) *model.APIResponsesOrderItem
+	ToGrapqhlResponseOrderItemDelete(res *orderitempb.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete
+	ToGrapqhlResponseOrderItemAll(res *orderitempb.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll
+	ToGraphqlResponsePaginationOrderItem(res *orderitempb.ApiResponsePaginationOrderItem) *model.APIResponsePaginationOrderItem
+	ToGraphqlResponsePaginationOrderItemDeleteAt(res *orderitempb.ApiResponsePaginationOrderItemDeleteAt) *model.APIResponsePaginationOrderItemDeleteAt
 }

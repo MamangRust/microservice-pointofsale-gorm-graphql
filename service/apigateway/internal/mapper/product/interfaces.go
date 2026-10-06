@@ -2,15 +2,15 @@ package productgraphqlmapper
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
+	productpb "github.com/MamangRust/microservice-point-of-sale-pb/product"
 )
 
 type ProductGraphqlMapper interface {
-	ToGraphqlResponseProduct(res *pb.ApiResponseProduct) *model.APIResponseProduct
-	ToGraphqlResponsesProduct(res *pb.ApiResponsesProduct) *model.APIResponsesProduct
-	ToGraphqlResponseProductDeleteAt(res *pb.ApiResponseProductDeleteAt) *model.APIResponseProductDeleteAt
-	ToGraphqlResponseProductDelete(res *pb.ApiResponseProductDelete) *model.APIResponseProductDelete
-	ToGraphqlResponseProductAll(res *pb.ApiResponseProductAll) *model.APIResponseProductAll
-	ToGraphqlResponsePaginationProduct(res *pb.ApiResponsePaginationProduct) *model.APIResponsePaginationProduct
-	ToGraphqlResponsePaginationProductDeleteAt(res *pb.ApiResponsePaginationProductDeleteAt) *model.APIResponsePaginationProductDeleteAt
+	ToGraphqlResponseProduct(res *productpb.ApiResponseProduct) *model.APIResponseProduct
+	ToGraphqlResponsesProduct(res *productpb.ApiResponsesProduct) *model.APIResponsesProduct
+	ToGraphqlResponseProductDeleteAt(res *productpb.ApiResponseProductDeleteAt) *model.APIResponseProductDeleteAt
+	ToGraphqlResponseProductDelete(res *productpb.ApiResponseProductDelete) *model.APIResponseProductDelete
+	ToGraphqlResponseProductAll(res *productpb.ApiResponseProductAll) *model.APIResponseProductAll
+	ToGraphqlResponsePaginationProduct(res *productpb.ApiResponsePaginationProduct) *model.APIResponsePaginationProduct
+	ToGraphqlResponsePaginationProductDeleteAt(res *productpb.ApiResponsePaginationProductDeleteAt) *model.APIResponsePaginationProductDeleteAt
 }

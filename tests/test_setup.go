@@ -13,10 +13,10 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
-	gormpg "gorm.io/driver/postgres"
-	"gorm.io/gorm"
 	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
+	gormpg "gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"net"
 	"os"
 	"path/filepath"

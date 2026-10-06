@@ -11,8 +11,10 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-user/repository"
 	"github.com/MamangRust/microservice-point-of-sale-user/service"
 
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	user_cache "github.com/MamangRust/microservice-point-of-sale-user/cache"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,8 +22,8 @@ import (
 
 type UserGapiTestSuite struct {
 	tests.BaseTestSuite
-	client      pb.UserServiceClient
-	queryClient pb.UserServiceClient
+	client      pb.UserCommandServiceClient
+	queryClient pb.UserQueryServiceClient
 	userID      int
 }
 
@@ -37,9 +39,11 @@ func (s *UserGapiTestSuite) SetupSuite() {
 		 ON CONFLICT (role_name) DO NOTHING`)
 
 	userQueries := s.GormDB()
-	repos := repository.NewRepositories(userQueries)
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
+	repos := repository.NewRepositories(userQueries, roleClient, userRoleClient)
 
-	log, _ := logger.NewLogger("test")
+	log, _ := logger.NewLogger("test", nil)
 	hasher := hash.NewHashingPassword()
 	cacheStore := s.GetCacheStore()
 	mencache := user_cache.NewMencache(cacheStore)
@@ -53,18 +57,16 @@ func (s *UserGapiTestSuite) SetupSuite() {
 	})
 
 	// Start gRPC Server
-	userHandler := gapi.NewHandler(&gapi.Deps{
-		Service: userService,
-		Logger:  log,
-	})
+	userHandler := gapi.NewHandler(userService)
 	server := grpc.NewServer()
-	pb.RegisterUserServiceServer(server, userHandler.User)
+	pb.RegisterUserQueryServiceServer(server, userHandler)
+	pb.RegisterUserCommandServiceServer(server, userHandler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewUserServiceClient(conn)
-	s.queryClient = pb.NewUserServiceClient(conn)
+	s.client = pb.NewUserCommandServiceClient(conn)
+	s.queryClient = pb.NewUserQueryServiceClient(conn)
 }
 
 func (s *UserGapiTestSuite) TestUserGapiLifecycle() {

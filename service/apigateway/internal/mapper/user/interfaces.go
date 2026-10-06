@@ -2,15 +2,15 @@ package usergraphqlmapper
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
+	userpb "github.com/MamangRust/microservice-point-of-sale-pb/user"
 )
 
 type UserGraphqlMapper interface {
-	ToGraphqlResponseUser(resp *pb.ApiResponseUser) *model.APIResponseUserResponse
-	ToGraphqlResponseUserDeleteAt(resp *pb.ApiResponseUserDeleteAt) *model.APIResponseUserResponseDeleteAt
-	ToGraphqlResponseUsers(resp *pb.ApiResponsesUser) *model.APIResponsesUser
-	ToGraphqlResponseUserDelete(resp *pb.ApiResponseUserDelete) *model.APIResponseUserDelete
-	ToGraphqlResponseUserAll(resp *pb.ApiResponseUserAll) *model.APIResponseUserAll
-	ToGraphqlResponsePaginationUser(resp *pb.ApiResponsePaginationUser) *model.APIResponsePaginationUser
-	ToGraphqlResponsePaginationUserDeleteAt(resp *pb.ApiResponsePaginationUserDeleteAt) *model.APIResponsePaginationUserDeleteAt
+	ToGraphqlResponseUser(resp *userpb.ApiResponseUser) *model.APIResponseUserResponse
+	ToGraphqlResponseUserDeleteAt(resp *userpb.ApiResponseUserDeleteAt) *model.APIResponseUserResponseDeleteAt
+	ToGraphqlResponseUsers(resp *userpb.ApiResponsesUser) *model.APIResponsesUser
+	ToGraphqlResponseUserDelete(resp *userpb.ApiResponseUserDelete) *model.APIResponseUserDelete
+	ToGraphqlResponseUserAll(resp *userpb.ApiResponseUserAll) *model.APIResponseUserAll
+	ToGraphqlResponsePaginationUser(resp *userpb.ApiResponsePaginationUser) *model.APIResponsePaginationUser
+	ToGraphqlResponsePaginationUserDeleteAt(resp *userpb.ApiResponsePaginationUserDeleteAt) *model.APIResponsePaginationUserDeleteAt
 }

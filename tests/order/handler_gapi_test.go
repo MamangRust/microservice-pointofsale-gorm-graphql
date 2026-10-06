@@ -8,22 +8,27 @@ import (
 	order_handler "github.com/MamangRust/microservice-point-of-sale-order/handler"
 	order_repo "github.com/MamangRust/microservice-point-of-sale-order/repository"
 	order_service "github.com/MamangRust/microservice-point-of-sale-order/service"
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
-	pbproduct "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type orderGapiClient struct {
+	pb.OrderQueryServiceClient
+	pb.OrderCommandServiceClient
+}
+
 type OrderGapiTestSuite struct {
 	tests.BaseTestSuite
-	client pb.OrderServiceClient
+	client orderGapiClient
 }
 
 func (s *OrderGapiTestSuite) SetupSuite() {
@@ -47,10 +52,12 @@ func (s *OrderGapiTestSuite) SetupSuite() {
 	mencache := order_cache.NewMencache(cacheStore)
 	repos := order_repo.NewRepositories(
 		queries,
-		pbcashier.NewCashierServiceClient(s.Conns["cashier"]),
-		pbmerchant.NewMerchantServiceClient(s.Conns["merchant"]),
-		pbproduct.NewProductServiceClient(s.Conns["product"]),
-		pborderitem.NewOrderItemServiceClient(s.Conns["order-item"]),
+		pbcashier.NewCashierQueryServiceClient(s.Conns["cashier"]),
+		pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pbproduct.NewProductQueryServiceClient(s.Conns["product"]),
+		pbproduct.NewProductCommandServiceClient(s.Conns["product"]),
+		pborderitem.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		pborderitem.NewOrderItemCommandServiceClient(s.Conns["order-item"]),
 	)
 	svc := order_service.NewService(&order_service.Deps{
 		Mencache:      mencache,
@@ -60,19 +67,20 @@ func (s *OrderGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := order_handler.NewHandler(&order_handler.Deps{
-		Service: svc,
-		Logger:  s.Log,
-	})
+	handler := order_handler.NewHandler(svc)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterOrderServiceServer(server, handler.Order)
+	pb.RegisterOrderQueryServiceServer(server, handler)
+	pb.RegisterOrderCommandServiceServer(server, handler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewOrderServiceClient(conn)
+	s.client = orderGapiClient{
+		OrderQueryServiceClient:   pb.NewOrderQueryServiceClient(conn),
+		OrderCommandServiceClient: pb.NewOrderCommandServiceClient(conn),
+	}
 }
 
 func (s *OrderGapiTestSuite) TestOrderGapiLifecycle() {
@@ -123,7 +131,7 @@ func (s *OrderGapiTestSuite) TestOrderGapiLifecycle() {
 
 	// 6. Update
 	// Fetch order items first
-	itemClient := pborderitem.NewOrderItemServiceClient(s.Conns["order-item"])
+	itemClient := pborderitem.NewOrderItemQueryServiceClient(s.Conns["order-item"])
 	itemsRes, err := itemClient.FindOrderItemByOrder(ctx, &pborderitem.FindByIdOrderItemRequest{Id: orderID})
 	s.Require().NoError(err)
 	s.NotEmpty(itemsRes.Data)

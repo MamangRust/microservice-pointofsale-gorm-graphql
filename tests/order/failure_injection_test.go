@@ -10,13 +10,13 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-order/handler"
 	"github.com/MamangRust/microservice-point-of-sale-order/repository"
 	"github.com/MamangRust/microservice-point-of-sale-order/service"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/order"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/adapter"
+	merchantadapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/merchant"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/resilience"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -30,7 +30,7 @@ import (
 // so tests can prove the dependency guard fails fast without hitting the
 // dependency once the circuit breaker opens (§8.1 poin 5).
 type faultMerchantServer struct {
-	pbmerchant.UnimplementedMerchantServiceServer
+	pbmerchant.UnimplementedMerchantQueryServiceServer
 	calls int32
 }
 
@@ -53,7 +53,7 @@ type OrderFailureInjectionTestSuite struct {
 	tests.BaseTestSuite
 	merchantServer *faultMerchantServer
 	svc            *service.Service
-	client         pb.OrderServiceClient
+	client         pb.OrderCommandServiceClient
 	orderID        int // merchant id
 	cashierID      int
 }
@@ -86,7 +86,7 @@ func (s *OrderFailureInjectionTestSuite) SetupSuite() {
 	// real guarded repository, so the transport-failure path is authentic.
 	s.merchantServer = &faultMerchantServer{}
 	merchantGRPC := grpc.NewServer()
-	pbmerchant.RegisterMerchantServiceServer(merchantGRPC, s.merchantServer)
+	pbmerchant.RegisterMerchantQueryServiceServer(merchantGRPC, s.merchantServer)
 	addr, err := tests.RunGRPCServer(merchantGRPC)
 	s.Require().NoError(err)
 	merchantConn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -100,17 +100,17 @@ func (s *OrderFailureInjectionTestSuite) SetupSuite() {
 	// gRPC repository while cashier/product/order_item are never reached (the
 	// merchant dependency fails first in every scenario below).
 	repos := &repository.Repositories{
-		CashierQuery:         &stubCashierRepo{cashierID: s.cashierID},
-		MerchantQuery: repository.NewMerchantQueryRepository(
-			pbmerchant.NewMerchantServiceClient(merchantConn),
+		CashierQuery: &stubCashierRepo{cashierID: s.cashierID},
+		MerchantQuery: merchantadapter.New(
+			pbmerchant.NewMerchantQueryServiceClient(merchantConn),
 			adapter.WithDependencyGuard(merchantGuard),
 		),
-		ProductQuery:         &stubProductRepo{},
-		ProductCommand:       repository.NewProductCommandRepository(queries),
-		OrderQuery:           repository.NewOrderQueryRepository(queries),
-		OrderCommand:         repository.NewOrderCommandRepository(queries),
-		OrderItemQuery:       repository.NewOrderItemQueryRepository(pborderitem.NewOrderItemServiceClient(merchantConn)),
-		OrderItemCommand:     repository.NewOrderItemCommandRepository(queries),
+		ProductQuery:     &stubProductRepo{},
+		ProductCommand:   &stubProductCommandRepo{},
+		OrderQuery:       repository.NewOrderQueryRepository(queries),
+		OrderCommand:     repository.NewOrderCommandRepository(queries),
+		OrderItemQuery:   &stubOrderItemQueryRepo{},
+		OrderItemCommand: &stubOrderItemCommandRepo{},
 	}
 
 	mencacheObj := mencache.NewMencache(s.GetCacheStore())
@@ -123,19 +123,17 @@ func (s *OrderFailureInjectionTestSuite) SetupSuite() {
 
 	// Real gRPC handler so the validation-before-remote-call test goes through
 	// the authentic handler path (req.Validate()).
-	orderGapi := handler.NewHandler(&handler.Deps{
-		Service: s.svc,
-		Logger:  s.Log,
-	})
+	orderGapi := handler.NewHandler(s.svc)
 	orderGRPC := grpc.NewServer()
-	pb.RegisterOrderServiceServer(orderGRPC, orderGapi.Order)
+	pb.RegisterOrderQueryServiceServer(orderGRPC, orderGapi)
+	pb.RegisterOrderCommandServiceServer(orderGRPC, orderGapi)
 	orderAddr, err := tests.RunGRPCServer(orderGRPC)
 	s.Require().NoError(err)
 	s.Servers = append(s.Servers, orderGRPC)
 	orderConn, err := grpc.NewClient(orderAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	s.Require().NoError(err)
 	s.Conns["order"] = orderConn
-	s.client = pb.NewOrderServiceClient(orderConn)
+	s.client = pb.NewOrderCommandServiceClient(orderConn)
 }
 
 func (s *OrderFailureInjectionTestSuite) TearDownSuite() {

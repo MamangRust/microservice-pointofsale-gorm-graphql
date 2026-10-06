@@ -1,9 +1,10 @@
 package handler
 
 import (
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 )
 
-type OrderItemHandlerGrpc interface {
-	pb.OrderItemServiceServer
+type OrderItemQueryHandleGrpc interface {
+	pborderitem.OrderItemQueryServiceServer
+	pborderitem.OrderItemCommandServiceServer
 }

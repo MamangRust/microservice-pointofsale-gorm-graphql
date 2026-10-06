@@ -8,12 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	statspb "github.com/MamangRust/microservice-point-of-sale-pb/stats"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/clickhouse"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/dotenv"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
 	"github.com/MamangRust/microservice-point-of-sale-stats-reader/handler"
 	"github.com/MamangRust/microservice-point-of-sale-stats-reader/repository"
 	"github.com/redis/go-redis/v9"
@@ -27,7 +27,7 @@ func main() {
 	if err := dotenv.Viper(); err != nil {
 		zap.L().Error("Failed to load configuration", zap.Error(err))
 	}
-	log, _ := logger.NewLogger("stats-reader")
+	log, _ := logger.NewLogger("stats-reader", nil)
 
 	// The ClickHouse database must exist before NewClient can ping.
 	if err := clickhouse.EnsureDatabase(log); err != nil {
@@ -52,22 +52,35 @@ func main() {
 	}
 
 	orderStatsHandler := handler.NewOrderStatsHandler(repo, readerCache, log)
-	productStatsHandler := handler.NewProductStatsHandler(repo, readerCache, log)
+	cashierStatsHandler := handler.NewCashierStatsHandler(repo, readerCache, log)
 	categoryStatsHandler := handler.NewCategoryStatsHandler(repo, readerCache, log)
 	transactionStatsHandler := handler.NewTransactionStatsHandler(repo, readerCache, log)
-	cashierStatsHandler := handler.NewCashierStatsHandler(repo, readerCache, log)
 
 	grpcServer := grpc.NewServer()
 
-	pb.RegisterOrderStatsServiceServer(grpcServer, orderStatsHandler)
-	pb.RegisterProductStatsServiceServer(grpcServer, productStatsHandler)
-	pb.RegisterCategoryStatsServiceServer(grpcServer, categoryStatsHandler)
-	pb.RegisterTransactionStatsServiceServer(grpcServer, transactionStatsHandler)
-	pb.RegisterCashierStatsServiceServer(grpcServer, cashierStatsHandler)
+	statspb.RegisterOrderStatsServiceServer(grpcServer, orderStatsHandler)
+	statspb.RegisterOrderStatsByMerchantServiceServer(grpcServer, orderStatsHandler)
+	statspb.RegisterOrderStatsByIdServiceServer(grpcServer, orderStatsHandler)
+	statspb.RegisterCashierStatsServiceServer(grpcServer, cashierStatsHandler)
+	statspb.RegisterCashierStatsByMerchantServiceServer(grpcServer, cashierStatsHandler)
+	statspb.RegisterCashierStatsByIdServiceServer(grpcServer, cashierStatsHandler)
+	statspb.RegisterCategoryStatsServiceServer(grpcServer, categoryStatsHandler)
+	statspb.RegisterCategoryStatsByMerchantServiceServer(grpcServer, categoryStatsHandler)
+	statspb.RegisterCategoryStatsByIdServiceServer(grpcServer, categoryStatsHandler)
+	statspb.RegisterTransactionStatsStatusServiceServer(grpcServer, transactionStatsHandler)
+	statspb.RegisterTransactionStatsMethodServiceServer(grpcServer, transactionStatsHandler)
 
 	reflection.Register(grpcServer)
 
-	addr := viper.GetString("GRPC_STATS_READER_ADDR")
+	// The listen address is distinct from GRPC_STATS_READER_ADDR: the reader
+	// listens on a bind address (":50070") while apigateway dials a routable
+	// host:port (e.g. "stats-reader.point-of-sale.svc.cluster.local:50070").
+	// STATS_READER_LISTEN_ADDR takes precedence; the dial key is only a
+	// convenience fallback for local development (localhost:50070).
+	addr := viper.GetString("STATS_READER_LISTEN_ADDR")
+	if addr == "" {
+		addr = viper.GetString("GRPC_STATS_READER_ADDR")
+	}
 	if addr == "" {
 		addr = ":50070"
 	}

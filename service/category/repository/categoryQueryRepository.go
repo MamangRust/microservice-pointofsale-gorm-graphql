@@ -81,10 +81,21 @@ func (r *categoryQueryRepository) FindByNameAndId(ctx context.Context, req *requ
 
 func (r *categoryQueryRepository) FindByName(ctx context.Context, name string) (*models.Category, error) {
 	var category models.Category
-	if err := r.db.WithContext(ctx).Where("name = ?", name).First(&category).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("name = ? AND deleted_at IS NULL", name).First(&category).Error; err != nil {
 		return nil, category_errors.ErrFindByName
 	}
 	return &category, nil
+}
+
+func (r *categoryQueryRepository) FindByIds(ctx context.Context, ids []int) ([]*models.Category, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var categories []*models.Category
+	if err := r.db.WithContext(ctx).Where("category_id IN ? AND deleted_at IS NULL", ids).Find(&categories).Error; err != nil {
+		return nil, category_errors.ErrFindByIds
+	}
+	return categories, nil
 }
 
 func (r *categoryQueryRepository) FindByActive(ctx context.Context, req *requests.FindAllCategory) ([]*CategoryResultDeleteAt, *int, error) {

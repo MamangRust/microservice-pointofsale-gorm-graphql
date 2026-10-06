@@ -5,10 +5,10 @@ import (
 
 	mencache "github.com/MamangRust/microservice-point-of-sale-category/cache"
 	"github.com/MamangRust/microservice-point-of-sale-category/repository"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/utils"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	sharederrorhandler "github.com/MamangRust/microservice-point-of-sale-shared/errorhandler"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	"go.opentelemetry.io/otel/attribute"

@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	prod_cache "github.com/MamangRust/microservice-point-of-sale-product/cache"
 	prod_handler "github.com/MamangRust/microservice-point-of-sale-product/handler"
 	prod_repo "github.com/MamangRust/microservice-point-of-sale-product/repository"
@@ -11,15 +14,19 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type productGapiClient struct {
+	pb.ProductQueryServiceClient
+	pb.ProductCommandServiceClient
+}
+
 type ProductGapiTestSuite struct {
 	tests.BaseTestSuite
-	client pb.ProductServiceClient
+	client productGapiClient
 }
 
 func (s *ProductGapiTestSuite) SetupSuite() {
@@ -38,7 +45,9 @@ func (s *ProductGapiTestSuite) SetupSuite() {
 
 	// Product dependencies
 	mencache := prod_cache.NewMencache(cacheStore)
-	repos := prod_repo.NewRepositories(productQueries)
+	categoryClient := pbcategory.NewCategoryQueryServiceClient(s.Conns["category"])
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+	repos := prod_repo.NewRepositories(productQueries, categoryClient, merchantClient)
 	svc := prod_service.NewService(&prod_service.Deps{
 		Mencache:      mencache,
 		Repositories:  repos,
@@ -48,19 +57,20 @@ func (s *ProductGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := prod_handler.NewHandler(&prod_handler.Deps{
-		Service: svc,
-		Logger:  s.Log,
-	})
+	handler := prod_handler.NewHandler(svc)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterProductServiceServer(server, handler.Product)
+	pb.RegisterProductQueryServiceServer(server, handler)
+	pb.RegisterProductCommandServiceServer(server, handler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewProductServiceClient(conn)
+	s.client = productGapiClient{
+		ProductQueryServiceClient:   pb.NewProductQueryServiceClient(conn),
+		ProductCommandServiceClient: pb.NewProductCommandServiceClient(conn),
+	}
 }
 
 func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {

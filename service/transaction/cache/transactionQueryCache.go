@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
-	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
+	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
+	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 )
 
 const (
@@ -27,22 +27,22 @@ const (
 
 type transactionCacheResponse struct {
 	Data         []*repository.TransactionResult `json:"data"`
-	TotalRecords *int                     `json:"totalRecords"`
+	TotalRecords *int                            `json:"totalRecords"`
 }
 
 type transactionMerchantCacheResponse struct {
 	Data         []*repository.TransactionByMerchantResult `json:"data"`
-	TotalRecords *int                              `json:"totalRecords"`
+	TotalRecords *int                                      `json:"totalRecords"`
 }
 
 type transactionCacheResponseActive struct {
 	Data         []*repository.TransactionResultDeleteAt `json:"data"`
-	TotalRecords *int                           `json:"totalRecords"`
+	TotalRecords *int                                    `json:"totalRecords"`
 }
 
 type transactionCacheResponseTrashed struct {
 	Data         []*repository.TransactionResultDeleteAt `json:"data"`
-	TotalRecords *int                            `json:"totalRecords"`
+	TotalRecords *int                                    `json:"totalRecords"`
 }
 
 type transactionQueryCache struct {

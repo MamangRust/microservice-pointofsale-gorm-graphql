@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	pbcommon "github.com/MamangRust/microservice-pointofsale-grpc/pb/common"
+	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

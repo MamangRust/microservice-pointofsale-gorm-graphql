@@ -4,11 +4,9 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
-	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
+	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 )
-
-
 
 type TransactionQueryCache interface {
 	GetCachedTransactionsCache(ctx context.Context, req *requests.FindAllTransaction) ([]*repository.TransactionResult, *int, bool)

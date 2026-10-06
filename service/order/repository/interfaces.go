@@ -30,16 +30,6 @@ type OrderResultDeleteAt struct {
 	TotalCount int64
 }
 
-
-
-
-
-
-
-
-
-
-
 type OrderQueryRepository interface {
 	FindAllOrders(ctx context.Context, req *requests.FindAllOrders) ([]*OrderResult, *int, error)
 	FindByActive(ctx context.Context, req *requests.FindAllOrders) ([]*OrderResultDeleteAt, *int, error)

@@ -47,18 +47,6 @@ type TransactionByMerchantResult struct {
 	TotalCount    int64
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 type CashierQueryRepository interface {
 	FindById(ctx context.Context, id int) (*models.Cashier, error)
 }
@@ -74,8 +62,6 @@ type OrderItemQueryRepository interface {
 type OrderQueryRepository interface {
 	FindById(ctx context.Context, id int) (*models.Order, error)
 }
-
-
 
 type TransactionQueryRepository interface {
 	FindAllTransactions(ctx context.Context, req *requests.FindAllTransaction) ([]*TransactionResult, *int, error)

@@ -23,17 +23,17 @@ const (
 
 type merchantCachedResponse struct {
 	Data         []*repository.MerchantResult `json:"data"`
-	TotalRecords *int                  `json:"total_records"`
+	TotalRecords *int                         `json:"total_records"`
 }
 
 type merchantCachedResponseActive struct {
 	Data         []*repository.MerchantResultDeleteAt `json:"data"`
-	TotalRecords *int                        `json:"total_records"`
+	TotalRecords *int                                 `json:"total_records"`
 }
 
 type merchantCachedResponseTrashed struct {
 	Data         []*repository.MerchantResultDeleteAt `json:"data"`
-	TotalRecords *int                         `json:"total_records"`
+	TotalRecords *int                                 `json:"total_records"`
 }
 
 type merchantQueryCache struct {

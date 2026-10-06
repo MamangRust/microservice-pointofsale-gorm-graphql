@@ -1,9 +1,8 @@
 package response_api
 
 import (
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/category"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
 )
 
 type categoryResponseMapper struct{}
@@ -52,49 +51,6 @@ func (c *categoryResponseMapper) ToResponseCategoryDelete(category *pb.CategoryR
 	}
 }
 
-func (s *categoryResponseMapper) ToResponseCategoryMonthlyPrice(category *pbstats.CategoryMonthPriceResponse) *response.CategoryMonthPriceResponse {
-	return &response.CategoryMonthPriceResponse{
-		Month:        category.Month,
-		CategoryID:   int(category.CategoryId),
-		CategoryName: category.CategoryName,
-		OrderCount:   int(category.OrderCount),
-		ItemsSold:    int(category.ItemsSold),
-		TotalRevenue: int(category.TotalRevenue),
-	}
-}
-
-func (s *categoryResponseMapper) ToResponseCategoryMonthlyPrices(c []*pbstats.CategoryMonthPriceResponse) []*response.CategoryMonthPriceResponse {
-	var categoryRecords []*response.CategoryMonthPriceResponse
-
-	for _, category := range c {
-		categoryRecords = append(categoryRecords, s.ToResponseCategoryMonthlyPrice(category))
-	}
-
-	return categoryRecords
-}
-
-func (s *categoryResponseMapper) ToResponseCategoryYearlyPrice(category *pbstats.CategoryYearPriceResponse) *response.CategoryYearPriceResponse {
-	return &response.CategoryYearPriceResponse{
-		Year:               category.Year,
-		CategoryID:         int(category.CategoryId),
-		CategoryName:       category.CategoryName,
-		OrderCount:         int(category.OrderCount),
-		ItemsSold:          int(category.ItemsSold),
-		TotalRevenue:       int(category.TotalRevenue),
-		UniqueProductsSold: int(category.UniqueProductsSold),
-	}
-}
-
-func (s *categoryResponseMapper) ToResponseCategoryYearlyPrices(c []*pbstats.CategoryYearPriceResponse) []*response.CategoryYearPriceResponse {
-	var categoryRecords []*response.CategoryYearPriceResponse
-
-	for _, category := range c {
-		categoryRecords = append(categoryRecords, s.ToResponseCategoryYearlyPrice(category))
-	}
-
-	return categoryRecords
-}
-
 func (c *categoryResponseMapper) ToResponsesCategoryDeleteAt(categories []*pb.CategoryResponseDeleteAt) []*response.CategoryResponseDeleteAt {
 	var mappedCategories []*response.CategoryResponseDeleteAt
 
@@ -103,41 +59,6 @@ func (c *categoryResponseMapper) ToResponsesCategoryDeleteAt(categories []*pb.Ca
 	}
 
 	return mappedCategories
-}
-
-func (s *categoryResponseMapper) ToResponseCashierMonthlyTotalPrice(c *pbstats.CategoriesMonthlyTotalPriceResponse) *response.CategoriesMonthlyTotalPriceResponse {
-	return &response.CategoriesMonthlyTotalPriceResponse{
-		Year:         c.Year,
-		Month:        c.Month,
-		TotalRevenue: int(c.TotalRevenue),
-	}
-}
-
-func (s *categoryResponseMapper) ToResponseCategoryMonthlyTotalPrices(c []*pbstats.CategoriesMonthlyTotalPriceResponse) []*response.CategoriesMonthlyTotalPriceResponse {
-	var CategoryRecords []*response.CategoriesMonthlyTotalPriceResponse
-
-	for _, Category := range c {
-		CategoryRecords = append(CategoryRecords, s.ToResponseCashierMonthlyTotalPrice(Category))
-	}
-
-	return CategoryRecords
-}
-
-func (s *categoryResponseMapper) ToResponseCategoryYearlyTotalSale(c *pbstats.CategoriesYearlyTotalPriceResponse) *response.CategoriesYearlyTotalPriceResponse {
-	return &response.CategoriesYearlyTotalPriceResponse{
-		Year:         c.Year,
-		TotalRevenue: int(c.TotalRevenue),
-	}
-}
-
-func (s *categoryResponseMapper) ToResponseCategoryYearlyTotalPrices(c []*pbstats.CategoriesYearlyTotalPriceResponse) []*response.CategoriesYearlyTotalPriceResponse {
-	var CategoryRecords []*response.CategoriesYearlyTotalPriceResponse
-
-	for _, Category := range c {
-		CategoryRecords = append(CategoryRecords, s.ToResponseCategoryYearlyTotalSale(Category))
-	}
-
-	return CategoryRecords
 }
 
 func (c *categoryResponseMapper) ToApiResponseCategory(pbResponse *pb.ApiResponseCategory) *response.ApiResponseCategory {
@@ -193,37 +114,5 @@ func (c *categoryResponseMapper) ToApiResponsePaginationCategory(pbResponse *pb.
 		Message:    pbResponse.Message,
 		Data:       c.ToResponsesCategory(pbResponse.Data),
 		Pagination: *mapPaginationMeta(pbResponse.Pagination),
-	}
-}
-
-func (c *categoryResponseMapper) ToApiResponseCategoryMonthlyPrice(pbResponse *pbstats.ApiResponseCategoryMonthPrice) *response.ApiResponseCategoryMonthPrice {
-	return &response.ApiResponseCategoryMonthPrice{
-		Status:  pbResponse.Status,
-		Message: pbResponse.Message,
-		Data:    c.ToResponseCategoryMonthlyPrices(pbResponse.Data),
-	}
-}
-
-func (c *categoryResponseMapper) ToApiResponseCategoryYearlyPrice(pbResponse *pbstats.ApiResponseCategoryYearPrice) *response.ApiResponseCategoryYearPrice {
-	return &response.ApiResponseCategoryYearPrice{
-		Status:  pbResponse.Status,
-		Message: pbResponse.Message,
-		Data:    c.ToResponseCategoryYearlyPrices(pbResponse.Data),
-	}
-}
-
-func (c *categoryResponseMapper) ToApiResponseCategoryMonthlyTotalPrice(pbResponse *pbstats.ApiResponseCategoryMonthlyTotalPrice) *response.ApiResponseCategoryMonthlyTotalPrice {
-	return &response.ApiResponseCategoryMonthlyTotalPrice{
-		Status:  pbResponse.Status,
-		Message: pbResponse.Message,
-		Data:    c.ToResponseCategoryMonthlyTotalPrices(pbResponse.Data),
-	}
-}
-
-func (c *categoryResponseMapper) ToApiResponseCategoryYearlyTotalPrice(pbResponse *pbstats.ApiResponseCategoryYearlyTotalPrice) *response.ApiResponseCategoryYearlyTotalPrice {
-	return &response.ApiResponseCategoryYearlyTotalPrice{
-		Status:  pbResponse.Status,
-		Message: pbResponse.Message,
-		Data:    c.ToResponseCategoryYearlyTotalPrices(pbResponse.Data),
 	}
 }

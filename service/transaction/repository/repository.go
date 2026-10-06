@@ -1,11 +1,15 @@
 package repository
 
 import (
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/adapter"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
+	cashieradapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/cashier"
+	merchantadapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/merchant"
+	orderadapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/order"
+	orderitemadapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/orderitem"
 	"gorm.io/gorm"
 )
 
@@ -27,10 +31,11 @@ type GuardOptions struct {
 
 func NewRepositories(
 	db *gorm.DB,
-	cashierClient pbcashier.CashierServiceClient,
-	merchantClient pbmerchant.MerchantServiceClient,
-	orderClient pborder.OrderServiceClient,
-	orderItemClient pborderitem.OrderItemServiceClient,
+	cashierClient pbcashier.CashierQueryServiceClient,
+	merchantClient pbmerchant.MerchantQueryServiceClient,
+	orderClient pborder.OrderQueryServiceClient,
+	orderItemQueryClient pborderitem.OrderItemQueryServiceClient,
+	orderItemCommandClient pborderitem.OrderItemCommandServiceClient,
 	guards ...GuardOptions,
 ) *Repositories {
 	var g GuardOptions
@@ -38,10 +43,10 @@ func NewRepositories(
 		g = guards[0]
 	}
 	return &Repositories{
-		CashierQuery:                 NewCashierQueryRepository(cashierClient, g.Cashier...),
-		MerchantQuery:                NewMerchantQueryRepository(merchantClient, g.Merchant...),
-		OrderQuery:                   NewOrderQueryRepository(orderClient, g.Order...),
-		OrderItemQuery:               NewOrderItemQueryRepository(orderItemClient, g.OrderItem...),
+		CashierQuery:                 cashieradapter.New(cashierClient, g.Cashier...),
+		MerchantQuery:                merchantadapter.New(merchantClient, g.Merchant...),
+		OrderQuery:                   orderadapter.New(orderClient, g.Order...),
+		OrderItemQuery:               orderitemadapter.New(orderItemQueryClient, orderItemCommandClient, g.OrderItem...),
 		TransactionCommandRepository: NewTransactionCommandRepository(db),
 		TransactionQueryRepository:   NewTransactionQueryRepository(db),
 	}

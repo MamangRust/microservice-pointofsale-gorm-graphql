@@ -1,25 +1,24 @@
 package handler
 
 import (
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-role/service"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
 )
 
-type Deps struct {
-	Service *service.Service
-	Logger  logger.LoggerInterface
+// Handler groups all role gRPC handlers.
+type Handler interface {
+	RoleQueryHandleGrpc
+	UserRoleHandleGrpc
 }
 
-type Handler struct {
-	Role pb.RoleServiceServer
+type handler struct {
+	RoleQueryHandleGrpc
+	UserRoleHandleGrpc
 }
 
-func NewHandler(deps *Deps) *Handler {
-	return &Handler{
-		Role: NewRoleHandleGrpc(
-			deps.Service,
-			deps.Logger,
-		),
+// NewHandler initializes role gRPC handlers.
+func NewHandler(svc *service.Service) Handler {
+	return &handler{
+		RoleQueryHandleGrpc: NewRoleHandleGrpc(svc.RoleQuery, svc.RoleCommand),
+		UserRoleHandleGrpc:  NewUserRoleHandleGrpc(svc.RoleQuery, svc.RoleCommand),
 	}
 }

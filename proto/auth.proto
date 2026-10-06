@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package pb;
 
-option go_package = "github.com/MamangRust/microservice-pointofsale-grpc/pb";
+option go_package = "github.com/MamangRust/microservice-point-of-sale-pb/auth;auth";
 
-import "user/user.proto";
+import "user/user_common.proto";
 
 
 message RegisterRequest{
@@ -45,7 +45,7 @@ message GetMeRequest{
     string access_token = 1;
 }
 
-message TokenResponse{
+message TokenResponse {
     string access_token = 1;
     string refresh_token = 2;
 }
@@ -56,12 +56,12 @@ message ApiResponseVerifyCode{
     string message = 2;
 }
 
-message ApiResponseForgotPassword{
+message ApiResponseForgotPassword {
     string status = 1;
     string message = 2;
 }
 
-message ApiResponseResetPassword{
+message ApiResponseResetPassword {
     string status = 1;
     string message = 2;
 }
@@ -81,13 +81,13 @@ message ApiResponseRefreshToken{
 message ApiResponseRegister{
     string status = 1;
     string message = 2;
-    pb.user.UserResponse data = 3;
+    UserResponse data = 3;
 }
 
 message ApiResponseGetMe{
     string status = 1;
     string message = 2;
-    pb.user.UserResponse data = 3;
+    UserResponse data = 3;
 }
 
 

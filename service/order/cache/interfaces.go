@@ -8,8 +8,6 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 
-
-
 type OrderQueryCache interface {
 	GetOrderAllCache(ctx context.Context, req *requests.FindAllOrders) ([]*repository.OrderResult, *int, bool)
 	SetOrderAllCache(ctx context.Context, req *requests.FindAllOrders, data []*repository.OrderResult, total *int)

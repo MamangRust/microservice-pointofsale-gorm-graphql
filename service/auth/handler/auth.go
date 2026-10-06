@@ -4,19 +4,19 @@ import (
 	"context"
 	"time"
 
+	"github.com/MamangRust/microservice-point-of-sale-auth/service"
+	pbauth "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	traceunic "github.com/MamangRust/microservice-point-of-sale-pkg/trace_unic"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
-	"github.com/MamangRust/microservice-point-of-sale-auth/service"
 	"go.uber.org/zap"
 )
 
 type authHandleGrpc struct {
-	pb.UnimplementedAuthServiceServer
+	pbauth.UnimplementedAuthServiceServer
 	registerService      service.RegistrationService
 	loginService         service.LoginService
 	passwordResetService service.PasswordResetService
@@ -24,7 +24,7 @@ type authHandleGrpc struct {
 	logger               logger.LoggerInterface
 }
 
-func NewAuthHandleGrpc(authService *service.Service, logger logger.LoggerInterface) pb.AuthServiceServer {
+func NewAuthHandleGrpc(authService *service.Service, logger logger.LoggerInterface) *authHandleGrpc {
 	return &authHandleGrpc{
 		registerService:      authService.Register,
 		loginService:         authService.Login,
@@ -55,7 +55,7 @@ func mapAuthUserResponse(user *models.User) *pbuser.UserResponse {
 	}
 }
 
-func (s *authHandleGrpc) VerifyCode(ctx context.Context, req *pb.VerifyCodeRequest) (*pb.ApiResponseVerifyCode, error) {
+func (s *authHandleGrpc) VerifyCode(ctx context.Context, req *pbauth.VerifyCodeRequest) (*pbauth.ApiResponseVerifyCode, error) {
 	s.logger.Info("VerifyCode called", zap.Bool("verification_code_present", req.Code != ""))
 
 	_, err := s.passwordResetService.VerifyCode(ctx, req.Code)
@@ -67,13 +67,13 @@ func (s *authHandleGrpc) VerifyCode(ctx context.Context, req *pb.VerifyCodeReque
 
 	s.logger.Info("VerifyCode success", zap.Bool("verification_code_present", req.Code != ""))
 
-	return &pb.ApiResponseVerifyCode{
+	return &pbauth.ApiResponseVerifyCode{
 		Status:  "success",
 		Message: "Verification successfully",
 	}, nil
 }
 
-func (s *authHandleGrpc) ForgotPassword(ctx context.Context, req *pb.ForgotPasswordRequest) (*pb.ApiResponseForgotPassword, error) {
+func (s *authHandleGrpc) ForgotPassword(ctx context.Context, req *pbauth.ForgotPasswordRequest) (*pbauth.ApiResponseForgotPassword, error) {
 	s.logger.Info("ForgotPassword called", zap.String("email", req.Email))
 
 	_, err := s.passwordResetService.ForgotPassword(ctx, req.Email)
@@ -85,13 +85,13 @@ func (s *authHandleGrpc) ForgotPassword(ctx context.Context, req *pb.ForgotPassw
 
 	s.logger.Info("ForgotPassword successful", zap.Bool("success", true))
 
-	return &pb.ApiResponseForgotPassword{
+	return &pbauth.ApiResponseForgotPassword{
 		Status:  "success",
 		Message: "ForgotPassword successful",
 	}, nil
 }
 
-func (s *authHandleGrpc) ResetPassword(ctx context.Context, req *pb.ResetPasswordRequest) (*pb.ApiResponseResetPassword, error) {
+func (s *authHandleGrpc) ResetPassword(ctx context.Context, req *pbauth.ResetPasswordRequest) (*pbauth.ApiResponseResetPassword, error) {
 	s.logger.Info("ResetPassword called", zap.Bool("reset_token_present", req.ResetToken != ""))
 
 	_, err := s.passwordResetService.ResetPassword(ctx, &requests.CreateResetPasswordRequest{
@@ -107,13 +107,13 @@ func (s *authHandleGrpc) ResetPassword(ctx context.Context, req *pb.ResetPasswor
 
 	s.logger.Info("ResetPassword successful", zap.Bool("success", true))
 
-	return &pb.ApiResponseResetPassword{
+	return &pbauth.ApiResponseResetPassword{
 		Status:  "success",
 		Message: "Reset password successful",
 	}, nil
 }
 
-func (s *authHandleGrpc) LoginUser(ctx context.Context, req *pb.LoginRequest) (*pb.ApiResponseLogin, error) {
+func (s *authHandleGrpc) LoginUser(ctx context.Context, req *pbauth.LoginRequest) (*pbauth.ApiResponseLogin, error) {
 	s.logger.Info("LoginUser called", zap.String("email", req.Email))
 
 	request := &requests.AuthRequest{
@@ -130,17 +130,17 @@ func (s *authHandleGrpc) LoginUser(ctx context.Context, req *pb.LoginRequest) (*
 
 	s.logger.Info("LoginUser successful", zap.Bool("success", true))
 
-	return &pb.ApiResponseLogin{
+	return &pbauth.ApiResponseLogin{
 		Status:  "success",
 		Message: "LoginUser successfull",
-		Data: &pb.TokenResponse{
+		Data: &pbauth.TokenResponse{
 			AccessToken:  res.AccessToken,
 			RefreshToken: res.RefreshToken,
 		},
 	}, nil
 }
 
-func (s *authHandleGrpc) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.ApiResponseRefreshToken, error) {
+func (s *authHandleGrpc) RefreshToken(ctx context.Context, req *pbauth.RefreshTokenRequest) (*pbauth.ApiResponseRefreshToken, error) {
 	s.logger.Info("RefreshToken called")
 
 	res, err := s.identifyService.RefreshToken(ctx, req.RefreshToken)
@@ -152,17 +152,17 @@ func (s *authHandleGrpc) RefreshToken(ctx context.Context, req *pb.RefreshTokenR
 
 	s.logger.Info("RefreshToken successful", zap.Bool("success", true))
 
-	return &pb.ApiResponseRefreshToken{
+	return &pbauth.ApiResponseRefreshToken{
 		Status:  "success",
 		Message: "Refresh token successful",
-		Data: &pb.TokenResponse{
+		Data: &pbauth.TokenResponse{
 			AccessToken:  res.AccessToken,
 			RefreshToken: req.RefreshToken,
 		},
 	}, nil
 }
 
-func (s *authHandleGrpc) GetMe(ctx context.Context, req *pb.GetMeRequest) (*pb.ApiResponseGetMe, error) {
+func (s *authHandleGrpc) GetMe(ctx context.Context, req *pbauth.GetMeRequest) (*pbauth.ApiResponseGetMe, error) {
 	s.logger.Info("GetMe called")
 
 	res, err := s.identifyService.GetMe(ctx, req.AccessToken)
@@ -174,14 +174,14 @@ func (s *authHandleGrpc) GetMe(ctx context.Context, req *pb.GetMeRequest) (*pb.A
 
 	s.logger.Info("GetMe successful", zap.Bool("success", true))
 
-	return &pb.ApiResponseGetMe{
+	return &pbauth.ApiResponseGetMe{
 		Status:  "success",
 		Message: "Get me successfully",
 		Data:    mapAuthUserResponse(res),
 	}, nil
 }
 
-func (s *authHandleGrpc) RegisterUser(ctx context.Context, req *pb.RegisterRequest) (*pb.ApiResponseRegister, error) {
+func (s *authHandleGrpc) RegisterUser(ctx context.Context, req *pbauth.RegisterRequest) (*pbauth.ApiResponseRegister, error) {
 	s.logger.Info("RegisterUser called", zap.String("email", req.Email))
 
 	request := &requests.RegisterRequest{
@@ -201,7 +201,7 @@ func (s *authHandleGrpc) RegisterUser(ctx context.Context, req *pb.RegisterReque
 
 	s.logger.Info("RegisterUser successful", zap.Bool("success", true))
 
-	return &pb.ApiResponseRegister{
+	return &pbauth.ApiResponseRegister{
 		Status:  "success",
 		Message: "RegisterUser successful",
 		Data:    mapAuthUserResponse(res),

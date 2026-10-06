@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 type CacheStats struct {
 	TotalKeys       int64     `json:"total_keys"`
 	HitRate         float64   `json:"hit_rate"`

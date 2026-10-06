@@ -1,16 +1,15 @@
 package apps
 
 import (
-	
 	"context"
 
-	"github.com/MamangRust/microservice-point-of-sale-category/handler"
 	mencache "github.com/MamangRust/microservice-point-of-sale-category/cache"
+	"github.com/MamangRust/microservice-point-of-sale-category/handler"
 	"github.com/MamangRust/microservice-point-of-sale-category/repository"
 	"github.com/MamangRust/microservice-point-of-sale-category/service"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/category"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/server"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
 	"google.golang.org/grpc"
 )
 
@@ -33,13 +32,11 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: traceLoggerObservability,
 	})
 
-	handlers := handler.NewHandler(&handler.Deps{
-		Service: services,
-		Logger:  srv.Logger,
-	})
+	handlers := handler.NewHandler(services)
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterCategoryServiceServer(gs, handlers.Category)
+		pb.RegisterCategoryQueryServiceServer(gs, handlers)
+		pb.RegisterCategoryCommandServiceServer(gs, handlers)
 	}
 
 	return srv, nil

@@ -24,22 +24,22 @@ const (
 
 type cashierCacheResponse struct {
 	Data         []*repository.CashierResult `json:"data"`
-	TotalRecords *int                 `json:"totalRecords"`
+	TotalRecords *int                        `json:"totalRecords"`
 }
 
 type cashierCacheResponseActive struct {
 	Data         []*repository.CashierResultDeleteAt `json:"data"`
-	TotalRecords *int                       `json:"totalRecords"`
+	TotalRecords *int                                `json:"totalRecords"`
 }
 
 type cashierCacheResponseTrashed struct {
 	Data         []*repository.CashierResultDeleteAt `json:"data"`
-	TotalRecords *int                        `json:"totalRecords"`
+	TotalRecords *int                                `json:"totalRecords"`
 }
 
 type cashierCacheResponseMerchant struct {
 	Data         []*repository.CashierResult `json:"data"`
-	TotalRecords *int                           `json:"totalRecords"`
+	TotalRecords *int                        `json:"totalRecords"`
 }
 
 type cashierQueryCache struct {

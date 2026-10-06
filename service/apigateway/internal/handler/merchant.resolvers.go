@@ -6,12 +6,11 @@ package graph
 
 import (
 	"context"
+	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 
-	errors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
-
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	merchantpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -33,7 +32,7 @@ func (r *mutationResolver) CreateMerchant(ctx context.Context, input model.Creat
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.CreateMerchantRequest{
+		reqPb := &merchantpb.CreateMerchantRequest{
 			UserId:       int32(req.UserID),
 			Name:         req.Name,
 			Description:  req.Description,
@@ -81,7 +80,7 @@ func (r *mutationResolver) UpdateMerchant(ctx context.Context, input model.Updat
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.UpdateMerchantRequest{
+		reqPb := &merchantpb.UpdateMerchantRequest{
 			MerchantId:   int32(id),
 			UserId:       int32(req.UserID),
 			Name:         req.Name,
@@ -114,7 +113,7 @@ func (r *mutationResolver) TrashedMerchant(ctx context.Context, input model.Find
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdMerchantRequest{
+		reqPb := &merchantpb.FindByIdMerchantRequest{
 			Id: int32(id),
 		}
 
@@ -140,7 +139,7 @@ func (r *mutationResolver) RestoreMerchant(ctx context.Context, input model.Find
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdMerchantRequest{
+		reqPb := &merchantpb.FindByIdMerchantRequest{
 			Id: int32(id),
 		}
 
@@ -166,7 +165,7 @@ func (r *mutationResolver) DeleteMerchantPermanent(ctx context.Context, input mo
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdMerchantRequest{Id: int32(id)}
+		reqPb := &merchantpb.FindByIdMerchantRequest{Id: int32(id)}
 		res, err := r.MerchantGraphql.MerchantClient.DeleteMerchantPermanent(ctx, reqPb)
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "DeleteMerchantPermanent")
@@ -230,7 +229,7 @@ func (r *queryResolver) FindAllMerchant(ctx context.Context, input model.FindAll
 			return cached, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &merchantpb.FindAllMerchantRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -262,7 +261,7 @@ func (r *queryResolver) FindByIDMerchant(ctx context.Context, input model.FindBy
 			return cached, nil
 		}
 
-		res, err := r.MerchantGraphql.MerchantClient.FindById(ctx, &pb.FindByIdMerchantRequest{Id: int32(id)})
+		res, err := r.MerchantGraphql.MerchantClient.FindById(ctx, &merchantpb.FindByIdMerchantRequest{Id: int32(id)})
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "FindByIDMerchant")
 		}
@@ -299,7 +298,7 @@ func (r *queryResolver) FindByActiveMerchant(ctx context.Context, input model.Fi
 			return cached, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &merchantpb.FindAllMerchantRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -340,7 +339,7 @@ func (r *queryResolver) FindByTrashedMerchant(ctx context.Context, input model.F
 			return cached, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &merchantpb.FindAllMerchantRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),

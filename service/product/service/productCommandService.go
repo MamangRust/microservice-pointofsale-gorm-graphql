@@ -119,6 +119,52 @@ func (s *productCommandService) UpdateProduct(ctx context.Context, req *requests
 	return product, nil
 }
 
+func (s *productCommandService) DecrementProductCountStock(ctx context.Context, productID int, quantity int) (*models.Product, error) {
+	const method = "DecrementProductCountStock"
+
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
+		attribute.Int("product.id", productID), attribute.Int("product.quantity", quantity))
+
+	defer func() {
+		end(status)
+	}()
+
+	product, err := s.productCommandRepository.DecrementProductCountStock(ctx, productID, quantity)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.Product](s.logger, err, method, span, zap.Error(err))
+	}
+
+	s.mencache.DeleteCachedProduct(ctx, productID)
+
+	logSuccess("Successfully decremented product stock", zap.Int("product.id", productID), zap.Int("product.quantity", quantity), zap.Bool("success", true))
+
+	return product, nil
+}
+
+func (s *productCommandService) IncrementProductCountStock(ctx context.Context, productID int, quantity int) (*models.Product, error) {
+	const method = "IncrementProductCountStock"
+
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
+		attribute.Int("product.id", productID), attribute.Int("product.quantity", quantity))
+
+	defer func() {
+		end(status)
+	}()
+
+	product, err := s.productCommandRepository.IncrementProductCountStock(ctx, productID, quantity)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.Product](s.logger, err, method, span, zap.Error(err))
+	}
+
+	s.mencache.DeleteCachedProduct(ctx, productID)
+
+	logSuccess("Successfully incremented product stock", zap.Int("product.id", productID), zap.Int("product.quantity", quantity), zap.Bool("success", true))
+
+	return product, nil
+}
+
 func (s *productCommandService) TrashProduct(ctx context.Context, productID int) (*models.Product, error) {
 	const method = "TrashProduct"
 

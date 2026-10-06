@@ -9,19 +9,20 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/dotenv"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/viper"
 )
 
 const (
-	dialect = "pgx"
+	dialect = "postgres"
 )
 
 var (
 	flags = flag.NewFlagSet("migrate", flag.ExitOnError)
-	dir   = flags.String("dir", "", "directory with migration files (default: collect all service/*/database/migration)")
+	dir   = flags.String("dir", "", "directory with migration files (default: collect per bounded context)")
 )
 
 func main() {
@@ -44,69 +45,105 @@ func main() {
 		log.Fatalf("Error loading environment variables: %v", err)
 	}
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",
-		viper.GetString("DB_HOST"),
-		viper.GetString("DB_PORT"),
-		viper.GetString("DB_USERNAME"),
-		viper.GetString("DB_NAME"),
-		viper.GetString("DB_PASSWORD"),
-	)
-
-	db, err := goose.OpenDBWithDriver(dialect, connStr)
-	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
-	}
-
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Fatalf("Error closing database: %v", err)
-		}
-	}()
-
 	if *dir != "" {
-		// Explicit dir (Docker image legacy path): delegate to goose directly.
+		// Explicit dir (Docker image legacy path): delegate to goose directly
+		// against the generic DB_* instance.
+		connStr := buildConnStr("DB")
+		db, err := goose.OpenDBWithDriver(dialect, connStr)
+		if err != nil {
+			log.Fatalf("Error opening database: %v", err)
+		}
+		defer db.Close()
+
 		if err := goose.RunContext(context.Background(), command, db, *dir, args[1:]...); err != nil {
 			log.Fatalf("Migration failed: %v", err)
 		}
 		return
 	}
 
-	// F1: per-service migrations. The POS database is a single shared
-	// instance, so every service/*/database/migration/*.sql file applies to
-	// the same DB. File timestamps are globally unique and increasing, so
-	// collecting all files and running them in timestamp order preserves the
-	// original chronology (per-dir runs would break cross-service FK deps,
-	// e.g. auth.refresh_tokens -> users).
-	matches, err := filepath.Glob("service/*/database/migration/*.sql")
-	if err != nil {
-		log.Fatalf("Failed to glob migration files: %v", err)
-	}
-	sort.Strings(matches)
-	if len(matches) == 0 {
-		log.Fatalf("No migration files found under service/*/database/migration (use -dir to set one)")
-	}
+	// Per bounded context: each context owns a separate PostgreSQL instance, so
+	// its migrations apply to that instance only. Migration files live under
+	// service/<svc>/database/migration/*.sql; we collect only the files belonging
+	// to the context's member services, stage them to a temp dir (goose needs a
+	// plain directory), and run them in timestamp order against DB_<CTX>_*.
+	for _, ctx := range database.BoundedContexts {
+		prefix := database.ContextPrefix[ctx]
 
-	// Stage the files into a temp dir (goose requires a plain directory) and
-	// run them in one pass.
-	tmp, err := os.MkdirTemp("", "pos-migrations-")
-	if err != nil {
-		log.Fatalf("Failed to create temp migrations dir: %v", err)
-	}
-	defer os.RemoveAll(tmp)
-	for _, m := range matches {
-		data, err := os.ReadFile(m)
+		matches := collectContextMigrations(ctx)
+		if len(matches) == 0 {
+			log.Printf("Context %s (%s): no migration files, skipping", ctx, prefix)
+			continue
+		}
+		sort.Strings(matches)
+
+		tmp, err := os.MkdirTemp("", fmt.Sprintf("pos-migrate-%s-", ctx))
 		if err != nil {
-			log.Fatalf("Failed to read %s: %v", m, err)
+			log.Fatalf("Failed to create temp migrations dir for %s: %v", ctx, err)
 		}
-		if err := os.WriteFile(filepath.Join(tmp, filepath.Base(m)), data, 0o644); err != nil {
-			log.Fatalf("Failed to stage %s: %v", filepath.Base(m), err)
+
+		for _, m := range matches {
+			data, err := os.ReadFile(m)
+			if err != nil {
+				os.RemoveAll(tmp)
+				log.Fatalf("Failed to read %s: %v", m, err)
+			}
+			if err := os.WriteFile(filepath.Join(tmp, filepath.Base(m)), data, 0o644); err != nil {
+				os.RemoveAll(tmp)
+				log.Fatalf("Failed to stage %s: %v", filepath.Base(m), err)
+			}
 		}
+
+		connStr := buildConnStr(prefix)
+		db, err := goose.OpenDBWithDriver(dialect, connStr)
+		if err != nil {
+			os.RemoveAll(tmp)
+			log.Fatalf("Error opening database for context %s: %v", ctx, err)
+		}
+
+		log.Printf("Migrating context %s (%s) — %d files in %s", ctx, prefix, len(matches), tmp)
+		runErr := goose.RunContext(context.Background(), command, db, tmp, args[1:]...)
+
+		db.Close()
+		os.RemoveAll(tmp)
+
+		if runErr != nil {
+			log.Fatalf("Migration failed for context %s: %v", ctx, runErr)
+		}
+	}
+}
+
+// collectContextMigrations returns every migration file belonging to the
+// services that own the given bounded context.
+func collectContextMigrations(ctx string) []string {
+	var matches []string
+	for svc, svcCtx := range database.ServiceContext {
+		if svcCtx != ctx {
+			continue
+		}
+		files, err := filepath.Glob(fmt.Sprintf("service/%s/database/migration/*.sql", svc))
+		if err != nil {
+			log.Fatalf("Failed to glob migration files for %s: %v", svc, err)
+		}
+		matches = append(matches, files...)
+	}
+	return matches
+}
+
+// buildConnStr reads the instance connection settings for the given env prefix
+// (e.g. "DB_SALES"), falling back to the generic DB_* keys when a per-context
+// key is absent.
+func buildConnStr(prefix string) string {
+	get := func(key string) string {
+		if v := viper.GetString(fmt.Sprintf("%s_%s", prefix, key)); v != "" {
+			return v
+		}
+		return viper.GetString("DB_" + key)
 	}
 
-	log.Printf("Migrating %s (%d files in %s)", command, len(matches), tmp)
-	if err := goose.RunContext(context.Background(), command, db, tmp, args[1:]...); err != nil {
-		log.Fatalf("Migration failed: %v", err)
-	}
+	return fmt.Sprintf(
+		"host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",
+		get("HOST"), get("PORT"), get("USERNAME"), get("NAME"), get("PASSWORD"),
+	)
 }
 
 func usage() {
@@ -120,7 +157,6 @@ var (
 Examples:
     migrate status
 `
-
 	usageCommands = `
 Commands:
     up                   Migrate the DB to the most recent version available

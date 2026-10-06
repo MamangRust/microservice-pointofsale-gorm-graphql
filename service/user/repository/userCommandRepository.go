@@ -34,6 +34,52 @@ func (r *userCommandRepository) CreateUser(ctx context.Context, request *request
 	return user, nil
 }
 
+// CreateUserRecord registers a user with auth-managed fields. The password is
+// expected to be already hashed by the auth service; verification fields pass
+// through untouched.
+func (r *userCommandRepository) CreateUserRecord(ctx context.Context, request *requests.RegisterRequest) (*models.User, error) {
+	user := &models.User{
+		Firstname:        request.FirstName,
+		Lastname:         request.LastName,
+		Email:            request.Email,
+		Password:         request.Password,
+		VerificationCode: request.VerifiedCode,
+		IsVerified:       &request.IsVerified,
+		CreatedAt:        timePtr(time.Now()),
+		UpdatedAt:        timePtr(time.Now()),
+	}
+	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *userCommandRepository) UpdateUserIsVerified(ctx context.Context, userID int, isVerified bool) (*models.User, error) {
+	var user models.User
+	if err := r.db.WithContext(ctx).Where("user_id = ? AND deleted_at IS NULL", userID).First(&user).Error; err != nil {
+		return nil, err
+	}
+	user.IsVerified = &isVerified
+	user.UpdatedAt = timePtr(time.Now())
+	if err := r.db.WithContext(ctx).Save(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userCommandRepository) UpdateUserPassword(ctx context.Context, userID int, password string) (*models.User, error) {
+	var user models.User
+	if err := r.db.WithContext(ctx).Where("user_id = ? AND deleted_at IS NULL", userID).First(&user).Error; err != nil {
+		return nil, err
+	}
+	user.Password = password
+	user.UpdatedAt = timePtr(time.Now())
+	if err := r.db.WithContext(ctx).Save(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *userCommandRepository) UpdateUser(ctx context.Context, request *requests.UpdateUserRequest) (*models.User, error) {
 	var user models.User
 	if err := r.db.WithContext(ctx).First(&user, *request.UserID).Error; err != nil {

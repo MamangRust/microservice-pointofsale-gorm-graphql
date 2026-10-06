@@ -2,6 +2,10 @@ package auth_test
 
 import (
 	"context"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	role "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	user "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	userrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"net"
 	"testing"
 
@@ -14,9 +18,6 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
-	"github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
-	"github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
 	role_cache "github.com/MamangRust/microservice-point-of-sale-role/cache"
@@ -51,7 +52,7 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 	s.ts = ts
 
 	s.Require().NoError(err)
-	
+
 	opts, err := redis.ParseURL(s.ts.RedisURL)
 	s.Require().NoError(err)
 	s.redisClient = redis.NewClient(opts)
@@ -60,7 +61,7 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 	userQueries := s.ts.GormDB()
 	authQueries := s.ts.GormDB()
 
-	log, _ := logger.NewLogger("test")
+	log, _ := logger.NewLogger("test", nil)
 	hasher := hash.NewHashingPassword()
 	cacheMetrics, _ := observability.NewCacheMetrics("test")
 	cacheStore := cache.NewCacheStore(s.redisClient, log, cacheMetrics)
@@ -75,18 +76,22 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 		Mencache:      roleMencache,
 		Observability: obs,
 	})
-	roleGapi := role_handler.NewHandler(&role_handler.Deps{
-		Service: roleSvc,
-		Logger:  log,
-	})
+	roleGapi := role_handler.NewHandler(roleSvc)
 	roleServer := grpc.NewServer()
-	role.RegisterRoleServiceServer(roleServer, roleGapi.Role)
+	role.RegisterRoleQueryServiceServer(roleServer, roleGapi)
+	role.RegisterRoleCommandServiceServer(roleServer, roleGapi)
+	userrole.RegisterUserRoleServiceServer(roleServer, roleGapi)
 	roleLis, _ := net.Listen("tcp", "localhost:0")
 	go roleServer.Serve(roleLis)
 
+	roleConn, err := grpc.NewClient(roleLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	s.Require().NoError(err)
+	roleClient := role.NewRoleQueryServiceClient(roleConn)
+	userRoleClient := userrole.NewUserRoleServiceClient(roleConn)
+
 	// 2. Setup User Service & gRPC Server
 	userMencache := user_cache.NewMencache(cacheStore)
-	userRepos := user_repo.NewRepositories(userQueries)
+	userRepos := user_repo.NewRepositories(userQueries, roleClient, userRoleClient)
 	userSvc := user_service.NewService(&user_service.Deps{
 		Repositories:  userRepos,
 		Logger:        log,
@@ -94,17 +99,20 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 		Mencache:      userMencache,
 		Observability: obs,
 	})
-	userGapi := user_handler.NewHandler(&user_handler.Deps{
-		Service: userSvc,
-		Logger:  log,
-	})
+	userGapi := user_handler.NewHandler(userSvc)
 	userServer := grpc.NewServer()
-	user.RegisterUserServiceServer(userServer, userGapi.User)
+	user.RegisterUserQueryServiceServer(userServer, userGapi)
+	user.RegisterUserCommandServiceServer(userServer, userGapi)
 	userLis, _ := net.Listen("tcp", "localhost:0")
 	go userServer.Serve(userLis)
 
+	userConn, err := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	s.Require().NoError(err)
+	userQueryClient := user.NewUserQueryServiceClient(userConn)
+	userCommandClient := user.NewUserCommandServiceClient(userConn)
+
 	// 3. Setup Auth Service
-	repos := repository.NewRepositories(authQueries)
+	repos := repository.NewRepositories(authQueries, userQueryClient, userCommandClient, roleClient, userRoleClient)
 
 	tokenManager, _ := auth.NewManager("mysecret")
 	svc := service.NewService(&service.Deps{

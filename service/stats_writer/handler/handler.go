@@ -17,11 +17,12 @@ const (
 	TopicOrder       = "stats.pos.order.event"
 	TopicOrderItem   = "stats.pos.order_item.event"
 	TopicTransaction = "stats.pos.transaction.event"
+	TopicCashier     = "stats.pos.cashier.event"
 )
 
 // StatsTopics returns every topic stats-writer consumes.
 func StatsTopics() []string {
-	return []string{TopicOrder, TopicOrderItem, TopicTransaction}
+	return []string{TopicOrder, TopicOrderItem, TopicTransaction, TopicCashier}
 }
 
 // statEnvelope mirrors the envelope producers publish for dedup.
@@ -100,6 +101,16 @@ func (h *StatsHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim s
 			}
 			if err := h.useCase.SaveTransactionEvent(session.Context(), eventID, event); err != nil {
 				h.log.Error("Failed to save transaction event", zap.Error(err))
+				continue
+			}
+		case TopicCashier:
+			var event events.CashierEvent
+			if err := json.Unmarshal(raw, &event); err != nil {
+				h.log.Error("Failed to unmarshal cashier event", zap.Error(err))
+				continue
+			}
+			if err := h.useCase.SaveCashierEvent(session.Context(), eventID, event); err != nil {
+				h.log.Error("Failed to save cashier event", zap.Error(err))
 				continue
 			}
 		}

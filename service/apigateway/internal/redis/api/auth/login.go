@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 )
 
 var ttlDefault = 5 * time.Minute

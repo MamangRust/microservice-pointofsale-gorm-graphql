@@ -2,24 +2,21 @@ package handler
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
 	"github.com/MamangRust/microservice-point-of-sale-transacton/service"
 )
 
-type Deps struct {
-	Service *service.Service
-	Logger  logger.LoggerInterface
+// Handler groups all transaction gRPC handlers.
+type Handler interface {
+	TransactionQueryHandleGrpc
 }
 
-type Handler struct {
-	Transaction pb.TransactionServiceServer
+type handler struct {
+	TransactionQueryHandleGrpc
 }
 
-func NewHandler(deps *Deps) *Handler {
-	return &Handler{
-		Transaction: NewTransactionHandleGrpc(
-			deps.Service,
-			deps.Logger,
-		),
+// NewHandler initializes transaction gRPC handlers.
+func NewHandler(svc *service.Service, logger logger.LoggerInterface) Handler {
+	return &handler{
+		TransactionQueryHandleGrpc: NewTransactionQueryHandleGrpc(svc, logger),
 	}
 }

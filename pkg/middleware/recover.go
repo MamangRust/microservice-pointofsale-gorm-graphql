@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-
 func RecoveryMiddleware(logger logger.LoggerInterface) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,

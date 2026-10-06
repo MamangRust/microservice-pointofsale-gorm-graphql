@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 
 	"net"
 
@@ -36,7 +36,7 @@ func (s *MerchantRepositoryTestSuite) SetupSuite() {
 	userConn, _ := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	merchantQueries := s.ts.GormDB()
-	s.repo = repository.NewRepositories(merchantQueries, pb.NewUserServiceClient(userConn))
+	s.repo = repository.NewRepositories(merchantQueries, pb.NewUserQueryServiceClient(userConn), pb.NewUserCommandServiceClient(userConn))
 
 	// Seed a user ID directly for merchant tests
 	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(

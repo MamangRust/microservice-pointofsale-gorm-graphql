@@ -3,7 +3,7 @@ package merchantdocumentgraphqlmapper
 import (
 	graphqlmapper "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/mapper"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
+	merchantdocumentpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
 )
 
 type merchantDocumentGraphqlMapper struct {
@@ -13,7 +13,7 @@ func NewMerchantDocumentGraphqlMapper() *merchantDocumentGraphqlMapper {
 	return &merchantDocumentGraphqlMapper{}
 }
 
-func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseMerchantDocument(res *pb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocument {
+func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseMerchantDocument(res *merchantdocumentpb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocument {
 	return &model.APIResponseMerchantDocument{
 		Status:  res.Status,
 		Message: res.Message,
@@ -21,7 +21,7 @@ func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseMerchantDocument(res *p
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseMerchantDocumentDeleteAt(res *pb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocumentDeleteAt {
+func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseMerchantDocumentDeleteAt(res *merchantdocumentpb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocumentDeleteAt {
 	var data *model.MerchantDocumentResponseDeleteAt
 	if res.Data != nil {
 		var deletedAt string = ""
@@ -44,21 +44,21 @@ func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseMerchantDocumentDeleteA
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseDelete(res *pb.ApiResponseMerchantDocumentDelete) *model.APIResponseMerchantDocumentDelete {
+func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseDelete(res *merchantdocumentpb.ApiResponseMerchantDocumentDelete) *model.APIResponseMerchantDocumentDelete {
 	return &model.APIResponseMerchantDocumentDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseAll(res *pb.ApiResponseMerchantDocumentAll) *model.APIResponseMerchantDocumentAll {
+func (m *merchantDocumentGraphqlMapper) ToGraphqlResponseAll(res *merchantdocumentpb.ApiResponseMerchantDocumentAll) *model.APIResponseMerchantDocumentAll {
 	return &model.APIResponseMerchantDocumentAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocument(res *pb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocument {
+func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocument(res *merchantdocumentpb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocument {
 	return &model.APIResponsePaginationMerchantDocument{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -67,7 +67,7 @@ func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocum
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocumentDeleteAt(res *pb.ApiResponsePaginationMerchantDocumentAt) *model.APIResponsePaginationMerchantDocumentAt {
+func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocumentDeleteAt(res *merchantdocumentpb.ApiResponsePaginationMerchantDocumentAt) *model.APIResponsePaginationMerchantDocumentAt {
 	return &model.APIResponsePaginationMerchantDocumentAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -76,7 +76,7 @@ func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocum
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) mapResponseMerchantDocument(doc *pb.MerchantDocument) *model.MerchantDocumentResponse {
+func (m *merchantDocumentGraphqlMapper) mapResponseMerchantDocument(doc *merchantdocumentpb.MerchantDocument) *model.MerchantDocumentResponse {
 	if doc == nil {
 		return nil
 	}
@@ -92,7 +92,7 @@ func (m *merchantDocumentGraphqlMapper) mapResponseMerchantDocument(doc *pb.Merc
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) mapResponsesMerchantDocument(docs []*pb.MerchantDocument) []*model.MerchantDocumentResponse {
+func (m *merchantDocumentGraphqlMapper) mapResponsesMerchantDocument(docs []*merchantdocumentpb.MerchantDocument) []*model.MerchantDocumentResponse {
 	var responses []*model.MerchantDocumentResponse
 	for _, doc := range docs {
 		responses = append(responses, m.mapResponseMerchantDocument(doc))
@@ -100,7 +100,7 @@ func (m *merchantDocumentGraphqlMapper) mapResponsesMerchantDocument(docs []*pb.
 	return responses
 }
 
-func (m *merchantDocumentGraphqlMapper) mapResponseMerchantDocumentDeleteAt(doc *pb.MerchantDocumentDeleteAt) *model.MerchantDocumentResponseDeleteAt {
+func (m *merchantDocumentGraphqlMapper) mapResponseMerchantDocumentDeleteAt(doc *merchantdocumentpb.MerchantDocumentDeleteAt) *model.MerchantDocumentResponseDeleteAt {
 	if doc == nil {
 		return nil
 	}
@@ -121,7 +121,7 @@ func (m *merchantDocumentGraphqlMapper) mapResponseMerchantDocumentDeleteAt(doc 
 	}
 }
 
-func (m *merchantDocumentGraphqlMapper) mapResponsesMerchantDocumentDeleteAt(docs []*pb.MerchantDocumentDeleteAt) []*model.MerchantDocumentResponseDeleteAt {
+func (m *merchantDocumentGraphqlMapper) mapResponsesMerchantDocumentDeleteAt(docs []*merchantdocumentpb.MerchantDocumentDeleteAt) []*model.MerchantDocumentResponseDeleteAt {
 	var responses []*model.MerchantDocumentResponseDeleteAt
 	for _, doc := range docs {
 		responses = append(responses, m.mapResponseMerchantDocumentDeleteAt(doc))
@@ -129,7 +129,7 @@ func (m *merchantDocumentGraphqlMapper) mapResponsesMerchantDocumentDeleteAt(doc
 	return responses
 }
 
-func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocumentActive(res *pb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocumentAt {
+func (m *merchantDocumentGraphqlMapper) ToGraphqlResponsePaginationMerchantDocumentActive(res *merchantdocumentpb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocumentAt {
 	var responses []*model.MerchantDocumentResponseDeleteAt
 	for _, doc := range res.Data {
 		if doc == nil {

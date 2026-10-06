@@ -1,8 +1,8 @@
 package response_api
 
 import (
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 )
 
 type orderItemResponseMapper struct {

@@ -8,7 +8,9 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
+	mycontext "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/context"
 	graph "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/handler"
+	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/middlewares"
 	mencache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/redis/go-redis/v9"
@@ -59,10 +61,30 @@ func NewResolverWithRedis(conns *ServiceConnections, log logger.LoggerInterface,
 	})
 }
 
+// permissiveRoleChecker stands in for the RBAC checker of the running gateway.
+//
+// The harness mounts the schema without AuthMiddleware, and that middleware is
+// what puts the authenticated user in the request context, so there is no user
+// for the @hasRole directive to authorise and it passes every field through.
+// The checker is wired anyway so the directive is never left nil, and so that a
+// test which injects a user (see WithUser) gets a predictable answer instead of
+// an "rbac: role checker is not configured" error.
+type permissiveRoleChecker struct{}
+
+func (permissiveRoleChecker) CheckRole(context.Context, int, ...string) error { return nil }
+
 // NewGraphQLHTTPHandler creates an http.Handler from a gqlgen Resolver.
 func NewGraphQLHTTPHandler(resolver *graph.Resolver) http.Handler {
+	return NewGraphQLHTTPHandlerWithRoleChecker(resolver, permissiveRoleChecker{})
+}
+
+// NewGraphQLHTTPHandlerWithRoleChecker builds the handler with an explicit RBAC
+// checker, so a test can exercise the @hasRole directive (pair it with WithUser
+// to simulate an authenticated caller).
+func NewGraphQLHTTPHandlerWithRoleChecker(resolver *graph.Resolver, checker middlewares.RoleChecker) http.Handler {
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
-		Resolvers: resolver,
+		Resolvers:  resolver,
+		Directives: graph.DirectiveRoot{HasRole: middlewares.HasRole(checker)},
 	}))
 
 	srv.AddTransport(transport.Options{})
@@ -120,6 +142,14 @@ func SetupServiceConnections(conns map[string]*grpc.ClientConn) *ServiceConnecti
 	}
 
 	return sc
+}
+
+// WithUser injects the given user id into the request context, emulating what
+// AuthMiddleware does for authenticated traffic.
+func WithUser(next http.Handler, userID int) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(mycontext.WithUserID(r.Context(), userID)))
+	})
 }
 
 // SeedMerchantCache writes a merchant ID-to-API-key mapping into Redis

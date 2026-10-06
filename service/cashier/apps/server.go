@@ -1,19 +1,21 @@
 package apps
 
 import (
-	
 	"context"
 	"os"
+	"time"
 
-	"github.com/MamangRust/microservice-point-of-sale-cashier/handler"
 	mencache "github.com/MamangRust/microservice-point-of-sale-cashier/cache"
+	"github.com/MamangRust/microservice-point-of-sale-cashier/handler"
 	"github.com/MamangRust/microservice-point-of-sale-cashier/repository"
 	"github.com/MamangRust/microservice-point-of-sale-cashier/service"
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/adapter"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/resilience"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/server"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -53,10 +55,19 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		merchantConn.Close()
 	}()
 
-	userClient := pbuser.NewUserServiceClient(userConn)
-	merchantClient := pbmerchant.NewMerchantServiceClient(merchantConn)
+	userQueryClient := pbuser.NewUserQueryServiceClient(userConn)
+	userCommandClient := pbuser.NewUserCommandServiceClient(userConn)
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(merchantConn)
 
-	repos := repository.NewRepositories(srv.GormDB, userClient, merchantClient)
+	guardUser := resilience.NewDependencyGuard("user", 5, 30, 100, 3*time.Second, srv.Logger)
+	guardMerchant := resilience.NewDependencyGuard("merchant", 5, 30, 100, 3*time.Second, srv.Logger)
+
+	repos := repository.NewRepositories(srv.GormDB, userQueryClient, userCommandClient, merchantClient,
+		repository.GuardOptions{
+			User:     []adapter.GuardOption{adapter.WithDependencyGuard(guardUser)},
+			Merchant: []adapter.GuardOption{adapter.WithDependencyGuard(guardMerchant)},
+		},
+	)
 	traceLoggerObservability := observability.NewTraceLoggerObservability(srv.Logger)
 
 	mencacheObj := mencache.NewMencache(srv.CacheStore)
@@ -69,13 +80,11 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: traceLoggerObservability,
 	})
 
-	handlers := handler.NewHandler(&handler.Deps{
-		Service: services,
-		Logger:  srv.Logger,
-	})
+	handlers := handler.NewHandler(services)
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterCashierServiceServer(gs, handlers.Cashier)
+		pbcashier.RegisterCashierQueryServiceServer(gs, handlers)
+		pbcashier.RegisterCashierCommandServiceServer(gs, handlers)
 	}
 
 	return srv, nil

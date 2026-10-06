@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
+	mencache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/kafka"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	mencache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

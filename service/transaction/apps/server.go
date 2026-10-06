@@ -4,16 +4,16 @@ import (
 	"os"
 	"time"
 
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pbtransaction "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/adapter"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/kafka"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/resilience"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/server"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 	mencache "github.com/MamangRust/microservice-point-of-sale-transacton/cache"
 	"github.com/MamangRust/microservice-point-of-sale-transacton/handler"
 	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
@@ -82,10 +82,11 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		orderItemConn.Close()
 	}()
 
-	cashierClient := pbcashier.NewCashierServiceClient(cashierConn)
-	merchantClient := pbmerchant.NewMerchantServiceClient(merchantConn)
-	orderClient := pborder.NewOrderServiceClient(orderConn)
-	orderItemClient := pborderitem.NewOrderItemServiceClient(orderItemConn)
+	cashierClient := pbcashier.NewCashierQueryServiceClient(cashierConn)
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(merchantConn)
+	orderClient := pborder.NewOrderQueryServiceClient(orderConn)
+	orderItemQueryClient := pborderitem.NewOrderItemQueryServiceClient(orderItemConn)
+	orderItemCommandClient := pborderitem.NewOrderItemCommandServiceClient(orderItemConn)
 
 	guardCashier := resilience.NewDependencyGuard("cashier", 5, 30, 100, 3*time.Second, srv.Logger)
 	guardMerchant := resilience.NewDependencyGuard("merchant", 5, 30, 100, 3*time.Second, srv.Logger)
@@ -93,7 +94,7 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	guardOrderItem := resilience.NewDependencyGuard("order_item", 5, 30, 100, 3*time.Second, srv.Logger)
 
 	repos := repository.NewRepositories(
-		srv.GormDB, cashierClient, merchantClient, orderClient, orderItemClient,
+		srv.GormDB, cashierClient, merchantClient, orderClient, orderItemQueryClient, orderItemCommandClient,
 		repository.GuardOptions{
 			Cashier:   []adapter.GuardOption{adapter.WithDependencyGuard(guardCashier)},
 			Merchant:  []adapter.GuardOption{adapter.WithDependencyGuard(guardMerchant)},
@@ -120,13 +121,11 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: traceLoggerObservability,
 	})
 
-	handlers := handler.NewHandler(&handler.Deps{
-		Service: services,
-		Logger:  srv.Logger,
-	})
+	handlers := handler.NewHandler(services, srv.Logger)
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterTransactionServiceServer(gs, handlers.Transaction)
+		pbtransaction.RegisterTransactionQueryServiceServer(gs, handlers)
+		pbtransaction.RegisterTransactionCommandServiceServer(gs, handlers)
 	}
 
 	return srv, nil

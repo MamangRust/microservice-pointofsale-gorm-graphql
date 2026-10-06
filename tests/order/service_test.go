@@ -7,12 +7,12 @@ import (
 	order_cache "github.com/MamangRust/microservice-point-of-sale-order/cache"
 	"github.com/MamangRust/microservice-point-of-sale-order/repository"
 	"github.com/MamangRust/microservice-point-of-sale-order/service"
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
-	pbproduct "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -68,10 +68,12 @@ func (s *OrderServiceTestSuite) SetupSuite() {
 	mencache := order_cache.NewMencache(s.GetCacheStore())
 	repos := repository.NewRepositories(
 		queries,
-		pbcashier.NewCashierServiceClient(s.Conns["cashier"]),
-		pbmerchant.NewMerchantServiceClient(s.Conns["merchant"]),
-		pbproduct.NewProductServiceClient(s.Conns["product"]),
-		pborderitem.NewOrderItemServiceClient(s.Conns["order-item"]),
+		pbcashier.NewCashierQueryServiceClient(s.Conns["cashier"]),
+		pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pbproduct.NewProductQueryServiceClient(s.Conns["product"]),
+		pbproduct.NewProductCommandServiceClient(s.Conns["product"]),
+		pborderitem.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		pborderitem.NewOrderItemCommandServiceClient(s.Conns["order-item"]),
 	)
 
 	s.svc = service.NewService(&service.Deps{

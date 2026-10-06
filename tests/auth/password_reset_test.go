@@ -2,7 +2,10 @@ package auth_test
 
 import (
 	"context"
-	"net"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"testing"
 
 	auth_cache "github.com/MamangRust/microservice-point-of-sale-auth/cache"
@@ -11,17 +14,11 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-auth/service"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/auth"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
-	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -31,75 +28,55 @@ import (
 // the persisted password must be a bcrypt hash (never the plaintext) and
 // login must succeed with the new password afterwards.
 type AuthPasswordResetTestSuite struct {
-	suite.Suite
-	ts          *tests.TestSuite
-	redisClient *redis.Client
-	client      pb.AuthServiceClient
-	conn        *grpc.ClientConn
-	grpcServer  *grpc.Server
-	hasher      hash.HashPassword
+	tests.BaseTestSuite
+	client pb.AuthServiceClient
+	hasher hash.HashPassword
 }
 
 func (s *AuthPasswordResetTestSuite) SetupSuite() {
-	ts, err := tests.SetupTestSuite()
-	s.ts = ts
+	s.BaseTestSuite.SetupSuite()
 
-	s.Require().NoError(err)
-	
-	opts, err := redis.ParseURL(s.ts.RedisURL)
-	s.Require().NoError(err)
-	s.redisClient = redis.NewClient(opts)
+	// Real in-process role + user services: RegisterUser resolves ROLE_ADMIN
+	// and persists the user through the user service adapters.
+	s.SetupUserService()
 
-	authQueries := s.ts.GormDB()
+	cacheStore := s.GetCacheStore()
+	hasher := hash.NewHashingPassword()
+	s.hasher = hasher
 
-	log, _ := logger.NewLogger("test")
-	s.hasher = hash.NewHashingPassword()
-	cacheMetrics, _ := observability.NewCacheMetrics("test")
-	cacheStore := cache.NewCacheStore(s.redisClient, log, cacheMetrics)
-	obs, _ := observability.NewObservability("test", log)
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
 
-	repos := repository.NewRepositories(authQueries)
+	repos := repository.NewRepositories(s.GormDB(), userQueryClient, userCommandClient, roleClient, userRoleClient)
 	tokenManager, _ := auth.NewManager("mysecret")
 
 	svc := service.NewService(&service.Deps{
 		Repositories:  repos,
-		Logger:        log,
+		Logger:        s.Log,
 		Mencache:      auth_cache.NewMencache(cacheStore),
 		Token:         tokenManager,
 		Hash:          s.hasher,
 		Kafka:         nil,
-		Observability: obs,
+		Observability: s.Obs,
 	})
 
-	h := handler.NewAuthHandleGrpc(svc, log)
-	s.grpcServer = grpc.NewServer()
-	pb.RegisterAuthServiceServer(s.grpcServer, h)
+	h := handler.NewAuthHandleGrpc(svc, s.Log)
+	server := grpc.NewServer()
+	pb.RegisterAuthServiceServer(server, h)
 
-	lis, err := net.Listen("tcp", "localhost:0")
-	s.Require().NoError(err)
-	go func() {
-		_ = s.grpcServer.Serve(lis)
-	}()
-
-	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	s.Require().NoError(err)
-	s.conn = conn
+	addr := s.RegisterServer(server)
+	conn := s.GetConnection(addr)
 	s.client = pb.NewAuthServiceClient(conn)
+
+	// RegisterUser assigns ROLE_ADMIN to every new account.
+	s.GormDB().WithContext(s.Ctx).Exec(
+		`INSERT INTO roles (role_name) VALUES ('ROLE_ADMIN') ON CONFLICT (role_name) DO NOTHING`)
 }
 
 func (s *AuthPasswordResetTestSuite) TearDownSuite() {
-	if s.conn != nil {
-		s.conn.Close()
-	}
-	if s.grpcServer != nil {
-		s.grpcServer.Stop()
-	}
-	if s.redisClient != nil {
-		s.redisClient.Close()
-	}
-	if s.ts != nil {
-		s.ts.Teardown()
-	}
+	s.BaseTestSuite.TearDownSuite()
 }
 
 // registerUser creates a fresh user through the register resolver and returns
@@ -120,14 +97,14 @@ func (s *AuthPasswordResetTestSuite) registerUser(email, password string) int32 
 }
 
 func (s *AuthPasswordResetTestSuite) markUserVerified(userID int32) {
-	err := s.ts.GormDB().WithContext(context.Background()).Exec(
+	err := s.GormDB().WithContext(context.Background()).Exec(
 		"UPDATE users SET is_verified = true WHERE user_id = ?", userID).Error
 	s.Require().NoError(err)
 }
 
 func (s *AuthPasswordResetTestSuite) fetchVerificationCode(userID int32) string {
 	var code string
-	err := s.ts.GormDB().WithContext(context.Background()).Raw(
+	err := s.GormDB().WithContext(context.Background()).Raw(
 		"SELECT verification_code FROM users WHERE user_id = ?", userID).Scan(&code).Error
 	s.Require().NoError(err)
 	return code
@@ -135,7 +112,7 @@ func (s *AuthPasswordResetTestSuite) fetchVerificationCode(userID int32) string 
 
 func (s *AuthPasswordResetTestSuite) fetchResetToken(userID int32) string {
 	var token string
-	err := s.ts.GormDB().WithContext(context.Background()).Raw(
+	err := s.GormDB().WithContext(context.Background()).Raw(
 		"SELECT token FROM reset_tokens WHERE user_id = ?", userID).Scan(&token).Error
 	s.Require().NoError(err)
 	return token
@@ -143,7 +120,7 @@ func (s *AuthPasswordResetTestSuite) fetchResetToken(userID int32) string {
 
 func (s *AuthPasswordResetTestSuite) storedPassword(userID int32) string {
 	var pw string
-	err := s.ts.GormDB().WithContext(context.Background()).Raw(
+	err := s.GormDB().WithContext(context.Background()).Raw(
 		"SELECT password FROM users WHERE user_id = ?", userID).Scan(&pw).Error
 	s.Require().NoError(err)
 	return pw
@@ -164,7 +141,7 @@ func (s *AuthPasswordResetTestSuite) Test1_VerifyCodeResolver_Success() {
 	s.Equal("success", res.Status)
 
 	var isVerified bool
-	err = s.ts.GormDB().WithContext(context.Background()).Raw(
+	err = s.GormDB().WithContext(context.Background()).Raw(
 		"SELECT is_verified FROM users WHERE user_id = ?", userID).Scan(&isVerified).Error
 	s.Require().NoError(err)
 	s.True(isVerified)
@@ -231,7 +208,7 @@ func (s *AuthPasswordResetTestSuite) Test5_ResetPasswordResolver_Success_AndHash
 
 	// The reset token must be consumed after a successful reset.
 	var count int
-	err = s.ts.GormDB().WithContext(context.Background()).Raw(
+	err = s.GormDB().WithContext(context.Background()).Raw(
 		"SELECT COUNT(*) FROM reset_tokens WHERE user_id = ?", userID).Scan(&count).Error
 	s.Require().NoError(err)
 	s.Equal(0, count)

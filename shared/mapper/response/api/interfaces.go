@@ -1,18 +1,18 @@
 package response_api
 
 import (
+	pbauth "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbmerchantdocument "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbtransaction "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	pbauth "github.com/MamangRust/microservice-pointofsale-grpc/pb"
-	pbcategory "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
-	pbproduct "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
-	pbrole "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
-	pbtransaction "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 )
 
 type AuthResponseMapper interface {
@@ -46,12 +46,6 @@ type UserResponseMapper interface {
 }
 
 type CategoryResponseMapper interface {
-	ToApiResponseCategoryMonthlyTotalPrice(pbResponse *pbstats.ApiResponseCategoryMonthlyTotalPrice) *response.ApiResponseCategoryMonthlyTotalPrice
-	ToApiResponseCategoryYearlyTotalPrice(pbResponse *pbstats.ApiResponseCategoryYearlyTotalPrice) *response.ApiResponseCategoryYearlyTotalPrice
-
-	ToApiResponseCategoryMonthlyPrice(pbResponse *pbstats.ApiResponseCategoryMonthPrice) *response.ApiResponseCategoryMonthPrice
-	ToApiResponseCategoryYearlyPrice(pbResponse *pbstats.ApiResponseCategoryYearPrice) *response.ApiResponseCategoryYearPrice
-
 	ToApiResponseCategory(pbResponse *pbcategory.ApiResponseCategory) *response.ApiResponseCategory
 	ToApiResponseCategoryDeleteAt(pbResponse *pbcategory.ApiResponseCategoryDeleteAt) *response.ApiResponseCategoryDeleteAt
 	ToApiResponsesCategory(pbResponse *pbcategory.ApiResponsesCategory) *response.ApiResponsesCategory
@@ -62,12 +56,6 @@ type CategoryResponseMapper interface {
 }
 
 type CashierResponseMapper interface {
-	ToApiResponseMonthlyTotalSales(pbResponse *pbstats.ApiResponseCashierMonthlyTotalSales) *response.ApiResponseCashierMonthlyTotalSales
-	ToApiResponseYearlyTotalSales(pbResponse *pbstats.ApiResponseCashierYearlyTotalSales) *response.ApiResponseCashierYearlyTotalSales
-
-	ToApiResponseCashierMonthlySale(pbResponse *pbstats.ApiResponseCashierMonthSales) *response.ApiResponseCashierMonthSales
-	ToApiResponseCashierYearlySale(pbResponse *pbstats.ApiResponseCashierYearSales) *response.ApiResponseCashierYearSales
-
 	ToApiResponseCashier(pbResponse *pbcashier.ApiResponseCashier) *response.ApiResponseCashier
 	ToApiResponsesCashier(pbResponse *pbcashier.ApiResponsesCashier) *response.ApiResponsesCashier
 	ToApiResponseCashierAll(pbResponse *pbcashier.ApiResponseCashierAll) *response.ApiResponseCashierAll
@@ -89,14 +77,14 @@ type MerchantResponseMapper interface {
 }
 
 type MerchantDocumentResponseMapper interface {
-	ToApiResponseMerchantDocument(doc *pbmerchant.ApiResponseMerchantDocument) *response.ApiResponseMerchantDocument
-	ToApiResponsesMerchantDocument(docs *pbmerchant.ApiResponsesMerchantDocument) *response.ApiResponsesMerchantDocument
+	ToApiResponseMerchantDocument(doc *pbmerchantdocument.ApiResponseMerchantDocument) *response.ApiResponseMerchantDocument
+	ToApiResponsesMerchantDocument(docs *pbmerchantdocument.ApiResponsesMerchantDocument) *response.ApiResponsesMerchantDocument
 
-	ToApiResponsePaginationMerchantDocument(docs *pbmerchant.ApiResponsePaginationMerchantDocument) *response.ApiResponsePaginationMerchantDocument
-	ToApiResponsePaginationMerchantDocumentDeleteAt(docs *pbmerchant.ApiResponsePaginationMerchantDocumentAt) *response.ApiResponsePaginationMerchantDocumentDeleteAt
+	ToApiResponsePaginationMerchantDocument(docs *pbmerchantdocument.ApiResponsePaginationMerchantDocument) *response.ApiResponsePaginationMerchantDocument
+	ToApiResponsePaginationMerchantDocumentDeleteAt(docs *pbmerchantdocument.ApiResponsePaginationMerchantDocumentAt) *response.ApiResponsePaginationMerchantDocumentDeleteAt
 
-	ToApiResponseMerchantDocumentAll(resp *pbmerchant.ApiResponseMerchantDocumentAll) *response.ApiResponseMerchantDocumentAll
-	ToApiResponseMerchantDocumentDeleteAt(resp *pbmerchant.ApiResponseMerchantDocumentDelete) *response.ApiResponseMerchantDocumentDelete
+	ToApiResponseMerchantDocumentAll(resp *pbmerchantdocument.ApiResponseMerchantDocumentAll) *response.ApiResponseMerchantDocumentAll
+	ToApiResponseMerchantDocumentDeleteAt(resp *pbmerchantdocument.ApiResponseMerchantDocumentDelete) *response.ApiResponseMerchantDocumentDelete
 }
 
 type OrderItemResponseMapper interface {
@@ -109,12 +97,6 @@ type OrderItemResponseMapper interface {
 }
 
 type OrderResponseMapper interface {
-	ToApiResponseMonthlyTotalRevenue(pbResponse *pbstats.ApiResponseOrderMonthlyTotalRevenue) *response.ApiResponseOrderMonthlyTotalRevenue
-	ToApiResponseYearlyTotalRevenue(pbResponse *pbstats.ApiResponseOrderYearlyTotalRevenue) *response.ApiResponseOrderYearlyTotalRevenue
-
-	ToApiResponseMonthlyOrder(pbResponse *pbstats.ApiResponseOrderMonthly) *response.ApiResponseOrderMonthly
-	ToApiResponseYearlyOrder(pbResponse *pbstats.ApiResponseOrderYearly) *response.ApiResponseOrderYearly
-
 	ToApiResponseOrder(pbResponse *pborder.ApiResponseOrder) *response.ApiResponseOrder
 	ToApiResponseOrderDeleteAt(pbResponse *pborder.ApiResponseOrderDeleteAt) *response.ApiResponseOrderDeleteAt
 	ToApiResponsesOrder(pbResponse *pborder.ApiResponsesOrder) *response.ApiResponsesOrder
@@ -135,13 +117,6 @@ type ProductResponseMapper interface {
 }
 
 type TransactionResponseMapper interface {
-	ToApiResponseTransactionMonthAmountSuccess(pbResponse *pbstats.ApiResponseTransactionMonthAmountSuccess) *response.ApiResponsesTransactionMonthSuccess
-	ToApiResponseTransactionMonthAmountFailed(pbResponse *pbstats.ApiResponseTransactionMonthAmountFailed) *response.ApiResponsesTransactionMonthFailed
-	ToApiResponseTransactionYearAmountSuccess(pbResponse *pbstats.ApiResponseTransactionYearAmountSuccess) *response.ApiResponsesTransactionYearSuccess
-	ToApiResponseTransactionYearAmountFailed(pbResponse *pbstats.ApiResponseTransactionYearAmountFailed) *response.ApiResponsesTransactionYearFailed
-	ToApiResponseTransactionMonthMethod(pbResponse *pbstats.ApiResponseTransactionMonthPaymentMethod) *response.ApiResponsesTransactionMonthMethod
-	ToApiResponseTransactionYearMethod(pbResponse *pbstats.ApiResponseTransactionYearPaymentmethod) *response.ApiResponsesTransactionYearMethod
-
 	ToApiResponseTransaction(pbResponse *pbtransaction.ApiResponseTransaction) *response.ApiResponseTransaction
 	ToApiResponseTransactionDeleteAt(pbResponse *pbtransaction.ApiResponseTransactionDeleteAt) *response.ApiResponseTransactionDeleteAt
 	ToApiResponsesTransaction(pbResponse *pbtransaction.ApiResponsesTransaction) *response.ApiResponsesTransaction

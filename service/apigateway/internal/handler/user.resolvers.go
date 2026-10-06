@@ -7,12 +7,11 @@ package graph
 import (
 	"context"
 	"fmt"
+	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 
-	errors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
-
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	userpb "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -32,7 +31,7 @@ func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUse
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.CreateUserRequest{
+		reqPb := &userpb.CreateUserRequest{
 			Firstname:       req.FirstName,
 			Lastname:        req.LastName,
 			Email:           req.Email,
@@ -89,7 +88,7 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, input model.UpdateUse
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.UpdateUserRequest{
+		reqPb := &userpb.UpdateUserRequest{
 			Id:              int32(*req.UserID),
 			Firstname:       req.FirstName,
 			Lastname:        req.LastName,
@@ -119,7 +118,7 @@ func (r *mutationResolver) TrashedUser(ctx context.Context, input model.FindByID
 			return nil, errors.NewBadRequestError("invalid user ID")
 		}
 
-		user, err := r.UserGraphql.UserClient.TrashedUser(ctx, &pb.FindByIdUserRequest{Id: id})
+		user, err := r.UserGraphql.UserClient.TrashedUser(ctx, &userpb.FindByIdUserRequest{Id: id})
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "TrashedUser")
 		}
@@ -140,7 +139,7 @@ func (r *mutationResolver) RestoreUser(ctx context.Context, input model.FindByID
 			return nil, errors.NewBadRequestError("invalid user ID")
 		}
 
-		user, err := r.UserGraphql.UserClient.RestoreUser(ctx, &pb.FindByIdUserRequest{Id: id})
+		user, err := r.UserGraphql.UserClient.RestoreUser(ctx, &userpb.FindByIdUserRequest{Id: id})
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "RestoreUser")
 		}
@@ -161,7 +160,7 @@ func (r *mutationResolver) DeleteUserPermanent(ctx context.Context, input model.
 			return nil, errors.NewBadRequestError("invalid user ID")
 		}
 
-		res, err := r.UserGraphql.UserClient.DeleteUserPermanent(ctx, &pb.FindByIdUserRequest{Id: id})
+		res, err := r.UserGraphql.UserClient.DeleteUserPermanent(ctx, &userpb.FindByIdUserRequest{Id: id})
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "DeleteUserPermanent")
 		}
@@ -217,7 +216,7 @@ func (r *queryResolver) FindAllUsers(ctx context.Context, input *model.FindAllUs
 			}
 		}
 
-		res, err := r.UserGraphql.UserClient.FindAll(ctx, &pb.FindAllUserRequest{
+		res, err := r.UserGraphql.UserClient.FindAll(ctx, &userpb.FindAllUserRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -243,7 +242,7 @@ func (r *queryResolver) FindByIDUser(ctx context.Context, input model.FindByIDUs
 		return cachedData, nil
 	}
 
-	user, errResp := r.UserGraphql.UserClient.FindById(ctx, &pb.FindByIdUserRequest{
+	user, errResp := r.UserGraphql.UserClient.FindById(ctx, &userpb.FindByIdUserRequest{
 		Id: int32(id),
 	})
 	if errResp != nil {
@@ -274,7 +273,7 @@ func (r *queryResolver) FindByActiveUsers(ctx context.Context, input *model.Find
 			}
 		}
 
-		res, err := r.UserGraphql.UserClient.FindByActive(ctx, &pb.FindAllUserRequest{
+		res, err := r.UserGraphql.UserClient.FindByActive(ctx, &userpb.FindAllUserRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -305,7 +304,7 @@ func (r *queryResolver) FindByTrashedUsers(ctx context.Context, input *model.Fin
 			}
 		}
 
-		res, err := r.UserGraphql.UserClient.FindByTrashed(ctx, &pb.FindAllUserRequest{
+		res, err := r.UserGraphql.UserClient.FindByTrashed(ctx, &userpb.FindAllUserRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

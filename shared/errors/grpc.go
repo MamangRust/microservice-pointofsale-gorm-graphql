@@ -3,7 +3,7 @@ package errors
 import (
 	"encoding/json"
 
-	pbcommon "github.com/MamangRust/microservice-pointofsale-grpc/pb/common"
+	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
 )
 
 func GrpcErrorToJson(err *pbcommon.ErrorResponse) string {

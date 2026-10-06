@@ -8,17 +8,17 @@ import (
 	item_handler "github.com/MamangRust/microservice-point-of-sale-order-item/handler"
 	item_repo "github.com/MamangRust/microservice-point-of-sale-order-item/repository"
 	item_service "github.com/MamangRust/microservice-point-of-sale-order-item/service"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 )
 
 type OrderItemGapiTestSuite struct {
 	tests.BaseTestSuite
-	client pb.OrderItemServiceClient
+	client pb.OrderItemQueryServiceClient
 }
 
 func (s *OrderItemGapiTestSuite) SetupSuite() {
@@ -49,19 +49,17 @@ func (s *OrderItemGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := item_handler.NewHandler(&item_handler.Deps{
-		Service: svc,
-		Logger:  s.Log,
-	})
+	handler := item_handler.NewHandler(svc, s.Log)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterOrderItemServiceServer(server, handler.OrderItem)
+	pb.RegisterOrderItemQueryServiceServer(server, handler)
+	pb.RegisterOrderItemCommandServiceServer(server, handler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewOrderItemServiceClient(conn)
+	s.client = pb.NewOrderItemQueryServiceClient(conn)
 }
 
 func (s *OrderItemGapiTestSuite) TestOrderItemGapiLifecycle() {

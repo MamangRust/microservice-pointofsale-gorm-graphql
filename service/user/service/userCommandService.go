@@ -74,7 +74,9 @@ func (s *userCommandService) CreateUser(ctx context.Context, request *requests.C
 	role, err := s.roleRepository.FindByName(ctx, defaultRoleName)
 	if err != nil || role == nil {
 		status = "error"
-		if err == nil { err = role_errors.ErrRoleNotFoundRes }
+		if err == nil {
+			err = role_errors.ErrRoleNotFoundRes
+		}
 		return sharederrorhandler.HandleError[*models.User](s.logger, role_errors.ErrRoleNotFoundRes.WithInternal(err), method, span, zap.String("name", defaultRoleName))
 	}
 
@@ -85,6 +87,57 @@ func (s *userCommandService) CreateUser(ctx context.Context, request *requests.C
 	}
 
 	logSuccess("Successfully created user", zap.Int32("user.id", res.UserID))
+	return res, nil
+}
+
+// CreateUserRecord registers a user on behalf of the auth service. The password
+// is already hashed upstream, so it is stored as-is; the default-role lookup
+// done by CreateUser is intentionally skipped here (auth owns role assignment).
+func (s *userCommandService) CreateUserRecord(ctx context.Context, request *requests.RegisterRequest) (*models.User, error) {
+	const method = "CreateUserRecord"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method)
+	defer func() { end(status) }()
+
+	res, err := s.userCommandRepository.CreateUserRecord(ctx, request)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, user_errors.ErrFailedCreateUser.WithInternal(err), method, span)
+	}
+
+	s.mencache.DeleteUserAllCache(ctx)
+	logSuccess("Successfully created user record", zap.Int32("user.id", res.UserID))
+	return res, nil
+}
+
+func (s *userCommandService) UpdateUserIsVerified(ctx context.Context, userID int, isVerified bool) (*models.User, error) {
+	const method = "UpdateUserIsVerified"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method)
+	defer func() { end(status) }()
+
+	res, err := s.userCommandRepository.UpdateUserIsVerified(ctx, userID, isVerified)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, user_errors.ErrUpdateUserVerificationCode.WithInternal(err), method, span)
+	}
+
+	s.mencache.DeleteUserCache(ctx, userID)
+	logSuccess("Successfully updated user verification", zap.Int32("user.id", res.UserID))
+	return res, nil
+}
+
+func (s *userCommandService) UpdateUserPassword(ctx context.Context, userID int, password string) (*models.User, error) {
+	const method = "UpdateUserPassword"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method)
+	defer func() { end(status) }()
+
+	res, err := s.userCommandRepository.UpdateUserPassword(ctx, userID, password)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.User](s.logger, user_errors.ErrUpdateUserPassword.WithInternal(err), method, span)
+	}
+
+	s.mencache.DeleteUserCache(ctx, userID)
+	logSuccess("Successfully updated user password", zap.Int32("user.id", res.UserID))
 	return res, nil
 }
 
@@ -120,7 +173,9 @@ func (s *userCommandService) UpdateUser(ctx context.Context, request *requests.U
 	role, err := s.roleRepository.FindByName(ctx, defaultRoleName)
 	if err != nil || role == nil {
 		status = "error"
-		if err == nil { err = role_errors.ErrRoleNotFoundRes }
+		if err == nil {
+			err = role_errors.ErrRoleNotFoundRes
+		}
 		return sharederrorhandler.HandleError[*models.User](s.logger, role_errors.ErrRoleNotFoundRes.WithInternal(err), method, span)
 	}
 

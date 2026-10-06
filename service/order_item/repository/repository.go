@@ -3,11 +3,13 @@ package repository
 import "gorm.io/gorm"
 
 type Repositories struct {
-	OrderItemQuery OrderItemQueryRepository
+	OrderItemQuery   OrderItemQueryRepository
+	OrderItemCommand OrderItemCommandRepository
 }
 
 func NewRepositories(DB *gorm.DB) *Repositories {
 	return &Repositories{
-		OrderItemQuery: NewOrderItemQueryRepository(DB),
+		OrderItemQuery:   NewOrderItemQueryRepository(DB),
+		OrderItemCommand: NewOrderItemCommandRepository(DB),
 	}
 }

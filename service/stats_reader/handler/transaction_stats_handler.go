@@ -4,14 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	statspb "github.com/MamangRust/microservice-point-of-sale-pb/stats"
+	transactionpb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
 	"github.com/MamangRust/microservice-point-of-sale-stats-reader/repository"
 	"go.uber.org/zap"
 )
 
+// TransactionStatsHandler serves transaction aggregates from ClickHouse
+// (transaction_daily): one struct registers both stats services — status
+// (success vs failed) and payment method.
 type TransactionStatsHandler struct {
-	pb.UnimplementedTransactionStatsServiceServer
+	statspb.UnimplementedTransactionStatsStatusServiceServer
+	statspb.UnimplementedTransactionStatsMethodServiceServer
 	repo  repository.Repository
 	cache *StatsCache
 	log   logger.LoggerInterface
@@ -21,404 +26,415 @@ func NewTransactionStatsHandler(repo repository.Repository, cache *StatsCache, l
 	return &TransactionStatsHandler{repo: repo, cache: cache, log: log}
 }
 
-func (h *TransactionStatsHandler) FindMonthlySuccess(ctx context.Context, req *pb.FindYearMonthStatsRequest) (*pb.ApiResponseTransactionMonthlySuccess, error) {
-	key := fmt.Sprintf("stats:reader:transaction:monthly-success:%d:%d", int(req.GetYear()), int(req.GetMonth()))
-	if cached, found := CacheGet[pb.ApiResponseTransactionMonthlySuccess](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindMonthStatusSuccess(ctx context.Context, req *transactionpb.FindMonthlyTransactionStatus) (*transactionpb.ApiResponseTransactionMonthAmountSuccess, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-status-success:%d:%d", req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthAmountSuccess](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionMonthlySuccess(ctx, int(req.GetYear()), int(req.GetMonth()))
+
+	data, err := h.repo.GetMonthStatusSuccess(ctx, int(req.GetYear()), int(req.GetMonth()))
 	if err != nil {
-		h.log.Error("FindMonthlySuccess failed", zap.Error(err))
+		h.log.Error("FindMonthStatusSuccess failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionMonthlySuccess{
+
+	resp := &transactionpb.ApiResponseTransactionMonthAmountSuccess{
 		Status:  "success",
-		Message: "Monthly transaction success retrieved successfully",
-		Data:    mapTransactionMonthlySuccess(data),
+		Message: "Monthly successful transactions retrieved successfully",
+		Data:    mapTransactionMonthAmountSuccess(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) FindMonthStatusSuccess(ctx context.Context, req *pb.FindMonthlyTransactionStatus) (*pb.ApiResponseTransactionMonthAmountSuccess, error) {
-	return h.findStatusMonthly(ctx, int(req.GetYear()), int(req.GetMonth()), "success")
-}
-
-func (h *TransactionStatsHandler) FindYearStatusSuccess(ctx context.Context, req *pb.FindYearlyTransactionStatus) (*pb.ApiResponseTransactionYearAmountSuccess, error) {
-	return h.findStatusYearly(ctx, int(req.GetYear()), "success")
-}
-
-func (h *TransactionStatsHandler) FindMonthStatusFailed(ctx context.Context, req *pb.FindMonthlyTransactionStatus) (*pb.ApiResponseTransactionMonthAmountFailed, error) {
-	return h.findStatusMonthlyFailed(ctx, int(req.GetYear()), int(req.GetMonth()), "failed")
-}
-
-func (h *TransactionStatsHandler) FindYearStatusFailed(ctx context.Context, req *pb.FindYearlyTransactionStatus) (*pb.ApiResponseTransactionYearAmountFailed, error) {
-	return h.findStatusYearlyFailed(ctx, int(req.GetYear()), "failed")
-}
-
-func (h *TransactionStatsHandler) FindMonthStatusSuccessByMerchant(ctx context.Context, req *pb.FindMonthlyTransactionStatusByMerchant) (*pb.ApiResponseTransactionMonthAmountSuccess, error) {
-	return h.findStatusMonthlyByMerchant(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()), "success")
-}
-
-func (h *TransactionStatsHandler) FindYearStatusSuccessByMerchant(ctx context.Context, req *pb.FindYearlyTransactionStatusByMerchant) (*pb.ApiResponseTransactionYearAmountSuccess, error) {
-	return h.findStatusYearlyByMerchant(ctx, int(req.GetYear()), int(req.GetMerchantId()), "success")
-}
-
-func (h *TransactionStatsHandler) FindMonthStatusFailedByMerchant(ctx context.Context, req *pb.FindMonthlyTransactionStatusByMerchant) (*pb.ApiResponseTransactionMonthAmountFailed, error) {
-	return h.findStatusMonthlyFailedByMerchant(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()), "failed")
-}
-
-func (h *TransactionStatsHandler) FindYearStatusFailedByMerchant(ctx context.Context, req *pb.FindYearlyTransactionStatusByMerchant) (*pb.ApiResponseTransactionYearAmountFailed, error) {
-	return h.findStatusYearlyFailedByMerchant(ctx, int(req.GetYear()), int(req.GetMerchantId()), "failed")
-}
-
-func (h *TransactionStatsHandler) FindMonthMethodSuccess(ctx context.Context, req *pb.MonthTransactionMethod) (*pb.ApiResponseTransactionMonthPaymentMethod, error) {
-	return h.findMethodMonthly(ctx, int(req.GetYear()), int(req.GetMonth()), "success")
-}
-
-func (h *TransactionStatsHandler) FindYearMethodSuccess(ctx context.Context, req *pb.YearTransactionMethod) (*pb.ApiResponseTransactionYearPaymentmethod, error) {
-	return h.findMethodYearly(ctx, int(req.GetYear()), "success")
-}
-
-func (h *TransactionStatsHandler) FindMonthMethodByMerchantSuccess(ctx context.Context, req *pb.MonthTransactionMethodByMerchant) (*pb.ApiResponseTransactionMonthPaymentMethod, error) {
-	return h.findMethodMonthlyByMerchant(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()), "success")
-}
-
-func (h *TransactionStatsHandler) FindYearMethodByMerchantSuccess(ctx context.Context, req *pb.YearTransactionMethodByMerchant) (*pb.ApiResponseTransactionYearPaymentmethod, error) {
-	return h.findMethodYearlyByMerchant(ctx, int(req.GetYear()), int(req.GetMerchantId()), "success")
-}
-
-func (h *TransactionStatsHandler) FindMonthMethodFailed(ctx context.Context, req *pb.MonthTransactionMethod) (*pb.ApiResponseTransactionMonthPaymentMethod, error) {
-	return h.findMethodMonthly(ctx, int(req.GetYear()), int(req.GetMonth()), "failed")
-}
-
-func (h *TransactionStatsHandler) FindYearMethodFailed(ctx context.Context, req *pb.YearTransactionMethod) (*pb.ApiResponseTransactionYearPaymentmethod, error) {
-	return h.findMethodYearly(ctx, int(req.GetYear()), "failed")
-}
-
-func (h *TransactionStatsHandler) FindMonthMethodByMerchantFailed(ctx context.Context, req *pb.MonthTransactionMethodByMerchant) (*pb.ApiResponseTransactionMonthPaymentMethod, error) {
-	return h.findMethodMonthlyByMerchant(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()), "failed")
-}
-
-func (h *TransactionStatsHandler) FindYearMethodByMerchantFailed(ctx context.Context, req *pb.YearTransactionMethodByMerchant) (*pb.ApiResponseTransactionYearPaymentmethod, error) {
-	return h.findMethodYearlyByMerchant(ctx, int(req.GetYear()), int(req.GetMerchantId()), "failed")
-}
-
-// ── Internal helpers ─────────────────────────────────────────────────────
-
-func (h *TransactionStatsHandler) findStatusMonthly(ctx context.Context, year, month int, status string) (*pb.ApiResponseTransactionMonthAmountSuccess, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-month:%s:%d:%d", status, year, month)
-	if cached, found := CacheGet[pb.ApiResponseTransactionMonthAmountSuccess](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindYearStatusSuccess(ctx context.Context, req *transactionpb.FindYearlyTransactionStatus) (*transactionpb.ApiResponseTransactionYearAmountSuccess, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-status-success:%d", req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearAmountSuccess](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusMonthly(ctx, year, month, status)
+
+	data, err := h.repo.GetYearStatusSuccess(ctx, int(req.GetYear()))
 	if err != nil {
-		h.log.Error("findStatusMonthly failed", zap.Error(err))
+		h.log.Error("FindYearStatusSuccess failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionMonthAmountSuccess{
+
+	resp := &transactionpb.ApiResponseTransactionYearAmountSuccess{
 		Status:  "success",
-		Message: "Monthly transaction status retrieved successfully",
-		Data:    mapTransactionStatusMonthly(data),
+		Message: "Yearly successful transactions retrieved successfully",
+		Data:    mapTransactionYearAmountSuccess(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findStatusYearly(ctx context.Context, year int, status string) (*pb.ApiResponseTransactionYearAmountSuccess, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-year:%s:%d", status, year)
-	if cached, found := CacheGet[pb.ApiResponseTransactionYearAmountSuccess](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindMonthStatusFailed(ctx context.Context, req *transactionpb.FindMonthlyTransactionStatus) (*transactionpb.ApiResponseTransactionMonthAmountFailed, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-status-failed:%d:%d", req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthAmountFailed](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusYearly(ctx, year, status)
+
+	data, err := h.repo.GetMonthStatusFailed(ctx, int(req.GetYear()), int(req.GetMonth()))
 	if err != nil {
-		h.log.Error("findStatusYearly failed", zap.Error(err))
+		h.log.Error("FindMonthStatusFailed failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionYearAmountSuccess{
+
+	resp := &transactionpb.ApiResponseTransactionMonthAmountFailed{
 		Status:  "success",
-		Message: "Yearly transaction status retrieved successfully",
-		Data:    mapTransactionStatusYearly(data),
+		Message: "Monthly failed transactions retrieved successfully",
+		Data:    mapTransactionMonthAmountFailed(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findStatusMonthlyFailed(ctx context.Context, year, month int, status string) (*pb.ApiResponseTransactionMonthAmountFailed, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-month-fail:%d:%d", year, month)
-	if cached, found := CacheGet[pb.ApiResponseTransactionMonthAmountFailed](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindYearStatusFailed(ctx context.Context, req *transactionpb.FindYearlyTransactionStatus) (*transactionpb.ApiResponseTransactionYearAmountFailed, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-status-failed:%d", req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearAmountFailed](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusMonthly(ctx, year, month, status)
+
+	data, err := h.repo.GetYearStatusFailed(ctx, int(req.GetYear()))
 	if err != nil {
-		h.log.Error("findStatusMonthlyFailed failed", zap.Error(err))
+		h.log.Error("FindYearStatusFailed failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionMonthAmountFailed{
+
+	resp := &transactionpb.ApiResponseTransactionYearAmountFailed{
 		Status:  "success",
-		Message: "Monthly transaction failed status retrieved successfully",
-		Data:    mapTransactionStatusMonthlyFailed(data),
+		Message: "Yearly failed transactions retrieved successfully",
+		Data:    mapTransactionYearAmountFailed(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findStatusYearlyFailed(ctx context.Context, year int, status string) (*pb.ApiResponseTransactionYearAmountFailed, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-year-fail:%d", year)
-	if cached, found := CacheGet[pb.ApiResponseTransactionYearAmountFailed](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindMonthStatusSuccessByMerchant(ctx context.Context, req *transactionpb.FindMonthlyTransactionStatusByMerchant) (*transactionpb.ApiResponseTransactionMonthAmountSuccess, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-status-success:merchant:%d:%d:%d", req.GetMerchantId(), req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthAmountSuccess](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusYearly(ctx, year, status)
+
+	data, err := h.repo.GetMonthStatusSuccessByMerchant(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()))
 	if err != nil {
-		h.log.Error("findStatusYearlyFailed failed", zap.Error(err))
+		h.log.Error("FindMonthStatusSuccessByMerchant failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionYearAmountFailed{
+
+	resp := &transactionpb.ApiResponseTransactionMonthAmountSuccess{
 		Status:  "success",
-		Message: "Yearly transaction failed status retrieved successfully",
-		Data:    mapTransactionStatusYearlyFailed(data),
+		Message: "Monthly successful transactions by merchant retrieved successfully",
+		Data:    mapTransactionMonthAmountSuccess(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findStatusMonthlyByMerchant(ctx context.Context, year, month, merchantID int, status string) (*pb.ApiResponseTransactionMonthAmountSuccess, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-month-merchant:%s:%d:%d:%d", status, year, month, merchantID)
-	if cached, found := CacheGet[pb.ApiResponseTransactionMonthAmountSuccess](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindYearStatusSuccessByMerchant(ctx context.Context, req *transactionpb.FindYearlyTransactionStatusByMerchant) (*transactionpb.ApiResponseTransactionYearAmountSuccess, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-status-success:merchant:%d:%d", req.GetMerchantId(), req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearAmountSuccess](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusMonthlyByMerchant(ctx, year, month, merchantID, status)
+
+	data, err := h.repo.GetYearStatusSuccessByMerchant(ctx, int(req.GetYear()), int(req.GetMerchantId()))
 	if err != nil {
-		h.log.Error("findStatusMonthlyByMerchant failed", zap.Error(err))
+		h.log.Error("FindYearStatusSuccessByMerchant failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionMonthAmountSuccess{
+
+	resp := &transactionpb.ApiResponseTransactionYearAmountSuccess{
 		Status:  "success",
-		Message: "Monthly transaction status by merchant retrieved successfully",
-		Data:    mapTransactionStatusMonthly(data),
+		Message: "Yearly successful transactions by merchant retrieved successfully",
+		Data:    mapTransactionYearAmountSuccess(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findStatusYearlyByMerchant(ctx context.Context, year, merchantID int, status string) (*pb.ApiResponseTransactionYearAmountSuccess, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-year-merchant:%s:%d:%d", status, year, merchantID)
-	if cached, found := CacheGet[pb.ApiResponseTransactionYearAmountSuccess](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindMonthStatusFailedByMerchant(ctx context.Context, req *transactionpb.FindMonthlyTransactionStatusByMerchant) (*transactionpb.ApiResponseTransactionMonthAmountFailed, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-status-failed:merchant:%d:%d:%d", req.GetMerchantId(), req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthAmountFailed](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusYearlyByMerchant(ctx, year, merchantID, status)
+
+	data, err := h.repo.GetMonthStatusFailedByMerchant(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()))
 	if err != nil {
-		h.log.Error("findStatusYearlyByMerchant failed", zap.Error(err))
+		h.log.Error("FindMonthStatusFailedByMerchant failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionYearAmountSuccess{
+
+	resp := &transactionpb.ApiResponseTransactionMonthAmountFailed{
 		Status:  "success",
-		Message: "Yearly transaction status by merchant retrieved successfully",
-		Data:    mapTransactionStatusYearly(data),
+		Message: "Monthly failed transactions by merchant retrieved successfully",
+		Data:    mapTransactionMonthAmountFailed(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findStatusMonthlyFailedByMerchant(ctx context.Context, year, month, merchantID int, status string) (*pb.ApiResponseTransactionMonthAmountFailed, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-month-fail-merchant:%d:%d:%d", year, month, merchantID)
-	if cached, found := CacheGet[pb.ApiResponseTransactionMonthAmountFailed](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindYearStatusFailedByMerchant(ctx context.Context, req *transactionpb.FindYearlyTransactionStatusByMerchant) (*transactionpb.ApiResponseTransactionYearAmountFailed, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-status-failed:merchant:%d:%d", req.GetMerchantId(), req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearAmountFailed](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusMonthlyByMerchant(ctx, year, month, merchantID, status)
+
+	data, err := h.repo.GetYearStatusFailedByMerchant(ctx, int(req.GetYear()), int(req.GetMerchantId()))
 	if err != nil {
-		h.log.Error("findStatusMonthlyFailedByMerchant failed", zap.Error(err))
+		h.log.Error("FindYearStatusFailedByMerchant failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionMonthAmountFailed{
+
+	resp := &transactionpb.ApiResponseTransactionYearAmountFailed{
 		Status:  "success",
-		Message: "Monthly transaction failed by merchant retrieved successfully",
-		Data:    mapTransactionStatusMonthlyFailed(data),
+		Message: "Yearly failed transactions by merchant retrieved successfully",
+		Data:    mapTransactionYearAmountFailed(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findStatusYearlyFailedByMerchant(ctx context.Context, year, merchantID int, status string) (*pb.ApiResponseTransactionYearAmountFailed, error) {
-	key := fmt.Sprintf("stats:reader:txn:status-year-fail-merchant:%d:%d", year, merchantID)
-	if cached, found := CacheGet[pb.ApiResponseTransactionYearAmountFailed](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindMonthMethodSuccess(ctx context.Context, req *transactionpb.MonthTransactionMethod) (*transactionpb.ApiResponseTransactionMonthPaymentMethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-method-success:%d:%d", req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthPaymentMethod](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionStatusYearlyByMerchant(ctx, year, merchantID, status)
+
+	data, err := h.repo.GetMonthMethodSuccess(ctx, int(req.GetYear()), int(req.GetMonth()))
 	if err != nil {
-		h.log.Error("findStatusYearlyFailedByMerchant failed", zap.Error(err))
+		h.log.Error("FindMonthMethodSuccess failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionYearAmountFailed{
+
+	resp := &transactionpb.ApiResponseTransactionMonthPaymentMethod{
 		Status:  "success",
-		Message: "Yearly transaction failed by merchant retrieved successfully",
-		Data:    mapTransactionStatusYearlyFailed(data),
+		Message: "Monthly successful payment methods retrieved successfully",
+		Data:    mapTransactionMonthMethod(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findMethodMonthly(ctx context.Context, year, month int, status string) (*pb.ApiResponseTransactionMonthPaymentMethod, error) {
-	key := fmt.Sprintf("stats:reader:txn:method-month:%s:%d:%d", status, year, month)
-	if cached, found := CacheGet[pb.ApiResponseTransactionMonthPaymentMethod](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindYearMethodSuccess(ctx context.Context, req *transactionpb.YearTransactionMethod) (*transactionpb.ApiResponseTransactionYearPaymentmethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-method-success:%d", req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearPaymentmethod](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionMethodMonthly(ctx, year, month, status)
+
+	data, err := h.repo.GetYearMethodSuccess(ctx, int(req.GetYear()))
 	if err != nil {
-		h.log.Error("findMethodMonthly failed", zap.Error(err))
+		h.log.Error("FindYearMethodSuccess failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionMonthPaymentMethod{
+
+	resp := &transactionpb.ApiResponseTransactionYearPaymentmethod{
 		Status:  "success",
-		Message: "Monthly transaction method retrieved successfully",
-		Data:    mapTransactionMethodMonthly(data),
+		Message: "Yearly successful payment methods retrieved successfully",
+		Data:    mapTransactionYearMethod(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findMethodYearly(ctx context.Context, year int, status string) (*pb.ApiResponseTransactionYearPaymentmethod, error) {
-	key := fmt.Sprintf("stats:reader:txn:method-year:%s:%d", status, year)
-	if cached, found := CacheGet[pb.ApiResponseTransactionYearPaymentmethod](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindMonthMethodFailed(ctx context.Context, req *transactionpb.MonthTransactionMethod) (*transactionpb.ApiResponseTransactionMonthPaymentMethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-method-failed:%d:%d", req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthPaymentMethod](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionMethodYearly(ctx, year, status)
+
+	data, err := h.repo.GetMonthMethodFailed(ctx, int(req.GetYear()), int(req.GetMonth()))
 	if err != nil {
-		h.log.Error("findMethodYearly failed", zap.Error(err))
+		h.log.Error("FindMonthMethodFailed failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionYearPaymentmethod{
+
+	resp := &transactionpb.ApiResponseTransactionMonthPaymentMethod{
 		Status:  "success",
-		Message: "Yearly transaction method retrieved successfully",
-		Data:    mapTransactionMethodYearly(data),
+		Message: "Monthly failed payment methods retrieved successfully",
+		Data:    mapTransactionMonthMethod(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findMethodMonthlyByMerchant(ctx context.Context, year, month, merchantID int, status string) (*pb.ApiResponseTransactionMonthPaymentMethod, error) {
-	key := fmt.Sprintf("stats:reader:txn:method-month-merchant:%s:%d:%d:%d", status, year, month, merchantID)
-	if cached, found := CacheGet[pb.ApiResponseTransactionMonthPaymentMethod](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindYearMethodFailed(ctx context.Context, req *transactionpb.YearTransactionMethod) (*transactionpb.ApiResponseTransactionYearPaymentmethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-method-failed:%d", req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearPaymentmethod](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionMethodMonthlyByMerchant(ctx, year, month, merchantID, status)
+
+	data, err := h.repo.GetYearMethodFailed(ctx, int(req.GetYear()))
 	if err != nil {
-		h.log.Error("findMethodMonthlyByMerchant failed", zap.Error(err))
+		h.log.Error("FindYearMethodFailed failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionMonthPaymentMethod{
+
+	resp := &transactionpb.ApiResponseTransactionYearPaymentmethod{
 		Status:  "success",
-		Message: "Monthly transaction method by merchant retrieved successfully",
-		Data:    mapTransactionMethodMonthly(data),
+		Message: "Yearly failed payment methods retrieved successfully",
+		Data:    mapTransactionYearMethod(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-func (h *TransactionStatsHandler) findMethodYearlyByMerchant(ctx context.Context, year, merchantID int, status string) (*pb.ApiResponseTransactionYearPaymentmethod, error) {
-	key := fmt.Sprintf("stats:reader:txn:method-year-merchant:%s:%d:%d", status, year, merchantID)
-	if cached, found := CacheGet[pb.ApiResponseTransactionYearPaymentmethod](ctx, h.cache, key); found {
+func (h *TransactionStatsHandler) FindMonthMethodByMerchantSuccess(ctx context.Context, req *transactionpb.MonthTransactionMethodByMerchant) (*transactionpb.ApiResponseTransactionMonthPaymentMethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-method-success:merchant:%d:%d:%d", req.GetMerchantId(), req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthPaymentMethod](ctx, h.cache, key); found {
 		return cached, nil
 	}
-	data, err := h.repo.GetTransactionMethodYearlyByMerchant(ctx, year, merchantID, status)
+
+	data, err := h.repo.GetMonthMethodByMerchantSuccess(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()))
 	if err != nil {
-		h.log.Error("findMethodYearlyByMerchant failed", zap.Error(err))
+		h.log.Error("FindMonthMethodByMerchantSuccess failed", zap.Error(err))
 		return nil, err
 	}
-	resp := &pb.ApiResponseTransactionYearPaymentmethod{
+
+	resp := &transactionpb.ApiResponseTransactionMonthPaymentMethod{
 		Status:  "success",
-		Message: "Yearly transaction method by merchant retrieved successfully",
-		Data:    mapTransactionMethodYearly(data),
+		Message: "Monthly successful payment methods by merchant retrieved successfully",
+		Data:    mapTransactionMonthMethod(data),
 	}
 	CacheSet(ctx, h.cache, key, resp)
 	return resp, nil
 }
 
-// ── Mappers ─────────────────────────────────────────────────────────────
+func (h *TransactionStatsHandler) FindYearMethodByMerchantSuccess(ctx context.Context, req *transactionpb.YearTransactionMethodByMerchant) (*transactionpb.ApiResponseTransactionYearPaymentmethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-method-success:merchant:%d:%d", req.GetMerchantId(), req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearPaymentmethod](ctx, h.cache, key); found {
+		return cached, nil
+	}
 
-func mapTransactionMonthlySuccess(data []repository.TransactionMonthlySuccess) []*pb.TransactionMonthlySuccessResponse {
-	var out []*pb.TransactionMonthlySuccessResponse
+	data, err := h.repo.GetYearMethodByMerchantSuccess(ctx, int(req.GetYear()), int(req.GetMerchantId()))
+	if err != nil {
+		h.log.Error("FindYearMethodByMerchantSuccess failed", zap.Error(err))
+		return nil, err
+	}
+
+	resp := &transactionpb.ApiResponseTransactionYearPaymentmethod{
+		Status:  "success",
+		Message: "Yearly successful payment methods by merchant retrieved successfully",
+		Data:    mapTransactionYearMethod(data),
+	}
+	CacheSet(ctx, h.cache, key, resp)
+	return resp, nil
+}
+
+func (h *TransactionStatsHandler) FindMonthMethodByMerchantFailed(ctx context.Context, req *transactionpb.MonthTransactionMethodByMerchant) (*transactionpb.ApiResponseTransactionMonthPaymentMethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:month-method-failed:merchant:%d:%d:%d", req.GetMerchantId(), req.GetYear(), req.GetMonth())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionMonthPaymentMethod](ctx, h.cache, key); found {
+		return cached, nil
+	}
+
+	data, err := h.repo.GetMonthMethodByMerchantFailed(ctx, int(req.GetYear()), int(req.GetMonth()), int(req.GetMerchantId()))
+	if err != nil {
+		h.log.Error("FindMonthMethodByMerchantFailed failed", zap.Error(err))
+		return nil, err
+	}
+
+	resp := &transactionpb.ApiResponseTransactionMonthPaymentMethod{
+		Status:  "success",
+		Message: "Monthly failed payment methods by merchant retrieved successfully",
+		Data:    mapTransactionMonthMethod(data),
+	}
+	CacheSet(ctx, h.cache, key, resp)
+	return resp, nil
+}
+
+func (h *TransactionStatsHandler) FindYearMethodByMerchantFailed(ctx context.Context, req *transactionpb.YearTransactionMethodByMerchant) (*transactionpb.ApiResponseTransactionYearPaymentmethod, error) {
+	key := fmt.Sprintf("stats:reader:transaction:year-method-failed:merchant:%d:%d", req.GetMerchantId(), req.GetYear())
+	if cached, found := CacheGet[transactionpb.ApiResponseTransactionYearPaymentmethod](ctx, h.cache, key); found {
+		return cached, nil
+	}
+
+	data, err := h.repo.GetYearMethodByMerchantFailed(ctx, int(req.GetYear()), int(req.GetMerchantId()))
+	if err != nil {
+		h.log.Error("FindYearMethodByMerchantFailed failed", zap.Error(err))
+		return nil, err
+	}
+
+	resp := &transactionpb.ApiResponseTransactionYearPaymentmethod{
+		Status:  "success",
+		Message: "Yearly failed payment methods by merchant retrieved successfully",
+		Data:    mapTransactionYearMethod(data),
+	}
+	CacheSet(ctx, h.cache, key, resp)
+	return resp, nil
+}
+
+// --- Mappers ---
+
+func mapTransactionMonthAmountSuccess(data []repository.TransactionMonthAmount) []*transactionpb.TransactionMonthlyAmountSuccess {
+	var out []*transactionpb.TransactionMonthlyAmountSuccess
 	for _, d := range data {
-		out = append(out, &pb.TransactionMonthlySuccessResponse{
-			Month:       d.Month,
-			TotalCount:  int64(d.TotalCount),
-			TotalAmount: d.TotalAmount,
-		})
-	}
-	return out
-}
-
-func mapTransactionStatusMonthly(data []repository.TransactionStatusMonthly) []*pb.TransactionMonthlyAmountSuccess {
-	var out []*pb.TransactionMonthlyAmountSuccess
-	for _, d := range data {
-		out = append(out, &pb.TransactionMonthlyAmountSuccess{
+		out = append(out, &transactionpb.TransactionMonthlyAmountSuccess{
 			Year:         d.Year,
 			Month:        d.Month,
-			TotalSuccess: int32(d.Count),
-			TotalAmount:  int32(d.Amount),
+			TotalSuccess: int32(d.TotalCount),
+			TotalAmount:  int32(d.TotalAmount),
 		})
 	}
 	return out
 }
 
-func mapTransactionStatusYearly(data []repository.TransactionStatusYearly) []*pb.TransactionYearlyAmountSuccess {
-	var out []*pb.TransactionYearlyAmountSuccess
+func mapTransactionYearAmountSuccess(data []repository.TransactionYearAmount) []*transactionpb.TransactionYearlyAmountSuccess {
+	var out []*transactionpb.TransactionYearlyAmountSuccess
 	for _, d := range data {
-		out = append(out, &pb.TransactionYearlyAmountSuccess{
+		out = append(out, &transactionpb.TransactionYearlyAmountSuccess{
 			Year:         d.Year,
-			TotalSuccess: int32(d.Count),
-			TotalAmount:  int32(d.Amount),
+			TotalSuccess: int32(d.TotalCount),
+			TotalAmount:  int32(d.TotalAmount),
 		})
 	}
 	return out
 }
 
-func mapTransactionStatusMonthlyFailed(data []repository.TransactionStatusMonthly) []*pb.TransactionMonthlyAmountFailed {
-	var out []*pb.TransactionMonthlyAmountFailed
+func mapTransactionMonthAmountFailed(data []repository.TransactionMonthAmount) []*transactionpb.TransactionMonthlyAmountFailed {
+	var out []*transactionpb.TransactionMonthlyAmountFailed
 	for _, d := range data {
-		out = append(out, &pb.TransactionMonthlyAmountFailed{
+		out = append(out, &transactionpb.TransactionMonthlyAmountFailed{
 			Year:        d.Year,
 			Month:       d.Month,
-			TotalFailed: int32(d.Count),
-			TotalAmount: int32(d.Amount),
+			TotalFailed: int32(d.TotalCount),
+			TotalAmount: int32(d.TotalAmount),
 		})
 	}
 	return out
 }
 
-func mapTransactionStatusYearlyFailed(data []repository.TransactionStatusYearly) []*pb.TransactionYearlyAmountFailed {
-	var out []*pb.TransactionYearlyAmountFailed
+func mapTransactionYearAmountFailed(data []repository.TransactionYearAmount) []*transactionpb.TransactionYearlyAmountFailed {
+	var out []*transactionpb.TransactionYearlyAmountFailed
 	for _, d := range data {
-		out = append(out, &pb.TransactionYearlyAmountFailed{
+		out = append(out, &transactionpb.TransactionYearlyAmountFailed{
 			Year:        d.Year,
-			TotalFailed: int32(d.Count),
-			TotalAmount: int32(d.Amount),
+			TotalFailed: int32(d.TotalCount),
+			TotalAmount: int32(d.TotalAmount),
 		})
 	}
 	return out
 }
 
-func mapTransactionMethodMonthly(data []repository.TransactionMethodMonthly) []*pb.TransactionMonthlyMethod {
-	var out []*pb.TransactionMonthlyMethod
+func mapTransactionMonthMethod(data []repository.TransactionMonthMethod) []*transactionpb.TransactionMonthlyMethod {
+	var out []*transactionpb.TransactionMonthlyMethod
 	for _, d := range data {
-		out = append(out, &pb.TransactionMonthlyMethod{
+		out = append(out, &transactionpb.TransactionMonthlyMethod{
 			Month:             d.Month,
 			PaymentMethod:     d.PaymentMethod,
-			TotalTransactions: int32(d.Transactions),
-			TotalAmount:       int32(d.Amount),
+			TotalTransactions: int32(d.TotalTransactions),
+			TotalAmount:       int32(d.TotalAmount),
 		})
 	}
 	return out
 }
 
-func mapTransactionMethodYearly(data []repository.TransactionMethodYearly) []*pb.TransactionYearlyMethod {
-	var out []*pb.TransactionYearlyMethod
+func mapTransactionYearMethod(data []repository.TransactionYearMethod) []*transactionpb.TransactionYearlyMethod {
+	var out []*transactionpb.TransactionYearlyMethod
 	for _, d := range data {
-		out = append(out, &pb.TransactionYearlyMethod{
+		out = append(out, &transactionpb.TransactionYearlyMethod{
 			Year:              d.Year,
 			PaymentMethod:     d.PaymentMethod,
-			TotalTransactions: int32(d.Transactions),
-			TotalAmount:       int32(d.Amount),
+			TotalTransactions: int32(d.TotalTransactions),
+			TotalAmount:       int32(d.TotalAmount),
 		})
 	}
 	return out

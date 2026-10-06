@@ -33,17 +33,20 @@ import (
 	transaction_cache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis/api/transaction"
 	user_cache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis/api/user"
 
-	pbauth "github.com/MamangRust/microservice-pointofsale-grpc/pb"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbcategory "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
-	pbproduct "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
-	pbrole "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
-	pbtransaction "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
+	authpb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	cashierpb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	categorypb "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	merchantpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	merchantdocumentpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
+	orderpb "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	orderitempb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	productpb "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	rolepb "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	statspb "github.com/MamangRust/microservice-point-of-sale-pb/stats"
+	transactionpb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
+	userpb "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	userrolepb "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
+
 	"github.com/MamangRust/microservice-point-of-sale-pkg/kafka"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/upload_image"
@@ -70,51 +73,75 @@ type Resolver struct {
 	OrderItemGraphql        OrderItemHandleGraphql
 	ProductGraphql          ProductHandleGraphql
 	TransactionGraphql      TransactionHandleGraphql
-	StatsRead               *StatsReadHandleGraphql
-	ResolverHandle          *resolverHandler}
+	ResolverHandle          *resolverHandler
+}
 
 type UserClient struct {
-	pbuser.UserServiceClient
+	userpb.UserQueryServiceClient
+	userpb.UserCommandServiceClient
 }
 
 type RoleClient struct {
-	pbrole.RoleServiceClient
+	rolepb.RoleQueryServiceClient
+	rolepb.RoleCommandServiceClient
+	UserRole userrolepb.UserRoleServiceClient
 }
 
+// The domain services still declare the legacy stats rpcs, so the stats-reader
+// clients (main/ByMerchant/ById) live in named fields instead of being embedded
+// — embedding both would make every stats method an ambiguous selector.
 type CashierClient struct {
-	pbcashier.CashierServiceClient
+	cashierpb.CashierQueryServiceClient
+	cashierpb.CashierCommandServiceClient
+	Stats           statspb.CashierStatsServiceClient
+	StatsByMerchant statspb.CashierStatsByMerchantServiceClient
+	StatsById       statspb.CashierStatsByIdServiceClient
 }
 
 type CategoryClient struct {
-	pbcategory.CategoryServiceClient
+	categorypb.CategoryQueryServiceClient
+	categorypb.CategoryCommandServiceClient
+	Stats           statspb.CategoryStatsServiceClient
+	StatsByMerchant statspb.CategoryStatsByMerchantServiceClient
+	StatsById       statspb.CategoryStatsByIdServiceClient
 }
 
 type MerchantClient struct {
-	pbmerchant.MerchantServiceClient
+	merchantpb.MerchantQueryServiceClient
+	merchantpb.MerchantCommandServiceClient
 }
 
 type MerchantDocumentClient struct {
-	pbmerchant.MerchantDocumentServiceClient
+	merchantdocumentpb.MerchantDocumentServiceClient
 }
 
 type OrderClient struct {
-	pborder.OrderServiceClient
+	orderpb.OrderQueryServiceClient
+	orderpb.OrderCommandServiceClient
+	Stats           statspb.OrderStatsServiceClient
+	StatsByMerchant statspb.OrderStatsByMerchantServiceClient
+	StatsById       statspb.OrderStatsByIdServiceClient
 }
 
 type OrderItemClient struct {
-	pborderitem.OrderItemServiceClient
+	orderitempb.OrderItemQueryServiceClient
+	orderitempb.OrderItemCommandServiceClient
 }
 
 type ProductClient struct {
-	pbproduct.ProductServiceClient
+	productpb.ProductQueryServiceClient
+	productpb.ProductCommandServiceClient
 }
 
 type TransactionClient struct {
-	pbtransaction.TransactionServiceClient
+	transactionpb.TransactionQueryServiceClient
+	transactionpb.TransactionCommandServiceClient
+	StatsStatus statspb.TransactionStatsStatusServiceClient
+	StatsMethod statspb.TransactionStatsMethodServiceClient
 }
 
 type AuthHandleGraphql struct {
-	AuthClient pbauth.AuthServiceClient
+	AuthClient authpb.AuthServiceClient
 	Logger     logger.LoggerInterface
 	Mapping    authgraphqlmapper.AuthGraphqlMapper
 	Cache      auth_cache.AuthMencache
@@ -238,191 +265,120 @@ func NewResolver(
 	cacheProduct := product_cache.NewProductMencache(store)
 	cacheTransaction := transaction_cache.NewTransactionMencache(store)
 
-	newAuth := func(c *grpc.ClientConn) pbauth.AuthServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbauth.NewAuthServiceClient(c)
-	}
-	newUser := func(c *grpc.ClientConn) pbuser.UserServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbuser.NewUserServiceClient(c)
-	}
-	newRole := func(c *grpc.ClientConn) pbrole.RoleServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbrole.NewRoleServiceClient(c)
-	}
-	newMerchant := func(c *grpc.ClientConn) pbmerchant.MerchantServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbmerchant.NewMerchantServiceClient(c)
-	}
-	newMerchantDoc := func(c *grpc.ClientConn) pbmerchant.MerchantDocumentServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbmerchant.NewMerchantDocumentServiceClient(c)
-	}
-	newCategory := func(c *grpc.ClientConn) pbcategory.CategoryServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbcategory.NewCategoryServiceClient(c)
-	}
-	newCashier := func(c *grpc.ClientConn) pbcashier.CashierServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbcashier.NewCashierServiceClient(c)
-	}
-	newOrder := func(c *grpc.ClientConn) pborder.OrderServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pborder.NewOrderServiceClient(c)
-	}
-	newOrderItem := func(c *grpc.ClientConn) pborderitem.OrderItemServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pborderitem.NewOrderItemServiceClient(c)
-	}
-	newProduct := func(c *grpc.ClientConn) pbproduct.ProductServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbproduct.NewProductServiceClient(c)
-	}
-	newTransaction := func(c *grpc.ClientConn) pbtransaction.TransactionServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbtransaction.NewTransactionServiceClient(c)
-	}
-	newCategoryStats := func(c *grpc.ClientConn) pbstats.CategoryStatsServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbstats.NewCategoryStatsServiceClient(c)
-	}
-	newOrderStats := func(c *grpc.ClientConn) pbstats.OrderStatsServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbstats.NewOrderStatsServiceClient(c)
-	}
-	newTransactionStats := func(c *grpc.ClientConn) pbstats.TransactionStatsServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbstats.NewTransactionStatsServiceClient(c)
-	}
-	newCashierStats := func(c *grpc.ClientConn) pbstats.CashierStatsServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbstats.NewCashierStatsServiceClient(c)
-	}
-	newProductStats := func(c *grpc.ClientConn) pbstats.ProductStatsServiceClient {
-		if c == nil {
-			return nil
-		}
-		return pbstats.NewProductStatsServiceClient(c)
-	}
+	// RBAC for the @hasRole directive: roles are resolved through the Kafka
+	// request-role/response-role handshake against the role service's consumer
+	// and cached in Redis, matching the payment gateway's RolePermission.
+	rolePermission := rolepermission.NewRolePermission(
+		deps.Kafka,
+		"request-role",
+		"response-role",
+		5*time.Second,
+		deps.Logger,
+		deps.Mencache,
+	)
 
 	return &Resolver{
 		ResolverHandle: resolverHandle,
 		AuthGraphql: AuthHandleGraphql{
-			AuthClient: newAuth(deps.Clients.AuthClient),
+			AuthClient: authpb.NewAuthServiceClient(deps.Clients.AuthClient),
 			Logger:     deps.Logger,
 			Mapping:    authgraphqlmapper.NewAuthGraphqlMapper(),
 			Cache:      cacheAuth,
 		},
-		RoleGraphql: RoleHandleGraphql{
-			RoleClient: RoleClient{newRole(deps.Clients.RoleClient)},
+		RoleGraphql: RoleHandleGraphql{RoleClient: RoleClient{
+			RoleQueryServiceClient:   rolepb.NewRoleQueryServiceClient(deps.Clients.RoleClient),
+			RoleCommandServiceClient: rolepb.NewRoleCommandServiceClient(deps.Clients.RoleClient),
+			UserRole:                 userrolepb.NewUserRoleServiceClient(deps.Clients.RoleClient),
+		},
 			Kafka:      deps.Kafka,
 			Logger:     deps.Logger,
 			Mapping:    rolegraphqlmapper.NewRoleGraphqlMapper(),
-			Permission: rolepermission.NewRolePermission(deps.Kafka, "request-role", "response-role", 5*time.Second, deps.Logger, deps.Mencache),
+			Permission: rolePermission,
 			Cache:      cacheRole,
 		},
-		UserGraphql: UserHandleGraphql{
-			UserClient: UserClient{newUser(deps.Clients.UserClient)},
-			Logger:     deps.Logger,
-			Mapping:    usergraphqlmapper.NewUserGraphqlMapper(),
-			Cache:      cacheUser,
+		UserGraphql: UserHandleGraphql{UserClient: UserClient{
+			UserQueryServiceClient:   userpb.NewUserQueryServiceClient(deps.Clients.UserClient),
+			UserCommandServiceClient: userpb.NewUserCommandServiceClient(deps.Clients.UserClient),
 		},
-		CashierGraphql: CashierHandleGraphql{
-			CashierClient: CashierClient{newCashier(deps.Clients.CashierClient)},
-			Logger:        deps.Logger,
-			Mapping:       cashiergraphqlmapper.NewCashierGraphqlMapper(),
-			Cache:         cacheCashier,
+			Logger:  deps.Logger,
+			Mapping: usergraphqlmapper.NewUserGraphqlMapper(),
+			Cache:   cacheUser,
 		},
-		CategoryGraphql: CategoryHandleGraphql{
-			CategoryClient: CategoryClient{newCategory(deps.Clients.CategoryClient)},
-			Logger:         deps.Logger,
-			Mapping:        categorygraphqlmapper.NewCategoryGraphqlMapper(),
-			Cache:          cacheCategory,
+		CashierGraphql: CashierHandleGraphql{CashierClient: CashierClient{
+			CashierQueryServiceClient:   cashierpb.NewCashierQueryServiceClient(deps.Clients.CashierClient),
+			CashierCommandServiceClient: cashierpb.NewCashierCommandServiceClient(deps.Clients.CashierClient),
+			Stats:                       statspb.NewCashierStatsServiceClient(deps.Clients.StatsReaderClient),
+			StatsByMerchant:             statspb.NewCashierStatsByMerchantServiceClient(deps.Clients.StatsReaderClient),
+			StatsById:                   statspb.NewCashierStatsByIdServiceClient(deps.Clients.StatsReaderClient),
 		},
-		MerchantGraphql: MerchantHandleGraphql{
-			MerchantClient: MerchantClient{newMerchant(deps.Clients.MerchantClient)},
-			Logger:         deps.Logger,
-			Mapping:        merchantgraphqlmapper.NewMerchantGraphqlMapper(),
-			Cache:          cacheMerchant,
+			Logger:  deps.Logger,
+			Mapping: cashiergraphqlmapper.NewCashierGraphqlMapper(),
+			Cache:   cacheCashier,
 		},
-		MerchantDocumentGraphql: MerchantDocumentHandleGraphql{
-			MerchantClient: MerchantDocumentClient{newMerchantDoc(deps.Clients.MerchantClient)},
-			Logger:         deps.Logger,
-			Mapping:        merchantdocumentgraphqlmapper.NewMerchantDocumentGraphqlMapper(),
-			Cache:          cacheMerchantDocument,
+		CategoryGraphql: CategoryHandleGraphql{CategoryClient: CategoryClient{
+			CategoryQueryServiceClient:   categorypb.NewCategoryQueryServiceClient(deps.Clients.CategoryClient),
+			CategoryCommandServiceClient: categorypb.NewCategoryCommandServiceClient(deps.Clients.CategoryClient),
+			Stats:                        statspb.NewCategoryStatsServiceClient(deps.Clients.StatsReaderClient),
+			StatsByMerchant:              statspb.NewCategoryStatsByMerchantServiceClient(deps.Clients.StatsReaderClient),
+			StatsById:                    statspb.NewCategoryStatsByIdServiceClient(deps.Clients.StatsReaderClient),
 		},
-		OrderGraphql: OrderHandleGraphql{
-			OrderClient: OrderClient{newOrder(deps.Clients.OrderClient)},
+			Logger:  deps.Logger,
+			Mapping: categorygraphqlmapper.NewCategoryGraphqlMapper(),
+			Cache:   cacheCategory,
+		},
+		MerchantGraphql: MerchantHandleGraphql{MerchantClient: MerchantClient{
+			MerchantQueryServiceClient:   merchantpb.NewMerchantQueryServiceClient(deps.Clients.MerchantClient),
+			MerchantCommandServiceClient: merchantpb.NewMerchantCommandServiceClient(deps.Clients.MerchantClient),
+		},
+			Logger:  deps.Logger,
+			Mapping: merchantgraphqlmapper.NewMerchantGraphqlMapper(),
+			Cache:   cacheMerchant,
+		},
+		MerchantDocumentGraphql: MerchantDocumentHandleGraphql{MerchantClient: MerchantDocumentClient{merchantdocumentpb.NewMerchantDocumentServiceClient(deps.Clients.MerchantClient)},
+			Logger:  deps.Logger,
+			Mapping: merchantdocumentgraphqlmapper.NewMerchantDocumentGraphqlMapper(),
+			Cache:   cacheMerchantDocument,
+		},
+		OrderGraphql: OrderHandleGraphql{OrderClient: OrderClient{
+			OrderQueryServiceClient:   orderpb.NewOrderQueryServiceClient(deps.Clients.OrderClient),
+			OrderCommandServiceClient: orderpb.NewOrderCommandServiceClient(deps.Clients.OrderClient),
+			Stats:                     statspb.NewOrderStatsServiceClient(deps.Clients.StatsReaderClient),
+			StatsByMerchant:           statspb.NewOrderStatsByMerchantServiceClient(deps.Clients.StatsReaderClient),
+			StatsById:                 statspb.NewOrderStatsByIdServiceClient(deps.Clients.StatsReaderClient),
+		},
+			Logger:  deps.Logger,
+			Mapping: ordergraphqlmapper.NewOrderGraphqlMapper(),
+			Cache:   cacheOrder,
+		},
+		OrderItemGraphql: OrderItemHandleGraphql{OrderItemClient: OrderItemClient{
+			OrderItemQueryServiceClient:   orderitempb.NewOrderItemQueryServiceClient(deps.Clients.OrderItemClient),
+			OrderItemCommandServiceClient: orderitempb.NewOrderItemCommandServiceClient(deps.Clients.OrderItemClient),
+		},
+			Logger:  deps.Logger,
+			Mapping: orderitemgraphqlmapper.NewOrderItemGraphqlMapper(),
+			Cache:   cacheOrderItem,
+		},
+		ProductGraphql: ProductHandleGraphql{ProductClient: ProductClient{
+			ProductQueryServiceClient:   productpb.NewProductQueryServiceClient(deps.Clients.ProductClient),
+			ProductCommandServiceClient: productpb.NewProductCommandServiceClient(deps.Clients.ProductClient),
+		},
 			Logger:      deps.Logger,
-			Mapping:     ordergraphqlmapper.NewOrderGraphqlMapper(),
-			Cache:       cacheOrder,
+			Mapping:     productgraphqlmapper.NewProductGraphqlMapper(),
+			Cache:       cacheProduct,
+			ImageUpload: upload_image.NewImageUpload(deps.Logger),
 		},
-		OrderItemGraphql: OrderItemHandleGraphql{
-			OrderItemClient: OrderItemClient{newOrderItem(deps.Clients.OrderItemClient)},
-			Logger:          deps.Logger,
-			Mapping:         orderitemgraphqlmapper.NewOrderItemGraphqlMapper(),
-			Cache:           cacheOrderItem,
+		TransactionGraphql: TransactionHandleGraphql{TransactionClient: TransactionClient{
+			TransactionQueryServiceClient:   transactionpb.NewTransactionQueryServiceClient(deps.Clients.TransactionClient),
+			TransactionCommandServiceClient: transactionpb.NewTransactionCommandServiceClient(deps.Clients.TransactionClient),
+			StatsStatus:                     statspb.NewTransactionStatsStatusServiceClient(deps.Clients.StatsReaderClient),
+			StatsMethod:                     statspb.NewTransactionStatsMethodServiceClient(deps.Clients.StatsReaderClient),
 		},
-		ProductGraphql: ProductHandleGraphql{
-			ProductClient: ProductClient{newProduct(deps.Clients.ProductClient)},
-			Logger:        deps.Logger,
-			Mapping:       productgraphqlmapper.NewProductGraphqlMapper(),
-			Cache:         cacheProduct,
-			ImageUpload:   upload_image.NewImageUpload(deps.Logger),
-		},
-		TransactionGraphql: TransactionHandleGraphql{
-			TransactionClient: TransactionClient{newTransaction(deps.Clients.TransactionClient)},
-			Logger:            deps.Logger,
-			Mapping:           transactiongraphqlmapper.NewTransactionGraphqlMapper(),
-			Permission:        merchantpermission.NewMerchantPermission(deps.Kafka, "request-transaction", "response-transaction", 5*time.Second, deps.Logger),
-			Cache:             cacheTransaction,
-		},
-		StatsRead: &StatsReadHandleGraphql{
-			CategoryStats:   newCategoryStats(deps.Clients.StatsReaderClient),
-			OrderStats:      newOrderStats(deps.Clients.StatsReaderClient),
-			TransactionStats: newTransactionStats(deps.Clients.StatsReaderClient),
-			CashierStats:    newCashierStats(deps.Clients.StatsReaderClient),
-			ProductStats:    newProductStats(deps.Clients.StatsReaderClient),
+			Logger:     deps.Logger,
+			Mapping:    transactiongraphqlmapper.NewTransactionGraphqlMapper(),
+			Permission: merchantpermission.NewMerchantPermission(deps.Kafka, "request-transaction", "response-transaction", 5*time.Second, deps.Logger),
+			Cache:      cacheTransaction,
 		},
 	}
-}
-
-type StatsReadHandleGraphql struct {
-	CategoryStats    pbstats.CategoryStatsServiceClient
-	OrderStats       pbstats.OrderStatsServiceClient
-	TransactionStats pbstats.TransactionStatsServiceClient
-	CashierStats     pbstats.CashierStatsServiceClient
-	ProductStats     pbstats.ProductStatsServiceClient
 }
 
 func (h *Resolver) handleGraphQLError(err error, operation string) *errors.AppError {

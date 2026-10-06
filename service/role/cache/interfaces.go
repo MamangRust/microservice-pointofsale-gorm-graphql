@@ -16,6 +16,7 @@ type RoleCommandCache interface {
 type RoleQueryCache interface {
 	SetCachedRoles(ctx context.Context, req *requests.FindAllRoles, data []*repository.RoleResult, total *int)
 	SetCachedRoleById(ctx context.Context, data *models.Role)
+	SetCachedRoleByName(ctx context.Context, name string, data *models.Role)
 	SetCachedRoleByUserId(ctx context.Context, userId int, data []*models.Role)
 	SetCachedRoleActive(ctx context.Context, req *requests.FindAllRoles, data []*repository.RoleResult, total *int)
 	SetCachedRoleTrashed(ctx context.Context, req *requests.FindAllRoles, data []*repository.RoleResult, total *int)
@@ -23,6 +24,7 @@ type RoleQueryCache interface {
 	GetCachedRoles(ctx context.Context, req *requests.FindAllRoles) ([]*repository.RoleResult, *int, bool)
 	GetCachedRoleByUserId(ctx context.Context, userId int) ([]*models.Role, bool)
 	GetCachedRoleById(ctx context.Context, id int) (*models.Role, bool)
+	GetCachedRoleByName(ctx context.Context, name string) (*models.Role, bool)
 	GetCachedRoleActive(ctx context.Context, req *requests.FindAllRoles) ([]*repository.RoleResult, *int, bool)
 	GetCachedRoleTrashed(ctx context.Context, req *requests.FindAllRoles) ([]*repository.RoleResult, *int, bool)
 }

@@ -13,10 +13,10 @@ import (
 )
 
 type Deps struct {
-	DB          *gorm.DB
-	Ctx         context.Context
-	Logger      logger.LoggerInterface
-	Hash        hash.HashPassword
+	DB     *gorm.DB
+	Ctx    context.Context
+	Logger logger.LoggerInterface
+	Hash   hash.HashPassword
 }
 
 type Seeder struct {

@@ -35,7 +35,7 @@ func (s *OrderItemServiceTestSuite) SetupSuite() {
 
 	order_itemQueries := s.ts.GormDB()
 
-	log, _ := logger.NewLogger("test")
+	log, _ := logger.NewLogger("test", nil)
 	cacheMetrics, _ := observability.NewCacheMetrics("test")
 	cacheStore := cache.NewCacheStore(redisClient, log, cacheMetrics)
 	mencache := item_cache.NewMencache(cacheStore)

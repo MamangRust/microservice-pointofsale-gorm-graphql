@@ -1,8 +1,19 @@
 package adapter
 
 import (
+	"context"
+	"time"
+
+	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/resilience"
 )
+
+// DefaultGuard builds a dependency guard with the project-wide defaults:
+// 5 consecutive failures trip the circuit breaker, which stays open for 30s,
+// at most 100 concurrent in-flight calls, and a 3s per-call deadline.
+func DefaultGuard(name string, log logger.LoggerInterface) *resilience.DependencyGuard {
+	return resilience.NewDependencyGuard(name, 5, 30, 100, 3*time.Second, log)
+}
 
 // GuardSetter is implemented by every gRPC repository so WithDependencyGuard
 // can attach a guard without changing each constructor's client parameter.
@@ -24,11 +35,30 @@ type GuardOption func(GuardSetter)
 //	guard := resilience.NewDependencyGuard("merchant", 5, 30, 100, 3*time.Second, srv.Logger)
 //	repos := repository.NewRepositories(
 //		db,
-//		cashierClient, merchantClient, productClient, orderItemClient,
-//		repository.GuardOptions{Merchant: []adapter.GuardOption{adapter.WithDependencyGuard(guard)}},
+//		merchantadapter.NewQueryAdapter(merchantClient, adapter.WithDependencyGuard(guard)),
 //	)
 func WithDependencyGuard(guard *resilience.DependencyGuard) GuardOption {
 	return func(s GuardSetter) {
 		s.SetGuard(guard)
 	}
+}
+
+// Call runs fn under g (bulkhead + circuit breaker + per-call timeout) and
+// returns its value. A nil guard runs fn with the original context, so adapters
+// keep working when no guard is attached.
+func Call[T any](g *resilience.DependencyGuard, ctx context.Context, fn func(context.Context) (T, error)) (T, error) {
+	var out T
+	err := g.Call(ctx, func(ctx context.Context) error {
+		v, err := fn(ctx)
+		if err != nil {
+			return err
+		}
+		out = v
+		return nil
+	})
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return out, nil
 }

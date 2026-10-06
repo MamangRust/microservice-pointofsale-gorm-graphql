@@ -1,12 +1,11 @@
 package protomapper
 
 import (
+	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	pbcommon "github.com/MamangRust/microservice-pointofsale-grpc/pb/common"
 
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
 )
 
 type transactionProtoMapper struct{}
@@ -71,54 +70,6 @@ func (t *transactionProtoMapper) ToProtoResponsePaginationTransaction(pagination
 	}
 }
 
-func (t *transactionProtoMapper) ToProtoResponseMonthAmountSuccess(status string, message string, row []*response.TransactionMonthlyAmountSuccessResponse) *pbstats.ApiResponseTransactionMonthAmountSuccess {
-	return &pbstats.ApiResponseTransactionMonthAmountSuccess{
-		Status:  status,
-		Message: message,
-		Data:    t.mapResponsesTransactionMonthlyAmountSuccess(row),
-	}
-}
-
-func (t *transactionProtoMapper) ToProtoResponseYearAmountSuccess(status string, message string, row []*response.TransactionYearlyAmountSuccessResponse) *pbstats.ApiResponseTransactionYearAmountSuccess {
-	return &pbstats.ApiResponseTransactionYearAmountSuccess{
-		Status:  status,
-		Message: message,
-		Data:    t.mapResponsesTransactionYearlyAmountSuccess(row),
-	}
-}
-
-func (t *transactionProtoMapper) ToProtoResponseMonthAmountFailed(status string, message string, row []*response.TransactionMonthlyAmountFailedResponse) *pbstats.ApiResponseTransactionMonthAmountFailed {
-	return &pbstats.ApiResponseTransactionMonthAmountFailed{
-		Status:  status,
-		Message: message,
-		Data:    t.mapResponsesTransactionMonthlyAmountFailed(row),
-	}
-}
-
-func (t *transactionProtoMapper) ToProtoResponseYearAmountFailed(status string, message string, row []*response.TransactionYearlyAmountFailedResponse) *pbstats.ApiResponseTransactionYearAmountFailed {
-	return &pbstats.ApiResponseTransactionYearAmountFailed{
-		Status:  status,
-		Message: message,
-		Data:    t.mapResponsesTransactionYearlyAmountFailed(row),
-	}
-}
-
-func (t *transactionProtoMapper) ToProtoResponseMonthMethod(status string, message string, row []*response.TransactionMonthlyMethodResponse) *pbstats.ApiResponseTransactionMonthPaymentMethod {
-	return &pbstats.ApiResponseTransactionMonthPaymentMethod{
-		Status:  status,
-		Message: message,
-		Data:    t.mapResponsesTransactionMonthlyMethod(row),
-	}
-}
-
-func (t *transactionProtoMapper) ToProtoResponseYearMethod(status string, message string, row []*response.TransactionYearlyMethodResponse) *pbstats.ApiResponseTransactionYearPaymentmethod {
-	return &pbstats.ApiResponseTransactionYearPaymentmethod{
-		Status:  status,
-		Message: message,
-		Data:    t.mapResponsesTransactionYearlyMethod(row),
-	}
-}
-
 func (t *transactionProtoMapper) mapResponseTransaction(transaction *response.TransactionResponse) *pb.TransactionResponse {
 	return &pb.TransactionResponse{
 		Id:            int32(transaction.ID),
@@ -171,116 +122,4 @@ func (t *transactionProtoMapper) mapResponsesTransactionDeleteAt(transactions []
 	}
 
 	return mappedTransactions
-}
-
-func (s *transactionProtoMapper) mapResponseTransactionMonthAmountSuccess(row *response.TransactionMonthlyAmountSuccessResponse) *pbstats.TransactionMonthlyAmountSuccess {
-	return &pbstats.TransactionMonthlyAmountSuccess{
-		Year:         row.Year,
-		Month:        row.Month,
-		TotalSuccess: int32(row.TotalSuccess),
-		TotalAmount:  int32(row.TotalAmount),
-	}
-}
-
-func (s *transactionProtoMapper) mapResponsesTransactionMonthlyAmountSuccess(rows []*response.TransactionMonthlyAmountSuccessResponse) []*pbstats.TransactionMonthlyAmountSuccess {
-	var transaction []*pbstats.TransactionMonthlyAmountSuccess
-
-	for _, row := range rows {
-		transaction = append(transaction, s.mapResponseTransactionMonthAmountSuccess(row))
-	}
-
-	return transaction
-}
-
-func (s *transactionProtoMapper) mapResponseTransactionYearAmountSuccess(row *response.TransactionYearlyAmountSuccessResponse) *pbstats.TransactionYearlyAmountSuccess {
-	return &pbstats.TransactionYearlyAmountSuccess{
-		Year:         row.Year,
-		TotalSuccess: int32(row.TotalSuccess),
-		TotalAmount:  int32(row.TotalAmount),
-	}
-}
-
-func (s *transactionProtoMapper) mapResponsesTransactionYearlyAmountSuccess(rows []*response.TransactionYearlyAmountSuccessResponse) []*pbstats.TransactionYearlyAmountSuccess {
-	var transaction []*pbstats.TransactionYearlyAmountSuccess
-
-	for _, row := range rows {
-		transaction = append(transaction, s.mapResponseTransactionYearAmountSuccess(row))
-	}
-
-	return transaction
-}
-
-func (s *transactionProtoMapper) mapResponseTransactionMonthAmountFailed(row *response.TransactionMonthlyAmountFailedResponse) *pbstats.TransactionMonthlyAmountFailed {
-	return &pbstats.TransactionMonthlyAmountFailed{
-		Year:        row.Year,
-		Month:       row.Month,
-		TotalFailed: int32(row.TotalFailed),
-		TotalAmount: int32(row.TotalAmount),
-	}
-}
-
-func (s *transactionProtoMapper) mapResponsesTransactionMonthlyAmountFailed(rows []*response.TransactionMonthlyAmountFailedResponse) []*pbstats.TransactionMonthlyAmountFailed {
-	var transaction []*pbstats.TransactionMonthlyAmountFailed
-
-	for _, row := range rows {
-		transaction = append(transaction, s.mapResponseTransactionMonthAmountFailed(row))
-	}
-
-	return transaction
-}
-
-func (s *transactionProtoMapper) mapResponseTransactionYearAmountFailed(row *response.TransactionYearlyAmountFailedResponse) *pbstats.TransactionYearlyAmountFailed {
-	return &pbstats.TransactionYearlyAmountFailed{
-		Year:        row.Year,
-		TotalFailed: int32(row.TotalFailed),
-		TotalAmount: int32(row.TotalAmount),
-	}
-}
-
-func (s *transactionProtoMapper) mapResponsesTransactionYearlyAmountFailed(rows []*response.TransactionYearlyAmountFailedResponse) []*pbstats.TransactionYearlyAmountFailed {
-	var transaction []*pbstats.TransactionYearlyAmountFailed
-
-	for _, row := range rows {
-		transaction = append(transaction, s.mapResponseTransactionYearAmountFailed(row))
-	}
-
-	return transaction
-}
-
-func (s *transactionProtoMapper) mapResponseTransactionMonthMethod(row *response.TransactionMonthlyMethodResponse) *pbstats.TransactionMonthlyMethod {
-	return &pbstats.TransactionMonthlyMethod{
-		Month:             row.Month,
-		PaymentMethod:     row.PaymentMethod,
-		TotalTransactions: int32(row.TotalTransactions),
-		TotalAmount:       int32(row.TotalAmount),
-	}
-}
-
-func (s *transactionProtoMapper) mapResponsesTransactionMonthlyMethod(rows []*response.TransactionMonthlyMethodResponse) []*pbstats.TransactionMonthlyMethod {
-	var transaction []*pbstats.TransactionMonthlyMethod
-
-	for _, row := range rows {
-		transaction = append(transaction, s.mapResponseTransactionMonthMethod(row))
-	}
-
-	return transaction
-}
-
-func (s *transactionProtoMapper) mapResponseTransactionYearMethod(row *response.TransactionYearlyMethodResponse) *pbstats.TransactionYearlyMethod {
-	return &pbstats.TransactionYearlyMethod{
-		Year:              row.Year,
-		PaymentMethod:     row.PaymentMethod,
-		TotalTransactions: int32(row.TotalTransactions),
-		TotalAmount:       int32(row.TotalAmount),
-	}
-}
-
-func (s *transactionProtoMapper) mapResponsesTransactionYearlyMethod(rows []*response.TransactionYearlyMethodResponse) []*pbstats.TransactionYearlyMethod {
-	var transaction []*pbstats.TransactionYearlyMethod
-
-	for _, row := range rows {
-		transaction = append(transaction, s.mapResponseTransactionYearMethod(row))
-	}
-
-	return transaction
 }

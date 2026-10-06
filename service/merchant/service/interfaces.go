@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 

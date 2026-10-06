@@ -28,14 +28,14 @@ require (
 	golang.org/x/crypto v0.55.0
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6
 	golang.org/x/sync v0.22.0
-	google.golang.org/grpc v1.83.1
+	google.golang.org/grpc v1.83.2
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.2
 )
 
 require (
 	github.com/ClickHouse/ch-go v0.74.0 // indirect
-	github.com/MamangRust/microservice-pointofsale-grpc/pb v0.0.0-00010101000000-000000000000 // indirect
+	github.com/MamangRust/microservice-point-of-sale-pb v0.0.0 // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -84,9 +84,10 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/bridges/otelzap v0.20.1
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.40.0 // indirect
 	go.opentelemetry.io/otel/log v0.22.0 // indirect
-	go.opentelemetry.io/otel/trace v1.46.0 // indirect
+	go.opentelemetry.io/otel/trace v1.46.0
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -101,4 +102,4 @@ require (
 
 replace github.com/MamangRust/microservice-point-of-sale-shared => ../shared
 
-replace github.com/MamangRust/microservice-pointofsale-grpc/pb => ../pb
+replace github.com/MamangRust/microservice-point-of-sale-pb => ../pb

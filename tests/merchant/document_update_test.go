@@ -1,15 +1,15 @@
 package merchant_test
 
 import (
-	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"context"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"net"
 	"testing"
 
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -44,7 +44,7 @@ func (s *MerchantDocumentUpdateTestSuite) SetupSuite() {
 	userConn, _ := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	merchantQueries := s.ts.GormDB()
-	s.repo = repository.NewRepositories(merchantQueries, pb.NewUserServiceClient(userConn))
+	s.repo = repository.NewRepositories(merchantQueries, pb.NewUserQueryServiceClient(userConn), pb.NewUserCommandServiceClient(userConn))
 
 	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
 		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'doc-verify', true) RETURNING user_id`,

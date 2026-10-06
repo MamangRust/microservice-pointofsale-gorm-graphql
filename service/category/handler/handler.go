@@ -2,24 +2,20 @@ package handler
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-category/service"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
 )
 
-type Deps struct {
-	Service *service.Service
-	Logger  logger.LoggerInterface
+// Handler groups all category gRPC handlers.
+type Handler interface {
+	CategoryQueryHandleGrpc
 }
 
-type Handler struct {
-	Category pb.CategoryServiceServer
+type handler struct {
+	CategoryQueryHandleGrpc
 }
 
-func NewHandler(deps *Deps) *Handler {
-	return &Handler{
-		Category: NewCategoryHandleGrpc(
-			deps.Service,
-			deps.Logger,
-		),
+// NewHandler initializes category gRPC handlers.
+func NewHandler(svc *service.Service) Handler {
+	return &handler{
+		CategoryQueryHandleGrpc: NewCategoryHandleGrpc(svc.CategoryQuery, svc.CategoryCommand),
 	}
 }

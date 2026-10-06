@@ -10,8 +10,8 @@ import (
 )
 
 type Service struct {
-	CategoryQuery           CategoryQueryService
-	CategoryCommand         CategoryCommandService
+	CategoryQuery   CategoryQueryService
+	CategoryCommand CategoryCommandService
 }
 
 type Deps struct {

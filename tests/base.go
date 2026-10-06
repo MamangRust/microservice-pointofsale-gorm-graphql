@@ -4,18 +4,18 @@ import (
 	"context"
 	"reflect"
 
+	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pbcategory "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pbproduct "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 	goredis "github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"gorm.io/gorm"
 )
 
 type BaseTestSuite struct {
@@ -35,7 +35,7 @@ func (s *BaseTestSuite) SetupSuite() {
 	ts, err := SetupTestSuite()
 	s.ts = ts
 
-	s.Log, _ = logger.NewLogger("test")
+	s.Log, _ = logger.NewLogger("test", nil)
 
 	if s.Log == nil || (reflect.ValueOf(s.Log).Kind() == reflect.Ptr && reflect.ValueOf(s.Log).IsNil()) {
 		z, _ := zap.NewDevelopment()
@@ -93,7 +93,7 @@ func (s *BaseTestSuite) SeedUser(ctx context.Context) int {
 	`).Error
 	s.Require().NoError(err)
 
-	res, err := pbuser.NewUserServiceClient(s.Conns["user"]).Create(ctx, &pbuser.CreateUserRequest{
+	res, err := pbuser.NewUserCommandServiceClient(s.Conns["user"]).Create(ctx, &pbuser.CreateUserRequest{
 		Firstname:       "Seed",
 		Lastname:        "User",
 		Email:           "seed.user@example.com",
@@ -105,7 +105,7 @@ func (s *BaseTestSuite) SeedUser(ctx context.Context) int {
 }
 
 func (s *BaseTestSuite) SeedCategory(ctx context.Context) int {
-	res, err := pbcategory.NewCategoryServiceClient(s.Conns["category"]).Create(ctx, &pbcategory.CreateCategoryRequest{
+	res, err := pbcategory.NewCategoryCommandServiceClient(s.Conns["category"]).Create(ctx, &pbcategory.CreateCategoryRequest{
 		Name:        "Seed Category",
 		Description: "Seed Description",
 	})
@@ -114,7 +114,7 @@ func (s *BaseTestSuite) SeedCategory(ctx context.Context) int {
 }
 
 func (s *BaseTestSuite) SeedMerchant(ctx context.Context, userID int) int {
-	res, err := pbmerchant.NewMerchantServiceClient(s.Conns["merchant"]).Create(ctx, &pbmerchant.CreateMerchantRequest{
+	res, err := pbmerchant.NewMerchantCommandServiceClient(s.Conns["merchant"]).Create(ctx, &pbmerchant.CreateMerchantRequest{
 		UserId:       int32(userID),
 		Name:         "Seed Merchant",
 		Description:  "Seed Description",
@@ -128,7 +128,7 @@ func (s *BaseTestSuite) SeedMerchant(ctx context.Context, userID int) int {
 }
 
 func (s *BaseTestSuite) SeedProduct(ctx context.Context, merchantID int, categoryID int) int {
-	res, err := pbproduct.NewProductServiceClient(s.Conns["product"]).Create(ctx, &pbproduct.CreateProductRequest{
+	res, err := pbproduct.NewProductCommandServiceClient(s.Conns["product"]).Create(ctx, &pbproduct.CreateProductRequest{
 		MerchantId:   int32(merchantID),
 		CategoryId:   int32(categoryID),
 		Name:         "Seed Product",
@@ -158,7 +158,7 @@ func (s *BaseTestSuite) SeedOrder(ctx context.Context, userID int, merchID int, 
 		s.Require().NoError(err)
 	}
 
-	res, err := pborder.NewOrderServiceClient(s.Conns["order"]).Create(ctx, &pborder.CreateOrderRequest{
+	res, err := pborder.NewOrderCommandServiceClient(s.Conns["order"]).Create(ctx, &pborder.CreateOrderRequest{
 		MerchantId: int32(merchID),
 		CashierId:  int32(cashierID),
 		Items: []*pborder.CreateOrderItemRequest{

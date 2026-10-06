@@ -1,16 +1,16 @@
 package authgraphqlmapper
 
 import (
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	authpb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
 )
 
 type AuthGraphqlMapper interface {
-	ToGraphqlVerifyCode(res *pb.ApiResponseVerifyCode) *model.APIResponseVerifyCode
-	ToGraphqlForgotPassword(res *pb.ApiResponseForgotPassword) *model.APIResponseForgotPassword
-	ToGraphqlResetPassword(res *pb.ApiResponseResetPassword) *model.APIResponseResetPassword
-	ToGraphqlResponseLogin(res *pb.ApiResponseLogin) *model.APIResponseLogin
-	ToGraphqlResponseRegister(res *pb.ApiResponseRegister) *model.APIResponseRegister
-	ToGraphqlResponseRefreshToken(res *pb.ApiResponseRefreshToken) *model.APIResponseRefreshToken
-	ToGraphqlResponseGetMe(res *pb.ApiResponseGetMe) *model.APIResponseGetMe
+	ToGraphqlVerifyCode(res *authpb.ApiResponseVerifyCode) *model.APIResponseVerifyCode
+	ToGraphqlForgotPassword(res *authpb.ApiResponseForgotPassword) *model.APIResponseForgotPassword
+	ToGraphqlResetPassword(res *authpb.ApiResponseResetPassword) *model.APIResponseResetPassword
+	ToGraphqlResponseLogin(res *authpb.ApiResponseLogin) *model.APIResponseLogin
+	ToGraphqlResponseRegister(res *authpb.ApiResponseRegister) *model.APIResponseRegister
+	ToGraphqlResponseRefreshToken(res *authpb.ApiResponseRefreshToken) *model.APIResponseRefreshToken
+	ToGraphqlResponseGetMe(res *authpb.ApiResponseGetMe) *model.APIResponseGetMe
 }

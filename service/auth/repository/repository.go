@@ -1,6 +1,15 @@
 package repository
 
-import "gorm.io/gorm"
+import (
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/adapter"
+	roleadapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/role"
+	useradapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/user"
+	userroleadapter "github.com/MamangRust/microservice-point-of-sale-pkg/adapter/user_role"
+	"gorm.io/gorm"
+)
 
 type Repositories struct {
 	User         UserRepository
@@ -10,12 +19,40 @@ type Repositories struct {
 	ResetToken   ResetTokenRepository
 }
 
-func NewRepositories(db *gorm.DB) *Repositories {
+// GuardOptions lets the wiring layer attach resilience guards to the gRPC
+// adapters consumed by this service.
+type GuardOptions struct {
+	User     []adapter.GuardOption
+	Role     []adapter.GuardOption
+	UserRole []adapter.GuardOption
+}
+
+// Compile-time assertions: the shared adapters must satisfy the auth
+// repository contracts so the wiring can inject them directly.
+var (
+	_ UserRepository     = (*useradapter.Repository)(nil)
+	_ RoleRepository     = (*roleadapter.Repository)(nil)
+	_ UserRoleRepository = (*userroleadapter.Repository)(nil)
+)
+
+func NewRepositories(
+	db *gorm.DB,
+	userQueryClient pbuser.UserQueryServiceClient,
+	userCommandClient pbuser.UserCommandServiceClient,
+	roleClient pbrole.RoleQueryServiceClient,
+	userRoleClient pbuserrole.UserRoleServiceClient,
+	guards ...GuardOptions,
+) *Repositories {
+	var g GuardOptions
+	if len(guards) > 0 {
+		g = guards[0]
+	}
+
 	return &Repositories{
-		User:         NewUserRepository(db),
+		User:         useradapter.New(userQueryClient, userCommandClient, g.User...),
 		RefreshToken: NewRefreshTokenRepository(db),
-		UserRole:     NewUserRoleRepository(db),
-		Role:         NewRoleRepository(db),
+		UserRole:     userroleadapter.New(userRoleClient, g.UserRole...),
+		Role:         roleadapter.New(roleClient, g.Role...),
 		ResetToken:   NewResetTokenRepository(db),
 	}
 }

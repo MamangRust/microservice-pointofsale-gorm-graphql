@@ -8,7 +8,6 @@ import (
 
 	chDriver "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/events"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -30,6 +29,10 @@ type batchEntry struct {
 	count int
 }
 
+// clickhouseRepository holds the shared batching machinery used by every
+// domain implementation (clickhouse_order.go, clickhouse_cashier.go,
+// clickhouse_category.go, clickhouse_transaction.go). Only the Insert* methods
+// live in those files.
 type clickhouseRepository struct {
 	conn chDriver.Conn
 	log  logger.LoggerInterface
@@ -61,40 +64,6 @@ func NewClickhouseRepository(conn chDriver.Conn, log logger.LoggerInterface) Rep
 	go r.flushLoop()
 
 	return r
-}
-
-func (r *clickhouseRepository) InsertOrderEvent(ctx context.Context, eventID string, eventVersion uint64, event events.OrderEvent) error {
-	query := `INSERT INTO order_daily (
-		event_id, event_time, order_id, cashier_id, merchant_id, status, total_price, event_version
-	)`
-	return r.appendToBatch(ctx, "order", query,
-		toUUID(eventID), parseEventTime(event.EventTime), uint64(event.OrderID), uint64(event.CashierID),
-		uint64(event.MerchantID), event.Status, int64(event.TotalPrice), eventVersion,
-	)
-}
-
-func (r *clickhouseRepository) InsertOrderItemEvent(ctx context.Context, eventID string, eventVersion uint64, event events.OrderItemEvent) error {
-	query := `INSERT INTO order_item_daily (
-		event_id, event_time, order_item_id, order_id, product_id, category_id,
-		quantity, unit_price, subtotal, event_version
-	)`
-	return r.appendToBatch(ctx, "order_item", query,
-		toUUID(eventID), parseEventTime(event.EventTime), uint64(event.OrderItemID), uint64(event.OrderID),
-		uint64(event.ProductID), uint64(event.CategoryID), uint32(event.Quantity),
-		int64(event.UnitPrice), int64(event.Subtotal), eventVersion,
-	)
-}
-
-func (r *clickhouseRepository) InsertTransactionEvent(ctx context.Context, eventID string, eventVersion uint64, event events.TransactionEvent) error {
-	query := `INSERT INTO transaction_daily (
-		event_id, event_time, transaction_id, order_id, cashier_id, merchant_id,
-		payment_method, status, amount, event_version
-	)`
-	return r.appendToBatch(ctx, "transaction", query,
-		toUUID(eventID), parseEventTime(event.EventTime), uint64(event.TransactionID), uint64(event.OrderID),
-		uint64(event.CashierID), uint64(event.MerchantID), event.PaymentMethod, event.Status,
-		int64(event.Amount), eventVersion,
-	)
 }
 
 func (r *clickhouseRepository) Flush(ctx context.Context) error {

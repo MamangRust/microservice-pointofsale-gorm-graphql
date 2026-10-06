@@ -36,3 +36,9 @@ type OrderItemQueryRepository interface {
 	FindByTrashed(ctx context.Context, req *requests.FindAllOrderItems) ([]*OrderItemResultDeleteAt, *int, error)
 	FindOrderItemByOrder(ctx context.Context, orderID int) ([]*models.OrderItem, error)
 }
+
+type OrderItemCommandRepository interface {
+	CreateOrderItem(ctx context.Context, req *requests.CreateOrderItemRecordRequest) (*models.OrderItem, error)
+	UpdateOrderItem(ctx context.Context, req *requests.UpdateOrderItemRecordRequest) (*models.OrderItem, error)
+	DeleteOrderItem(ctx context.Context, orderItemID int) error
+}

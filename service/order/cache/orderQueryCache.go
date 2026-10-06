@@ -23,22 +23,22 @@ const (
 
 type orderCacheResponse struct {
 	Data         []*repository.OrderResult `json:"data"`
-	TotalRecords *int                       `json:"total_records"`
+	TotalRecords *int                      `json:"total_records"`
 }
 
 type orderCacheResponseByMerchant struct {
 	Data         []*repository.OrderResult `json:"data"`
-	TotalRecords *int                       `json:"total_records"`
+	TotalRecords *int                      `json:"total_records"`
 }
 
 type orderCacheResponseActive struct {
 	Data         []*repository.OrderResultDeleteAt `json:"data"`
-	TotalRecords *int                               `json:"total_records"`
+	TotalRecords *int                              `json:"total_records"`
 }
 
 type orderCacheResponseTrashed struct {
 	Data         []*repository.OrderResultDeleteAt `json:"data"`
-	TotalRecords *int                               `json:"total_records"`
+	TotalRecords *int                              `json:"total_records"`
 }
 
 type orderQueryCache struct {

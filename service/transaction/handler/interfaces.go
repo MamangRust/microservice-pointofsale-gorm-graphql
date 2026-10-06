@@ -1,9 +1,10 @@
 package handler
 
 import (
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
+	pbtransaction "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 )
 
-type TransactionHandleGrpc interface {
-	pb.TransactionServiceServer
+type TransactionQueryHandleGrpc interface {
+	pbtransaction.TransactionQueryServiceServer
+	pbtransaction.TransactionCommandServiceServer
 }

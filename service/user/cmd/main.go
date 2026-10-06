@@ -18,6 +18,7 @@ func main() {
 		Environment:    "production",
 		OtelEndpoint:   "otel-collector:4317",
 		Port:           port,
+		DBCluster:      "DB_IDENTITY",
 	})
 	if err != nil {
 		panic(err)

@@ -1,19 +1,19 @@
 package protomapper
 
 import (
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbmerchantdocument "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbtransaction "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbcategory "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
-	pbcommon "github.com/MamangRust/microservice-pointofsale-grpc/pb/common"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
-	pbproduct "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
-	pbrole "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
-	pbtransaction "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 )
 
 type AuthProtoMapper interface {
@@ -46,11 +46,6 @@ type RoleProtoMapper interface {
 }
 
 type CategoryProtoMapper interface {
-	ToProtoResponseMonthlyTotalPrice(status string, message string, row []*response.CategoriesMonthlyTotalPriceResponse) *pbstats.ApiResponseCategoryMonthlyTotalPrice
-	ToProtoResponseYearlyTotalPrice(status string, message string, row []*response.CategoriesYearlyTotalPriceResponse) *pbstats.ApiResponseCategoryYearlyTotalPrice
-	ToProtoResponseCategoryMonthlyPrice(status string, message string, row []*response.CategoryMonthPriceResponse) *pbstats.ApiResponseCategoryMonthPrice
-	ToProtoResponseCategoryYearlyPrice(status string, message string, row []*response.CategoryYearPriceResponse) *pbstats.ApiResponseCategoryYearPrice
-
 	ToProtoResponsesCategory(status string, message string, pbResponse []*response.CategoryResponse) *pbcategory.ApiResponsesCategory
 	ToProtoResponseCategoryDeleteAt(status string, message string, pbResponse *response.CategoryResponseDeleteAt) *pbcategory.ApiResponseCategoryDeleteAt
 
@@ -62,12 +57,6 @@ type CategoryProtoMapper interface {
 }
 
 type CashierProtoMapper interface {
-	ToProtoMonthlyTotalSales(status, message string, row []*response.CashierResponseMonthTotalSales) *pbstats.ApiResponseCashierMonthlyTotalSales
-	ToProtoYearlyTotalSales(status, message string, row []*response.CashierResponseYearTotalSales) *pbstats.ApiResponseCashierYearlyTotalSales
-
-	ToProtoResponseMonthlyTotalSales(status, message string, row []*response.CashierResponseMonthSales) *pbstats.ApiResponseCashierMonthSales
-	ToProtoResponseYearlyTotalSales(status, message string, row []*response.CashierResponseYearSales) *pbstats.ApiResponseCashierYearSales
-
 	ToProtoResponseCashier(status string, message string, pbResponse *response.CashierResponse) *pbcashier.ApiResponseCashier
 	ToProtoResponseCashierDeleteAt(status string, message string, pbResponse *response.CashierResponseDeleteAt) *pbcashier.ApiResponseCashierDeleteAt
 	ToProtoResponsesCashier(status string, message string, pbResponse []*response.CashierResponse) *pbcashier.ApiResponsesCashier
@@ -89,15 +78,15 @@ type MerchantProtoMapper interface {
 }
 
 type MerchantDocumentProtoMapper interface {
-	ToProtoResponseMerchantDocument(status string, message string, doc *response.MerchantDocumentResponse) *pbmerchant.ApiResponseMerchantDocument
-	ToProtoResponsesMerchantDocument(status string, message string, docs []*response.MerchantDocumentResponse) *pbmerchant.ApiResponsesMerchantDocument
+	ToProtoResponseMerchantDocument(status string, message string, doc *response.MerchantDocumentResponse) *pbmerchantdocument.ApiResponseMerchantDocument
+	ToProtoResponsesMerchantDocument(status string, message string, docs []*response.MerchantDocumentResponse) *pbmerchantdocument.ApiResponsesMerchantDocument
 
-	ToProtoResponsePaginationMerchantDocument(pagination *pbcommon.PaginationMeta, status string, message string, docs []*response.MerchantDocumentResponse) *pbmerchant.ApiResponsePaginationMerchantDocument
-	ToProtoResponsePaginationMerchantDocumentDeleteAt(pagination *pbcommon.PaginationMeta, status string, message string, docs []*response.MerchantDocumentResponseDeleteAt) *pbmerchant.ApiResponsePaginationMerchantDocumentAt
+	ToProtoResponsePaginationMerchantDocument(pagination *pbcommon.PaginationMeta, status string, message string, docs []*response.MerchantDocumentResponse) *pbmerchantdocument.ApiResponsePaginationMerchantDocument
+	ToProtoResponsePaginationMerchantDocumentDeleteAt(pagination *pbcommon.PaginationMeta, status string, message string, docs []*response.MerchantDocumentResponseDeleteAt) *pbmerchantdocument.ApiResponsePaginationMerchantDocumentAt
 
-	ToProtoResponseMerchantDocumentDelete(status string, message string) *pbmerchant.ApiResponseMerchantDocumentDelete
+	ToProtoResponseMerchantDocumentDelete(status string, message string) *pbmerchantdocument.ApiResponseMerchantDocumentDelete
 
-	ToProtoResponseMerchantDocumentAll(status string, message string) *pbmerchant.ApiResponseMerchantDocumentAll
+	ToProtoResponseMerchantDocumentAll(status string, message string) *pbmerchantdocument.ApiResponseMerchantDocumentAll
 }
 
 type OrderItemProtoMapper interface {
@@ -110,12 +99,6 @@ type OrderItemProtoMapper interface {
 }
 
 type OrderProtoMapper interface {
-	ToProtoResponseMonthlyTotalRevenue(status string, message string, row []*response.OrderMonthlyTotalRevenueResponse) *pbstats.ApiResponseOrderMonthlyTotalRevenue
-	ToProtoResponseYearlyTotalRevenue(status string, message string, row []*response.OrderYearlyTotalRevenueResponse) *pbstats.ApiResponseOrderYearlyTotalRevenue
-
-	ToProtoResponseMonthlyRevenue(status string, message string, row []*response.OrderMonthlyResponse) *pbstats.ApiResponseOrderMonthly
-	ToProtoResponseYearlyRevenue(status string, message string, row []*response.OrderYearlyResponse) *pbstats.ApiResponseOrderYearly
-
 	ToProtoResponseOrder(status string, message string, pbResponse *response.OrderResponse) *pborder.ApiResponseOrder
 	ToProtoResponseOrderDeleteAt(status string, message string, pbResponse *response.OrderResponseDeleteAt) *pborder.ApiResponseOrderDeleteAt
 	ToProtoResponsesOrder(status string, message string, pbResponse []*response.OrderResponse) *pborder.ApiResponsesOrder
@@ -137,13 +120,6 @@ type ProductProtoMapper interface {
 }
 
 type TransactionProtoMapper interface {
-	ToProtoResponseMonthAmountSuccess(status string, message string, row []*response.TransactionMonthlyAmountSuccessResponse) *pbstats.ApiResponseTransactionMonthAmountSuccess
-	ToProtoResponseYearAmountSuccess(status string, message string, row []*response.TransactionYearlyAmountSuccessResponse) *pbstats.ApiResponseTransactionYearAmountSuccess
-	ToProtoResponseMonthAmountFailed(status string, message string, row []*response.TransactionMonthlyAmountFailedResponse) *pbstats.ApiResponseTransactionMonthAmountFailed
-	ToProtoResponseYearAmountFailed(status string, message string, row []*response.TransactionYearlyAmountFailedResponse) *pbstats.ApiResponseTransactionYearAmountFailed
-	ToProtoResponseMonthMethod(status string, message string, row []*response.TransactionMonthlyMethodResponse) *pbstats.ApiResponseTransactionMonthPaymentMethod
-	ToProtoResponseYearMethod(status string, message string, row []*response.TransactionYearlyMethodResponse) *pbstats.ApiResponseTransactionYearPaymentmethod
-
 	ToProtoResponseTransaction(status string, message string, trans *response.TransactionResponse) *pbtransaction.ApiResponseTransaction
 	ToProtoResponseTransactionDeleteAt(status string, message string, trans *response.TransactionResponseDeleteAt) *pbtransaction.ApiResponseTransactionDeleteAt
 	ToProtoResponsesTransaction(status string, message string, transList []*response.TransactionResponse) *pbtransaction.ApiResponsesTransaction

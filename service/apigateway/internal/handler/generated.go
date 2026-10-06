@@ -43,6 +43,7 @@ type ResolverRoot interface {
 }
 
 type DirectiveRoot struct {
+	HasRole func(ctx context.Context, obj any, next graphql.Resolver, roles []string) (res any, err error)
 }
 
 type ComplexityRoot struct {
@@ -7159,6 +7160,26 @@ extend type Mutation {
   total_records: Int!
 }
 `, BuiltIn: false},
+	{Name: "../../graphql/directives.graphqls", Input: `"""
+Requires the authenticated user to hold at least one of the given roles.
+
+It is evaluated by the GraphQL executor (gqlgen field directive), so the check
+happens per operation rather than per HTTP request — the gateway exposes a
+single POST /query endpoint, which makes path based HTTP middlewares useless for
+role enforcement.
+
+Semantics:
+  * no authenticated user in the context -> the field passes through. The
+    authority for admitting/rejecting unauthenticated traffic is AuthMiddleware,
+    which whitelists the public operations (loginUser/registerUser/refreshToken).
+  * authenticated user without any of the listed roles -> the field fails with
+    "forbidden: role not permitted" and the operation returns no data.
+
+Role names are matched against the roles reported by the role service, for
+example "Admin" (seeded) or "ROLE_ADMIN" (e2e pre-seeded).
+"""
+directive @hasRole(roles: [String!]!) on FIELD_DEFINITION
+`, BuiltIn: false},
 	{Name: "../../graphql/merchant.graphqls", Input: `input FindAllMerchantInput {
   page: Int
   page_size: Int
@@ -8010,25 +8031,27 @@ type ApiResponsePaginationRoleDeleteAt {
   pagination: PaginationMeta
 }
 
+# Role administration is admin-only, mirroring the REST gateway policy
+# (RequireRoles("Admin", "ROLE_ADMIN") on the role query/command routes).
 extend type Query {
-  findAllRole(input: FindAllRoleInput): ApiResponsePaginationRole
-  findByIdRole(input: FindByIdRoleInput!): ApiResponseRole
+  findAllRole(input: FindAllRoleInput): ApiResponsePaginationRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  findByIdRole(input: FindByIdRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  findByActiveRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt
-  findByTrashedRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt
+  findByActiveRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  findByTrashedRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  findByUserIdRole(input: FindByIdUserRoleInput!): ApiResponsesRole
+  findByUserIdRole(input: FindByIdUserRoleInput!): ApiResponsesRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 }
 
 extend type Mutation {
-  createRole(input: CreateRoleInput!): ApiResponseRole
-  updateRole(input: UpdateRoleInput!): ApiResponseRole
-  trashedRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt
-  restoreRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt
-  deleteRolePermanent(input: FindByIdRoleInput!): ApiResponseRoleDelete
+  createRole(input: CreateRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  updateRole(input: UpdateRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  trashedRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  restoreRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  deleteRolePermanent(input: FindByIdRoleInput!): ApiResponseRoleDelete @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  restoreAllRole: ApiResponseRoleAll
-  deleteAllRolePermanent: ApiResponseRoleAll
+  restoreAllRole: ApiResponseRoleAll @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  deleteAllRolePermanent: ApiResponseRoleAll @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 }
 `, BuiltIn: false},
 	{Name: "../../graphql/transaction.graphqls", Input: `scalar DateTime
@@ -8457,10 +8480,21 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) dir_hasRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "roles", ec.unmarshalNString2ᚕstringᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["roles"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8471,7 +8505,7 @@ func (ec *executionContext) field_Mutation_createCashier_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_createCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8482,7 +8516,7 @@ func (ec *executionContext) field_Mutation_createCategory_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_createMerchantDocument_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDocumentInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDocumentInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8493,7 +8527,7 @@ func (ec *executionContext) field_Mutation_createMerchantDocument_args(ctx conte
 func (ec *executionContext) field_Mutation_createMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8504,7 +8538,7 @@ func (ec *executionContext) field_Mutation_createMerchant_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_createOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8515,7 +8549,7 @@ func (ec *executionContext) field_Mutation_createOrder_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_createProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8526,7 +8560,7 @@ func (ec *executionContext) field_Mutation_createProduct_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_createRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8537,7 +8571,7 @@ func (ec *executionContext) field_Mutation_createRole_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_createTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8548,7 +8582,7 @@ func (ec *executionContext) field_Mutation_createTransaction_args(ctx context.Co
 func (ec *executionContext) field_Mutation_createUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8559,7 +8593,7 @@ func (ec *executionContext) field_Mutation_createUser_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_deleteCashierPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8570,7 +8604,7 @@ func (ec *executionContext) field_Mutation_deleteCashierPermanent_args(ctx conte
 func (ec *executionContext) field_Mutation_deleteCategoryPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8581,7 +8615,7 @@ func (ec *executionContext) field_Mutation_deleteCategoryPermanent_args(ctx cont
 func (ec *executionContext) field_Mutation_deleteMerchantDocumentPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNDeleteMerchantDocumentPermanentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐDeleteMerchantDocumentPermanentInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNDeleteMerchantDocumentPermanentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐDeleteMerchantDocumentPermanentInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8592,7 +8626,7 @@ func (ec *executionContext) field_Mutation_deleteMerchantDocumentPermanent_args(
 func (ec *executionContext) field_Mutation_deleteMerchantPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8603,7 +8637,7 @@ func (ec *executionContext) field_Mutation_deleteMerchantPermanent_args(ctx cont
 func (ec *executionContext) field_Mutation_deleteOrderPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8614,7 +8648,7 @@ func (ec *executionContext) field_Mutation_deleteOrderPermanent_args(ctx context
 func (ec *executionContext) field_Mutation_deleteProductPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8625,7 +8659,7 @@ func (ec *executionContext) field_Mutation_deleteProductPermanent_args(ctx conte
 func (ec *executionContext) field_Mutation_deleteRolePermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8636,7 +8670,7 @@ func (ec *executionContext) field_Mutation_deleteRolePermanent_args(ctx context.
 func (ec *executionContext) field_Mutation_deleteTransactionPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8647,7 +8681,7 @@ func (ec *executionContext) field_Mutation_deleteTransactionPermanent_args(ctx c
 func (ec *executionContext) field_Mutation_deleteUserPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8658,7 +8692,7 @@ func (ec *executionContext) field_Mutation_deleteUserPermanent_args(ctx context.
 func (ec *executionContext) field_Mutation_forgotPassword_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8669,7 +8703,7 @@ func (ec *executionContext) field_Mutation_forgotPassword_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_loginUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐLoginInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐLoginInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8680,7 +8714,7 @@ func (ec *executionContext) field_Mutation_loginUser_args(ctx context.Context, r
 func (ec *executionContext) field_Mutation_refreshToken_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8691,7 +8725,7 @@ func (ec *executionContext) field_Mutation_refreshToken_args(ctx context.Context
 func (ec *executionContext) field_Mutation_registerUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRegisterInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRegisterInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8702,7 +8736,7 @@ func (ec *executionContext) field_Mutation_registerUser_args(ctx context.Context
 func (ec *executionContext) field_Mutation_resetPassword_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8713,7 +8747,7 @@ func (ec *executionContext) field_Mutation_resetPassword_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_restoreCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8724,7 +8758,7 @@ func (ec *executionContext) field_Mutation_restoreCashier_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_restoreCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8735,7 +8769,7 @@ func (ec *executionContext) field_Mutation_restoreCategory_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_restoreMerchantDocument_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRestoreMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRestoreMerchantDocumentInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRestoreMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRestoreMerchantDocumentInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8746,7 +8780,7 @@ func (ec *executionContext) field_Mutation_restoreMerchantDocument_args(ctx cont
 func (ec *executionContext) field_Mutation_restoreMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8757,7 +8791,7 @@ func (ec *executionContext) field_Mutation_restoreMerchant_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_restoreOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8768,7 +8802,7 @@ func (ec *executionContext) field_Mutation_restoreOrder_args(ctx context.Context
 func (ec *executionContext) field_Mutation_restoreProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8779,7 +8813,7 @@ func (ec *executionContext) field_Mutation_restoreProduct_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_restoreRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8790,7 +8824,7 @@ func (ec *executionContext) field_Mutation_restoreRole_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_restoreTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8801,7 +8835,7 @@ func (ec *executionContext) field_Mutation_restoreTransaction_args(ctx context.C
 func (ec *executionContext) field_Mutation_restoreUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8812,7 +8846,7 @@ func (ec *executionContext) field_Mutation_restoreUser_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_trashedCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8823,7 +8857,7 @@ func (ec *executionContext) field_Mutation_trashedCashier_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_trashedCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8834,7 +8868,7 @@ func (ec *executionContext) field_Mutation_trashedCategory_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_trashedMerchantDocument_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNTrashedMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTrashedMerchantDocumentInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNTrashedMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTrashedMerchantDocumentInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8845,7 +8879,7 @@ func (ec *executionContext) field_Mutation_trashedMerchantDocument_args(ctx cont
 func (ec *executionContext) field_Mutation_trashedMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8856,7 +8890,7 @@ func (ec *executionContext) field_Mutation_trashedMerchant_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_trashedOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8867,7 +8901,7 @@ func (ec *executionContext) field_Mutation_trashedOrder_args(ctx context.Context
 func (ec *executionContext) field_Mutation_trashedProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8878,7 +8912,7 @@ func (ec *executionContext) field_Mutation_trashedProduct_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_trashedRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8889,7 +8923,7 @@ func (ec *executionContext) field_Mutation_trashedRole_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_trashedTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8900,7 +8934,7 @@ func (ec *executionContext) field_Mutation_trashedTransaction_args(ctx context.C
 func (ec *executionContext) field_Mutation_trashedUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8911,7 +8945,7 @@ func (ec *executionContext) field_Mutation_trashedUser_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_updateCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8922,7 +8956,7 @@ func (ec *executionContext) field_Mutation_updateCashier_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_updateCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -8933,7 +8967,7 @@ func (ec *executionContext) field_Mutation_updateCategory_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_updateMerchantDocumentStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantDocumentStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentStatusInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantDocumentStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentStatusInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8944,7 +8978,7 @@ func (ec *executionContext) field_Mutation_updateMerchantDocumentStatus_args(ctx
 func (ec *executionContext) field_Mutation_updateMerchantDocument_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8955,7 +8989,7 @@ func (ec *executionContext) field_Mutation_updateMerchantDocument_args(ctx conte
 func (ec *executionContext) field_Mutation_updateMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8966,7 +9000,7 @@ func (ec *executionContext) field_Mutation_updateMerchant_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_updateOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8977,7 +9011,7 @@ func (ec *executionContext) field_Mutation_updateOrder_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_updateProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8988,7 +9022,7 @@ func (ec *executionContext) field_Mutation_updateProduct_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_updateRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -8999,7 +9033,7 @@ func (ec *executionContext) field_Mutation_updateRole_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_updateTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9010,7 +9044,7 @@ func (ec *executionContext) field_Mutation_updateTransaction_args(ctx context.Co
 func (ec *executionContext) field_Mutation_updateUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9021,7 +9055,7 @@ func (ec *executionContext) field_Mutation_updateUser_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_verifyCode_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9043,7 +9077,7 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 func (ec *executionContext) field_Query_findAllActiveMerchantDocuments_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9054,7 +9088,7 @@ func (ec *executionContext) field_Query_findAllActiveMerchantDocuments_args(ctx 
 func (ec *executionContext) field_Query_findAllCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9065,7 +9099,7 @@ func (ec *executionContext) field_Query_findAllCashier_args(ctx context.Context,
 func (ec *executionContext) field_Query_findAllCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9076,7 +9110,7 @@ func (ec *executionContext) field_Query_findAllCategory_args(ctx context.Context
 func (ec *executionContext) field_Query_findAllMerchantDocuments_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9087,7 +9121,7 @@ func (ec *executionContext) field_Query_findAllMerchantDocuments_args(ctx contex
 func (ec *executionContext) field_Query_findAllMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9098,7 +9132,7 @@ func (ec *executionContext) field_Query_findAllMerchant_args(ctx context.Context
 func (ec *executionContext) field_Query_findAllOrderItem_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9109,7 +9143,7 @@ func (ec *executionContext) field_Query_findAllOrderItem_args(ctx context.Contex
 func (ec *executionContext) field_Query_findAllOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9120,7 +9154,7 @@ func (ec *executionContext) field_Query_findAllOrder_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findAllProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9131,7 +9165,7 @@ func (ec *executionContext) field_Query_findAllProduct_args(ctx context.Context,
 func (ec *executionContext) field_Query_findAllRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9142,7 +9176,7 @@ func (ec *executionContext) field_Query_findAllRole_args(ctx context.Context, ra
 func (ec *executionContext) field_Query_findAllTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9153,7 +9187,7 @@ func (ec *executionContext) field_Query_findAllTransaction_args(ctx context.Cont
 func (ec *executionContext) field_Query_findAllTrashedMerchantDocuments_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9164,7 +9198,7 @@ func (ec *executionContext) field_Query_findAllTrashedMerchantDocuments_args(ctx
 func (ec *executionContext) field_Query_findAllUsers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9175,7 +9209,7 @@ func (ec *executionContext) field_Query_findAllUsers_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findByActiveCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9186,7 +9220,7 @@ func (ec *executionContext) field_Query_findByActiveCashier_args(ctx context.Con
 func (ec *executionContext) field_Query_findByActiveCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9197,7 +9231,7 @@ func (ec *executionContext) field_Query_findByActiveCategory_args(ctx context.Co
 func (ec *executionContext) field_Query_findByActiveMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9208,7 +9242,7 @@ func (ec *executionContext) field_Query_findByActiveMerchant_args(ctx context.Co
 func (ec *executionContext) field_Query_findByActiveOrderItem_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9219,7 +9253,7 @@ func (ec *executionContext) field_Query_findByActiveOrderItem_args(ctx context.C
 func (ec *executionContext) field_Query_findByActiveOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9230,7 +9264,7 @@ func (ec *executionContext) field_Query_findByActiveOrder_args(ctx context.Conte
 func (ec *executionContext) field_Query_findByActiveProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9241,7 +9275,7 @@ func (ec *executionContext) field_Query_findByActiveProduct_args(ctx context.Con
 func (ec *executionContext) field_Query_findByActiveRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9252,7 +9286,7 @@ func (ec *executionContext) field_Query_findByActiveRole_args(ctx context.Contex
 func (ec *executionContext) field_Query_findByActiveTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9263,7 +9297,7 @@ func (ec *executionContext) field_Query_findByActiveTransaction_args(ctx context
 func (ec *executionContext) field_Query_findByActiveUsers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9274,7 +9308,7 @@ func (ec *executionContext) field_Query_findByActiveUsers_args(ctx context.Conte
 func (ec *executionContext) field_Query_findByCategoryProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllProductCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllProductCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9285,7 +9319,7 @@ func (ec *executionContext) field_Query_findByCategoryProduct_args(ctx context.C
 func (ec *executionContext) field_Query_findByIdCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9296,7 +9330,7 @@ func (ec *executionContext) field_Query_findByIdCashier_args(ctx context.Context
 func (ec *executionContext) field_Query_findByIdCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9307,7 +9341,7 @@ func (ec *executionContext) field_Query_findByIdCategory_args(ctx context.Contex
 func (ec *executionContext) field_Query_findByIdMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9318,7 +9352,7 @@ func (ec *executionContext) field_Query_findByIdMerchant_args(ctx context.Contex
 func (ec *executionContext) field_Query_findByIdOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9329,7 +9363,7 @@ func (ec *executionContext) field_Query_findByIdOrder_args(ctx context.Context, 
 func (ec *executionContext) field_Query_findByIdProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9340,7 +9374,7 @@ func (ec *executionContext) field_Query_findByIdProduct_args(ctx context.Context
 func (ec *executionContext) field_Query_findByIdRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9351,7 +9385,7 @@ func (ec *executionContext) field_Query_findByIdRole_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findByIdTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9362,7 +9396,7 @@ func (ec *executionContext) field_Query_findByIdTransaction_args(ctx context.Con
 func (ec *executionContext) field_Query_findByIdUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9373,7 +9407,7 @@ func (ec *executionContext) field_Query_findByIdUser_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findByMerchantCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByMerchantCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByMerchantCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByMerchantCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByMerchantCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9384,7 +9418,7 @@ func (ec *executionContext) field_Query_findByMerchantCashier_args(ctx context.C
 func (ec *executionContext) field_Query_findByMerchantOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9395,7 +9429,7 @@ func (ec *executionContext) field_Query_findByMerchantOrder_args(ctx context.Con
 func (ec *executionContext) field_Query_findByMerchantProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllProductMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllProductMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9406,7 +9440,7 @@ func (ec *executionContext) field_Query_findByMerchantProduct_args(ctx context.C
 func (ec *executionContext) field_Query_findByMerchantTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllTransactionMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllTransactionMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9417,7 +9451,7 @@ func (ec *executionContext) field_Query_findByMerchantTransaction_args(ctx conte
 func (ec *executionContext) field_Query_findByTrashedCashier_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9428,7 +9462,7 @@ func (ec *executionContext) field_Query_findByTrashedCashier_args(ctx context.Co
 func (ec *executionContext) field_Query_findByTrashedCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -9439,7 +9473,7 @@ func (ec *executionContext) field_Query_findByTrashedCategory_args(ctx context.C
 func (ec *executionContext) field_Query_findByTrashedMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9450,7 +9484,7 @@ func (ec *executionContext) field_Query_findByTrashedMerchant_args(ctx context.C
 func (ec *executionContext) field_Query_findByTrashedOrderItem_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9461,7 +9495,7 @@ func (ec *executionContext) field_Query_findByTrashedOrderItem_args(ctx context.
 func (ec *executionContext) field_Query_findByTrashedOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9472,7 +9506,7 @@ func (ec *executionContext) field_Query_findByTrashedOrder_args(ctx context.Cont
 func (ec *executionContext) field_Query_findByTrashedProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9483,7 +9517,7 @@ func (ec *executionContext) field_Query_findByTrashedProduct_args(ctx context.Co
 func (ec *executionContext) field_Query_findByTrashedRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9494,7 +9528,7 @@ func (ec *executionContext) field_Query_findByTrashedRole_args(ctx context.Conte
 func (ec *executionContext) field_Query_findByTrashedTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9505,7 +9539,7 @@ func (ec *executionContext) field_Query_findByTrashedTransaction_args(ctx contex
 func (ec *executionContext) field_Query_findByTrashedUsers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9516,7 +9550,7 @@ func (ec *executionContext) field_Query_findByTrashedUsers_args(ctx context.Cont
 func (ec *executionContext) field_Query_findByUserIdRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9527,7 +9561,7 @@ func (ec *executionContext) field_Query_findByUserIdRole_args(ctx context.Contex
 func (ec *executionContext) field_Query_findMerchantDocumentById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMerchantDocumentByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMerchantDocumentByIDInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMerchantDocumentByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMerchantDocumentByIDInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9538,7 +9572,7 @@ func (ec *executionContext) field_Query_findMerchantDocumentById_args(ctx contex
 func (ec *executionContext) field_Query_findMonthMethodByMerchantFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9549,7 +9583,7 @@ func (ec *executionContext) field_Query_findMonthMethodByMerchantFailed_args(ctx
 func (ec *executionContext) field_Query_findMonthMethodByMerchantSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9560,7 +9594,7 @@ func (ec *executionContext) field_Query_findMonthMethodByMerchantSuccess_args(ct
 func (ec *executionContext) field_Query_findMonthMethodFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9571,7 +9605,7 @@ func (ec *executionContext) field_Query_findMonthMethodFailed_args(ctx context.C
 func (ec *executionContext) field_Query_findMonthMethodSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9582,7 +9616,7 @@ func (ec *executionContext) field_Query_findMonthMethodSuccess_args(ctx context.
 func (ec *executionContext) field_Query_findMonthPriceById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByID)
 	if err != nil {
 		return nil, err
 	}
@@ -9593,7 +9627,7 @@ func (ec *executionContext) field_Query_findMonthPriceById_args(ctx context.Cont
 func (ec *executionContext) field_Query_findMonthPriceByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -9604,7 +9638,7 @@ func (ec *executionContext) field_Query_findMonthPriceByMerchant_args(ctx contex
 func (ec *executionContext) field_Query_findMonthPrice_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategory2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategory)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategory2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategory)
 	if err != nil {
 		return nil, err
 	}
@@ -9615,7 +9649,7 @@ func (ec *executionContext) field_Query_findMonthPrice_args(ctx context.Context,
 func (ec *executionContext) field_Query_findMonthSalesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByID)
 	if err != nil {
 		return nil, err
 	}
@@ -9626,7 +9660,7 @@ func (ec *executionContext) field_Query_findMonthSalesById_args(ctx context.Cont
 func (ec *executionContext) field_Query_findMonthSalesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -9637,7 +9671,7 @@ func (ec *executionContext) field_Query_findMonthSalesByMerchant_args(ctx contex
 func (ec *executionContext) field_Query_findMonthSales_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashier2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashier)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashier2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashier)
 	if err != nil {
 		return nil, err
 	}
@@ -9648,7 +9682,7 @@ func (ec *executionContext) field_Query_findMonthSales_args(ctx context.Context,
 func (ec *executionContext) field_Query_findMonthStatusFailedByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9659,7 +9693,7 @@ func (ec *executionContext) field_Query_findMonthStatusFailedByMerchant_args(ctx
 func (ec *executionContext) field_Query_findMonthStatusFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9670,7 +9704,7 @@ func (ec *executionContext) field_Query_findMonthStatusFailed_args(ctx context.C
 func (ec *executionContext) field_Query_findMonthStatusSuccessByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9681,7 +9715,7 @@ func (ec *executionContext) field_Query_findMonthStatusSuccessByMerchant_args(ct
 func (ec *executionContext) field_Query_findMonthStatusSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9692,7 +9726,7 @@ func (ec *executionContext) field_Query_findMonthStatusSuccess_args(ctx context.
 func (ec *executionContext) field_Query_findMonthlyRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9703,7 +9737,7 @@ func (ec *executionContext) field_Query_findMonthlyRevenueByMerchant_args(ctx co
 func (ec *executionContext) field_Query_findMonthlyRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9714,7 +9748,7 @@ func (ec *executionContext) field_Query_findMonthlyRevenue_args(ctx context.Cont
 func (ec *executionContext) field_Query_findMonthlyTotalPricesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByID)
 	if err != nil {
 		return nil, err
 	}
@@ -9725,7 +9759,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalPricesById_args(ctx cont
 func (ec *executionContext) field_Query_findMonthlyTotalPricesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -9736,7 +9770,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalPricesByMerchant_args(ct
 func (ec *executionContext) field_Query_findMonthlyTotalPrices_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPrices2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPrices)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPrices2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPrices)
 	if err != nil {
 		return nil, err
 	}
@@ -9747,7 +9781,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalPrices_args(ctx context.
 func (ec *executionContext) field_Query_findMonthlyTotalRevenueById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByIDInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByIDInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9758,7 +9792,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalRevenueById_args(ctx con
 func (ec *executionContext) field_Query_findMonthlyTotalRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9769,7 +9803,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalRevenueByMerchant_args(c
 func (ec *executionContext) field_Query_findMonthlyTotalRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9780,7 +9814,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalRevenue_args(ctx context
 func (ec *executionContext) field_Query_findMonthlyTotalSalesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalSalesById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalSalesById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByID)
 	if err != nil {
 		return nil, err
 	}
@@ -9791,7 +9825,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalSalesById_args(ctx conte
 func (ec *executionContext) field_Query_findMonthlyTotalSalesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -9802,7 +9836,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalSalesByMerchant_args(ctx
 func (ec *executionContext) field_Query_findMonthlyTotalSales_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalSales2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSales)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalSales2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSales)
 	if err != nil {
 		return nil, err
 	}
@@ -9813,7 +9847,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalSales_args(ctx context.C
 func (ec *executionContext) field_Query_findOrderItemByOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9824,7 +9858,7 @@ func (ec *executionContext) field_Query_findOrderItemByOrder_args(ctx context.Co
 func (ec *executionContext) field_Query_findYearMethodByMerchantFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9835,7 +9869,7 @@ func (ec *executionContext) field_Query_findYearMethodByMerchantFailed_args(ctx 
 func (ec *executionContext) field_Query_findYearMethodByMerchantSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9846,7 +9880,7 @@ func (ec *executionContext) field_Query_findYearMethodByMerchantSuccess_args(ctx
 func (ec *executionContext) field_Query_findYearMethodFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9857,7 +9891,7 @@ func (ec *executionContext) field_Query_findYearMethodFailed_args(ctx context.Co
 func (ec *executionContext) field_Query_findYearMethodSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9868,7 +9902,7 @@ func (ec *executionContext) field_Query_findYearMethodSuccess_args(ctx context.C
 func (ec *executionContext) field_Query_findYearPriceById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByID)
 	if err != nil {
 		return nil, err
 	}
@@ -9879,7 +9913,7 @@ func (ec *executionContext) field_Query_findYearPriceById_args(ctx context.Conte
 func (ec *executionContext) field_Query_findYearPriceByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -9890,7 +9924,7 @@ func (ec *executionContext) field_Query_findYearPriceByMerchant_args(ctx context
 func (ec *executionContext) field_Query_findYearPrice_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategory2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategory)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategory2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategory)
 	if err != nil {
 		return nil, err
 	}
@@ -9901,7 +9935,7 @@ func (ec *executionContext) field_Query_findYearPrice_args(ctx context.Context, 
 func (ec *executionContext) field_Query_findYearSalesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByID)
 	if err != nil {
 		return nil, err
 	}
@@ -9912,7 +9946,7 @@ func (ec *executionContext) field_Query_findYearSalesById_args(ctx context.Conte
 func (ec *executionContext) field_Query_findYearSalesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashierByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -9923,7 +9957,7 @@ func (ec *executionContext) field_Query_findYearSalesByMerchant_args(ctx context
 func (ec *executionContext) field_Query_findYearSales_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashier2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashier)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCashier2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashier)
 	if err != nil {
 		return nil, err
 	}
@@ -9934,7 +9968,7 @@ func (ec *executionContext) field_Query_findYearSales_args(ctx context.Context, 
 func (ec *executionContext) field_Query_findYearStatusFailedByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9945,7 +9979,7 @@ func (ec *executionContext) field_Query_findYearStatusFailedByMerchant_args(ctx 
 func (ec *executionContext) field_Query_findYearStatusFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9956,7 +9990,7 @@ func (ec *executionContext) field_Query_findYearStatusFailed_args(ctx context.Co
 func (ec *executionContext) field_Query_findYearStatusSuccessByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9967,7 +10001,7 @@ func (ec *executionContext) field_Query_findYearStatusSuccessByMerchant_args(ctx
 func (ec *executionContext) field_Query_findYearStatusSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9978,7 +10012,7 @@ func (ec *executionContext) field_Query_findYearStatusSuccess_args(ctx context.C
 func (ec *executionContext) field_Query_findYearlyRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -9989,7 +10023,7 @@ func (ec *executionContext) field_Query_findYearlyRevenueByMerchant_args(ctx con
 func (ec *executionContext) field_Query_findYearlyRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -10000,7 +10034,7 @@ func (ec *executionContext) field_Query_findYearlyRevenue_args(ctx context.Conte
 func (ec *executionContext) field_Query_findYearlyTotalPricesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPriceById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPriceById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByID)
 	if err != nil {
 		return nil, err
 	}
@@ -10011,7 +10045,7 @@ func (ec *executionContext) field_Query_findYearlyTotalPricesById_args(ctx conte
 func (ec *executionContext) field_Query_findYearlyTotalPricesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -10022,7 +10056,7 @@ func (ec *executionContext) field_Query_findYearlyTotalPricesByMerchant_args(ctx
 func (ec *executionContext) field_Query_findYearlyTotalPrices_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPrices2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPrices)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPrices2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPrices)
 	if err != nil {
 		return nil, err
 	}
@@ -10033,7 +10067,7 @@ func (ec *executionContext) field_Query_findYearlyTotalPrices_args(ctx context.C
 func (ec *executionContext) field_Query_findYearlyTotalRevenueById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByIDInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByIDInput)
 	if err != nil {
 		return nil, err
 	}
@@ -10044,7 +10078,7 @@ func (ec *executionContext) field_Query_findYearlyTotalRevenueById_args(ctx cont
 func (ec *executionContext) field_Query_findYearlyTotalRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -10055,7 +10089,7 @@ func (ec *executionContext) field_Query_findYearlyTotalRevenueByMerchant_args(ct
 func (ec *executionContext) field_Query_findYearlyTotalRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueInput)
 	if err != nil {
 		return nil, err
 	}
@@ -10066,7 +10100,7 @@ func (ec *executionContext) field_Query_findYearlyTotalRevenue_args(ctx context.
 func (ec *executionContext) field_Query_findYearlyTotalSalesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalSalesById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByID)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalSalesById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByID)
 	if err != nil {
 		return nil, err
 	}
@@ -10077,7 +10111,7 @@ func (ec *executionContext) field_Query_findYearlyTotalSalesById_args(ctx contex
 func (ec *executionContext) field_Query_findYearlyTotalSalesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -10088,7 +10122,7 @@ func (ec *executionContext) field_Query_findYearlyTotalSalesByMerchant_args(ctx 
 func (ec *executionContext) field_Query_findYearlyTotalSales_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalSales2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSales)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalSales2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSales)
 	if err != nil {
 		return nil, err
 	}
@@ -10099,7 +10133,7 @@ func (ec *executionContext) field_Query_findYearlyTotalSales_args(ctx context.Co
 func (ec *executionContext) field_Query_getMe_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐGetMeInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐGetMeInput)
 	if err != nil {
 		return nil, err
 	}
@@ -10227,7 +10261,7 @@ func (ec *executionContext) _ApiResponseCashier_data(ctx context.Context, field 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse,
+		ec.marshalOCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse,
 		true,
 		false,
 	)
@@ -10442,7 +10476,7 @@ func (ec *executionContext) _ApiResponseCashierDeleteAt_data(ctx context.Context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt,
+		ec.marshalOCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt,
 		true,
 		false,
 	)
@@ -10543,7 +10577,7 @@ func (ec *executionContext) _ApiResponseCashierMonthSales_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponseMonthSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSalesᚄ,
+		ec.marshalOCashierResponseMonthSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSalesᚄ,
 		true,
 		false,
 	)
@@ -10642,7 +10676,7 @@ func (ec *executionContext) _ApiResponseCashierMonthlyTotalSales_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponseMonthTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSalesᚄ,
+		ec.marshalOCashierResponseMonthTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSalesᚄ,
 		true,
 		false,
 	)
@@ -10737,7 +10771,7 @@ func (ec *executionContext) _ApiResponseCashierYearSales_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponseYearSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSalesᚄ,
+		ec.marshalOCashierResponseYearSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSalesᚄ,
 		true,
 		false,
 	)
@@ -10836,7 +10870,7 @@ func (ec *executionContext) _ApiResponseCashierYearlyTotalSales_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponseYearTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSalesᚄ,
+		ec.marshalOCashierResponseYearTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSalesᚄ,
 		true,
 		false,
 	)
@@ -10929,7 +10963,7 @@ func (ec *executionContext) _ApiResponseCategory_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse,
+		ec.marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse,
 		true,
 		false,
 	)
@@ -11148,7 +11182,7 @@ func (ec *executionContext) _ApiResponseCategoryDeleteAt_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt,
+		ec.marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt,
 		true,
 		false,
 	)
@@ -11253,7 +11287,7 @@ func (ec *executionContext) _ApiResponseCategoryMonthPrice_data(ctx context.Cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ,
+		ec.marshalOCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ,
 		true,
 		false,
 	)
@@ -11354,7 +11388,7 @@ func (ec *executionContext) _ApiResponseCategoryMonthlyTotalPrice_data(ctx conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoriesMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponseᚄ,
+		ec.marshalOCategoriesMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponseᚄ,
 		true,
 		false,
 	)
@@ -11449,7 +11483,7 @@ func (ec *executionContext) _ApiResponseCategoryYearPrice_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ,
+		ec.marshalOCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ,
 		true,
 		false,
 	)
@@ -11552,7 +11586,7 @@ func (ec *executionContext) _ApiResponseCategoryYearlyTotalPrice_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoriesYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponseᚄ,
+		ec.marshalOCategoriesYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponseᚄ,
 		true,
 		false,
 	)
@@ -11703,7 +11737,7 @@ func (ec *executionContext) _ApiResponseGetMe_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
+		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
 		true,
 		false,
 	)
@@ -11804,7 +11838,7 @@ func (ec *executionContext) _ApiResponseLogin_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
+		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
 		true,
 		false,
 	)
@@ -11897,7 +11931,7 @@ func (ec *executionContext) _ApiResponseMerchant_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse,
+		ec.marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse,
 		true,
 		false,
 	)
@@ -12122,7 +12156,7 @@ func (ec *executionContext) _ApiResponseMerchantDeleteAt_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt,
+		ec.marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt,
 		true,
 		false,
 	)
@@ -12233,7 +12267,7 @@ func (ec *executionContext) _ApiResponseMerchantDocument_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse,
+		ec.marshalOMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse,
 		true,
 		false,
 	)
@@ -12454,7 +12488,7 @@ func (ec *executionContext) _ApiResponseMerchantDocumentDeleteAt_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt,
+		ec.marshalOMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt,
 		true,
 		false,
 	)
@@ -12561,7 +12595,7 @@ func (ec *executionContext) _ApiResponseOrder_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse,
+		ec.marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse,
 		true,
 		false,
 	)
@@ -12778,7 +12812,7 @@ func (ec *executionContext) _ApiResponseOrderDeleteAt_data(ctx context.Context, 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt,
+		ec.marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt,
 		true,
 		false,
 	)
@@ -12881,7 +12915,7 @@ func (ec *executionContext) _ApiResponseOrderItem_data(ctx context.Context, fiel
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse,
+		ec.marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse,
 		true,
 		false,
 	)
@@ -13100,7 +13134,7 @@ func (ec *executionContext) _ApiResponseOrderMonthly_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ,
+		ec.marshalOOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ,
 		true,
 		false,
 	)
@@ -13197,7 +13231,7 @@ func (ec *executionContext) _ApiResponseOrderMonthlyTotalRevenue_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderMonthlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueᚄ,
+		ec.marshalOOrderMonthlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueᚄ,
 		true,
 		false,
 	)
@@ -13296,7 +13330,7 @@ func (ec *executionContext) _ApiResponseOrderYearly_data(ctx context.Context, fi
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ,
+		ec.marshalOOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ,
 		true,
 		false,
 	)
@@ -13397,7 +13431,7 @@ func (ec *executionContext) _ApiResponseOrderYearlyTotalRevenue_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderYearlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueᚄ,
+		ec.marshalOOrderYearlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueᚄ,
 		true,
 		false,
 	)
@@ -13498,7 +13532,7 @@ func (ec *executionContext) _ApiResponsePaginationCashier_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseᚄ,
+		ec.marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseᚄ,
 		true,
 		false,
 	)
@@ -13539,7 +13573,7 @@ func (ec *executionContext) _ApiResponsePaginationCashier_pagination(ctx context
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -13636,7 +13670,7 @@ func (ec *executionContext) _ApiResponsePaginationCashierDeleteAt_data(ctx conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAtᚄ,
+		ec.marshalOCashierResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -13679,7 +13713,7 @@ func (ec *executionContext) _ApiResponsePaginationCashierDeleteAt_pagination(ctx
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -13776,7 +13810,7 @@ func (ec *executionContext) _ApiResponsePaginationCategory_data(ctx context.Cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ,
+		ec.marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ,
 		true,
 		false,
 	)
@@ -13821,7 +13855,7 @@ func (ec *executionContext) _ApiResponsePaginationCategory_pagination(ctx contex
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -13918,7 +13952,7 @@ func (ec *executionContext) _ApiResponsePaginationCategoryDeleteAt_data(ctx cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ,
+		ec.marshalOCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -13965,7 +13999,7 @@ func (ec *executionContext) _ApiResponsePaginationCategoryDeleteAt_pagination(ct
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -14062,7 +14096,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchant_data(ctx context.Cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
+		ec.marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
 		true,
 		false,
 	)
@@ -14113,7 +14147,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchant_pagination(ctx contex
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -14210,7 +14244,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDeleteAt_data(ctx cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ,
+		ec.marshalOMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -14263,7 +14297,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDeleteAt_pagination(ct
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -14360,7 +14394,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDocument_data(ctx cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseᚄ,
+		ec.marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseᚄ,
 		true,
 		true,
 	)
@@ -14407,7 +14441,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDocument_pagination(ct
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -14504,7 +14538,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDocumentAt_data(ctx co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantDocumentResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAtᚄ,
+		ec.marshalNMerchantDocumentResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -14553,7 +14587,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDocumentAt_pagination(
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -14650,7 +14684,7 @@ func (ec *executionContext) _ApiResponsePaginationOrder_data(ctx context.Context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
+		ec.marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
 		true,
 		false,
 	)
@@ -14693,7 +14727,7 @@ func (ec *executionContext) _ApiResponsePaginationOrder_pagination(ctx context.C
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -14790,7 +14824,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderDeleteAt_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ,
+		ec.marshalOOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -14835,7 +14869,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderDeleteAt_pagination(ctx c
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -14932,7 +14966,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItem_data(ctx context.Con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
+		ec.marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
 		true,
 		false,
 	)
@@ -14977,7 +15011,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItem_pagination(ctx conte
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -15074,7 +15108,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItemDeleteAt_data(ctx con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ,
+		ec.marshalOOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -15121,7 +15155,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItemDeleteAt_pagination(c
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -15218,7 +15252,7 @@ func (ec *executionContext) _ApiResponsePaginationProduct_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
+		ec.marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
 		true,
 		true,
 	)
@@ -15279,7 +15313,7 @@ func (ec *executionContext) _ApiResponsePaginationProduct_pagination(ctx context
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -15376,7 +15410,7 @@ func (ec *executionContext) _ApiResponsePaginationProductDeleteAt_data(ctx conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ,
+		ec.marshalNProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -15439,7 +15473,7 @@ func (ec *executionContext) _ApiResponsePaginationProductDeleteAt_pagination(ctx
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -15536,7 +15570,7 @@ func (ec *executionContext) _ApiResponsePaginationRole_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
+		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
 		true,
 		false,
 	)
@@ -15575,7 +15609,7 @@ func (ec *executionContext) _ApiResponsePaginationRole_pagination(ctx context.Co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -15672,7 +15706,7 @@ func (ec *executionContext) _ApiResponsePaginationRoleDeleteAt_data(ctx context.
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ,
+		ec.marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -15713,7 +15747,7 @@ func (ec *executionContext) _ApiResponsePaginationRoleDeleteAt_pagination(ctx co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -15810,7 +15844,7 @@ func (ec *executionContext) _ApiResponsePaginationTransaction_data(ctx context.C
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseᚄ,
+		ec.marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseᚄ,
 		true,
 		true,
 	)
@@ -15859,7 +15893,7 @@ func (ec *executionContext) _ApiResponsePaginationTransaction_pagination(ctx con
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -15956,7 +15990,7 @@ func (ec *executionContext) _ApiResponsePaginationTransactionDeleteAt_data(ctx c
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAtᚄ,
+		ec.marshalNTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -16007,7 +16041,7 @@ func (ec *executionContext) _ApiResponsePaginationTransactionDeleteAt_pagination
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -16104,7 +16138,7 @@ func (ec *executionContext) _ApiResponsePaginationUser_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
+		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
 		true,
 		true,
 	)
@@ -16147,7 +16181,7 @@ func (ec *executionContext) _ApiResponsePaginationUser_pagination(ctx context.Co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -16244,7 +16278,7 @@ func (ec *executionContext) _ApiResponsePaginationUserDeleteAt_data(ctx context.
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ,
+		ec.marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -16289,7 +16323,7 @@ func (ec *executionContext) _ApiResponsePaginationUserDeleteAt_pagination(ctx co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -16386,7 +16420,7 @@ func (ec *executionContext) _ApiResponseProduct_data(ctx context.Context, field 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse,
+		ec.marshalOProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse,
 		true,
 		false,
 	)
@@ -16621,7 +16655,7 @@ func (ec *executionContext) _ApiResponseProductDeleteAt_data(ctx context.Context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt,
+		ec.marshalOProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt,
 		true,
 		false,
 	)
@@ -16742,7 +16776,7 @@ func (ec *executionContext) _ApiResponseRefreshToken_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
+		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
 		true,
 		false,
 	)
@@ -16835,7 +16869,7 @@ func (ec *executionContext) _ApiResponseRegister_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
+		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
 		true,
 		false,
 	)
@@ -16994,7 +17028,7 @@ func (ec *executionContext) _ApiResponseRole_data(ctx context.Context, field gra
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse,
+		ec.marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse,
 		true,
 		false,
 	)
@@ -17207,7 +17241,7 @@ func (ec *executionContext) _ApiResponseRoleDeleteAt_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt,
+		ec.marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt,
 		true,
 		false,
 	)
@@ -17306,7 +17340,7 @@ func (ec *executionContext) _ApiResponseTransaction_data(ctx context.Context, fi
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse,
+		ec.marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse,
 		true,
 		false,
 	)
@@ -17529,7 +17563,7 @@ func (ec *executionContext) _ApiResponseTransactionDeleteAt_data(ctx context.Con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt,
+		ec.marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt,
 		true,
 		false,
 	)
@@ -17638,7 +17672,7 @@ func (ec *executionContext) _ApiResponseTransactionMonthAmountFailed_data(ctx co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailedᚄ,
+		ec.marshalNTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailedᚄ,
 		true,
 		true,
 	)
@@ -17735,7 +17769,7 @@ func (ec *executionContext) _ApiResponseTransactionMonthAmountSuccess_data(ctx c
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccessᚄ,
+		ec.marshalNTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccessᚄ,
 		true,
 		true,
 	)
@@ -17832,7 +17866,7 @@ func (ec *executionContext) _ApiResponseTransactionMonthPaymentMethod_data(ctx c
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethodᚄ,
+		ec.marshalNTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethodᚄ,
 		true,
 		true,
 	)
@@ -17929,7 +17963,7 @@ func (ec *executionContext) _ApiResponseTransactionYearAmountFailed_data(ctx con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailedᚄ,
+		ec.marshalNTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailedᚄ,
 		true,
 		true,
 	)
@@ -18024,7 +18058,7 @@ func (ec *executionContext) _ApiResponseTransactionYearAmountSuccess_data(ctx co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccessᚄ,
+		ec.marshalNTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccessᚄ,
 		true,
 		true,
 	)
@@ -18119,7 +18153,7 @@ func (ec *executionContext) _ApiResponseTransactionYearPaymentMethod_data(ctx co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethodᚄ,
+		ec.marshalNTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethodᚄ,
 		true,
 		true,
 	)
@@ -18332,7 +18366,7 @@ func (ec *executionContext) _ApiResponseUserResponse_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
+		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
 		true,
 		false,
 	)
@@ -18433,7 +18467,7 @@ func (ec *executionContext) _ApiResponseUserResponseDeleteAt_data(ctx context.Co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt,
+		ec.marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt,
 		true,
 		false,
 	)
@@ -18594,7 +18628,7 @@ func (ec *executionContext) _ApiResponsesCashier_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseᚄ,
+		ec.marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseᚄ,
 		true,
 		false,
 	)
@@ -18693,7 +18727,7 @@ func (ec *executionContext) _ApiResponsesCategory_data(ctx context.Context, fiel
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ,
+		ec.marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ,
 		true,
 		false,
 	)
@@ -18796,7 +18830,7 @@ func (ec *executionContext) _ApiResponsesMerchant_data(ctx context.Context, fiel
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
+		ec.marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
 		true,
 		false,
 	)
@@ -18905,7 +18939,7 @@ func (ec *executionContext) _ApiResponsesMerchantDocument_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseᚄ,
+		ec.marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseᚄ,
 		true,
 		true,
 	)
@@ -19010,7 +19044,7 @@ func (ec *executionContext) _ApiResponsesOrder_data(ctx context.Context, field g
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
+		ec.marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
 		true,
 		false,
 	)
@@ -19111,7 +19145,7 @@ func (ec *executionContext) _ApiResponsesOrderItem_data(ctx context.Context, fie
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
+		ec.marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
 		true,
 		false,
 	)
@@ -19214,7 +19248,7 @@ func (ec *executionContext) _ApiResponsesProduct_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
+		ec.marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
 		true,
 		true,
 	)
@@ -19333,7 +19367,7 @@ func (ec *executionContext) _ApiResponsesRole_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
+		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
 		true,
 		false,
 	)
@@ -19430,7 +19464,7 @@ func (ec *executionContext) _ApiResponsesTransaction_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseᚄ,
+		ec.marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseᚄ,
 		true,
 		true,
 	)
@@ -19537,7 +19571,7 @@ func (ec *executionContext) _ApiResponsesUser_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
+		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
 		true,
 		true,
 	)
@@ -22394,7 +22428,7 @@ func (ec *executionContext) _Mutation_verifyCode(ctx context.Context, field grap
 			return ec.resolvers.Mutation().VerifyCode(ctx, fc.Args["input"].(model.VerifyCodeInput))
 		},
 		nil,
-		ec.marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode,
+		ec.marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode,
 		true,
 		true,
 	)
@@ -22441,7 +22475,7 @@ func (ec *executionContext) _Mutation_forgotPassword(ctx context.Context, field 
 			return ec.resolvers.Mutation().ForgotPassword(ctx, fc.Args["input"].(model.ForgotPasswordInput))
 		},
 		nil,
-		ec.marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword,
+		ec.marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword,
 		true,
 		true,
 	)
@@ -22488,7 +22522,7 @@ func (ec *executionContext) _Mutation_resetPassword(ctx context.Context, field g
 			return ec.resolvers.Mutation().ResetPassword(ctx, fc.Args["input"].(model.ResetPasswordInput))
 		},
 		nil,
-		ec.marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword,
+		ec.marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword,
 		true,
 		true,
 	)
@@ -22535,7 +22569,7 @@ func (ec *executionContext) _Mutation_registerUser(ctx context.Context, field gr
 			return ec.resolvers.Mutation().RegisterUser(ctx, fc.Args["input"].(model.RegisterInput))
 		},
 		nil,
-		ec.marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister,
+		ec.marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister,
 		true,
 		true,
 	)
@@ -22584,7 +22618,7 @@ func (ec *executionContext) _Mutation_loginUser(ctx context.Context, field graph
 			return ec.resolvers.Mutation().LoginUser(ctx, fc.Args["input"].(model.LoginInput))
 		},
 		nil,
-		ec.marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin,
+		ec.marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin,
 		true,
 		true,
 	)
@@ -22633,7 +22667,7 @@ func (ec *executionContext) _Mutation_refreshToken(ctx context.Context, field gr
 			return ec.resolvers.Mutation().RefreshToken(ctx, fc.Args["input"].(model.RefreshTokenInput))
 		},
 		nil,
-		ec.marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken,
+		ec.marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken,
 		true,
 		true,
 	)
@@ -22682,7 +22716,7 @@ func (ec *executionContext) _Mutation_createCashier(ctx context.Context, field g
 			return ec.resolvers.Mutation().CreateCashier(ctx, fc.Args["input"].(model.CreateCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier,
+		ec.marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier,
 		true,
 		false,
 	)
@@ -22731,7 +22765,7 @@ func (ec *executionContext) _Mutation_updateCashier(ctx context.Context, field g
 			return ec.resolvers.Mutation().UpdateCashier(ctx, fc.Args["input"].(model.UpdateCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier,
+		ec.marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier,
 		true,
 		false,
 	)
@@ -22780,7 +22814,7 @@ func (ec *executionContext) _Mutation_trashedCashier(ctx context.Context, field 
 			return ec.resolvers.Mutation().TrashedCashier(ctx, fc.Args["input"].(model.FindByIDCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDeleteAt,
+		ec.marshalOApiResponseCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDeleteAt,
 		true,
 		false,
 	)
@@ -22829,7 +22863,7 @@ func (ec *executionContext) _Mutation_restoreCashier(ctx context.Context, field 
 			return ec.resolvers.Mutation().RestoreCashier(ctx, fc.Args["input"].(model.FindByIDCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDeleteAt,
+		ec.marshalOApiResponseCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDeleteAt,
 		true,
 		false,
 	)
@@ -22878,7 +22912,7 @@ func (ec *executionContext) _Mutation_deleteCashierPermanent(ctx context.Context
 			return ec.resolvers.Mutation().DeleteCashierPermanent(ctx, fc.Args["input"].(model.FindByIDCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCashierDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDelete,
+		ec.marshalOApiResponseCashierDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDelete,
 		true,
 		false,
 	)
@@ -22924,7 +22958,7 @@ func (ec *executionContext) _Mutation_restoreAllCashier(ctx context.Context, fie
 			return ec.resolvers.Mutation().RestoreAllCashier(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseCashierAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierAll,
+		ec.marshalOApiResponseCashierAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierAll,
 		true,
 		false,
 	)
@@ -22959,7 +22993,7 @@ func (ec *executionContext) _Mutation_deleteAllCashierPermanent(ctx context.Cont
 			return ec.resolvers.Mutation().DeleteAllCashierPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseCashierAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierAll,
+		ec.marshalOApiResponseCashierAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierAll,
 		true,
 		false,
 	)
@@ -22995,7 +23029,7 @@ func (ec *executionContext) _Mutation_createCategory(ctx context.Context, field 
 			return ec.resolvers.Mutation().CreateCategory(ctx, fc.Args["input"].(model.CreateCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
+		ec.marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
 		true,
 		false,
 	)
@@ -23044,7 +23078,7 @@ func (ec *executionContext) _Mutation_updateCategory(ctx context.Context, field 
 			return ec.resolvers.Mutation().UpdateCategory(ctx, fc.Args["input"].(model.UpdateCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
+		ec.marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
 		true,
 		false,
 	)
@@ -23093,7 +23127,7 @@ func (ec *executionContext) _Mutation_trashedCategory(ctx context.Context, field
 			return ec.resolvers.Mutation().TrashedCategory(ctx, fc.Args["input"].(model.FindByIDCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
+		ec.marshalOApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
 		true,
 		false,
 	)
@@ -23142,7 +23176,7 @@ func (ec *executionContext) _Mutation_restoreCategory(ctx context.Context, field
 			return ec.resolvers.Mutation().RestoreCategory(ctx, fc.Args["input"].(model.FindByIDCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
+		ec.marshalOApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
 		true,
 		false,
 	)
@@ -23191,7 +23225,7 @@ func (ec *executionContext) _Mutation_deleteCategoryPermanent(ctx context.Contex
 			return ec.resolvers.Mutation().DeleteCategoryPermanent(ctx, fc.Args["input"].(model.FindByIDCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete,
+		ec.marshalOApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete,
 		true,
 		false,
 	)
@@ -23237,7 +23271,7 @@ func (ec *executionContext) _Mutation_restoreAllCategory(ctx context.Context, fi
 			return ec.resolvers.Mutation().RestoreAllCategory(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
+		ec.marshalOApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
 		true,
 		false,
 	)
@@ -23272,7 +23306,7 @@ func (ec *executionContext) _Mutation_deleteAllCategoryPermanent(ctx context.Con
 			return ec.resolvers.Mutation().DeleteAllCategoryPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
+		ec.marshalOApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
 		true,
 		false,
 	)
@@ -23308,7 +23342,7 @@ func (ec *executionContext) _Mutation_createMerchant(ctx context.Context, field 
 			return ec.resolvers.Mutation().CreateMerchant(ctx, fc.Args["input"].(model.CreateMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
+		ec.marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
 		true,
 		false,
 	)
@@ -23357,7 +23391,7 @@ func (ec *executionContext) _Mutation_updateMerchant(ctx context.Context, field 
 			return ec.resolvers.Mutation().UpdateMerchant(ctx, fc.Args["input"].(model.UpdateMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
+		ec.marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
 		true,
 		false,
 	)
@@ -23406,7 +23440,7 @@ func (ec *executionContext) _Mutation_trashedMerchant(ctx context.Context, field
 			return ec.resolvers.Mutation().TrashedMerchant(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
+		ec.marshalOApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
 		true,
 		false,
 	)
@@ -23455,7 +23489,7 @@ func (ec *executionContext) _Mutation_restoreMerchant(ctx context.Context, field
 			return ec.resolvers.Mutation().RestoreMerchant(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
+		ec.marshalOApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
 		true,
 		false,
 	)
@@ -23504,7 +23538,7 @@ func (ec *executionContext) _Mutation_deleteMerchantPermanent(ctx context.Contex
 			return ec.resolvers.Mutation().DeleteMerchantPermanent(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete,
+		ec.marshalOApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete,
 		true,
 		false,
 	)
@@ -23550,7 +23584,7 @@ func (ec *executionContext) _Mutation_restoreAllMerchant(ctx context.Context, fi
 			return ec.resolvers.Mutation().RestoreAllMerchant(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
+		ec.marshalOApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
 		true,
 		false,
 	)
@@ -23585,7 +23619,7 @@ func (ec *executionContext) _Mutation_deleteAllMerchantPermanent(ctx context.Con
 			return ec.resolvers.Mutation().DeleteAllMerchantPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
+		ec.marshalOApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
 		true,
 		false,
 	)
@@ -23621,7 +23655,7 @@ func (ec *executionContext) _Mutation_createMerchantDocument(ctx context.Context
 			return ec.resolvers.Mutation().CreateMerchantDocument(ctx, fc.Args["input"].(model.CreateMerchantDocumentInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
+		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
 		true,
 		true,
 	)
@@ -23670,7 +23704,7 @@ func (ec *executionContext) _Mutation_updateMerchantDocument(ctx context.Context
 			return ec.resolvers.Mutation().UpdateMerchantDocument(ctx, fc.Args["input"].(model.UpdateMerchantDocumentInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
+		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
 		true,
 		true,
 	)
@@ -23719,7 +23753,7 @@ func (ec *executionContext) _Mutation_updateMerchantDocumentStatus(ctx context.C
 			return ec.resolvers.Mutation().UpdateMerchantDocumentStatus(ctx, fc.Args["input"].(model.UpdateMerchantDocumentStatusInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
+		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
 		true,
 		true,
 	)
@@ -23768,7 +23802,7 @@ func (ec *executionContext) _Mutation_trashedMerchantDocument(ctx context.Contex
 			return ec.resolvers.Mutation().TrashedMerchantDocument(ctx, fc.Args["input"].(model.TrashedMerchantDocumentInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocumentDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt,
+		ec.marshalNApiResponseMerchantDocumentDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt,
 		true,
 		true,
 	)
@@ -23817,7 +23851,7 @@ func (ec *executionContext) _Mutation_restoreMerchantDocument(ctx context.Contex
 			return ec.resolvers.Mutation().RestoreMerchantDocument(ctx, fc.Args["input"].(model.RestoreMerchantDocumentInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocumentDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt,
+		ec.marshalNApiResponseMerchantDocumentDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt,
 		true,
 		true,
 	)
@@ -23866,7 +23900,7 @@ func (ec *executionContext) _Mutation_deleteMerchantDocumentPermanent(ctx contex
 			return ec.resolvers.Mutation().DeleteMerchantDocumentPermanent(ctx, fc.Args["input"].(model.DeleteMerchantDocumentPermanentInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocumentDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDelete,
+		ec.marshalNApiResponseMerchantDocumentDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDelete,
 		true,
 		true,
 	)
@@ -23912,7 +23946,7 @@ func (ec *executionContext) _Mutation_restoreAllMerchantDocuments(ctx context.Co
 			return ec.resolvers.Mutation().RestoreAllMerchantDocuments(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocumentAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll,
+		ec.marshalNApiResponseMerchantDocumentAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll,
 		true,
 		true,
 	)
@@ -23947,7 +23981,7 @@ func (ec *executionContext) _Mutation_deleteAllMerchantDocumentsPermanent(ctx co
 			return ec.resolvers.Mutation().DeleteAllMerchantDocumentsPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocumentAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll,
+		ec.marshalNApiResponseMerchantDocumentAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll,
 		true,
 		true,
 	)
@@ -23983,7 +24017,7 @@ func (ec *executionContext) _Mutation_createOrder(ctx context.Context, field gra
 			return ec.resolvers.Mutation().CreateOrder(ctx, fc.Args["input"].(model.CreateOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
+		ec.marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
 		true,
 		false,
 	)
@@ -24032,7 +24066,7 @@ func (ec *executionContext) _Mutation_updateOrder(ctx context.Context, field gra
 			return ec.resolvers.Mutation().UpdateOrder(ctx, fc.Args["input"].(model.UpdateOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
+		ec.marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
 		true,
 		false,
 	)
@@ -24081,7 +24115,7 @@ func (ec *executionContext) _Mutation_trashedOrder(ctx context.Context, field gr
 			return ec.resolvers.Mutation().TrashedOrder(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
+		ec.marshalOApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
 		true,
 		false,
 	)
@@ -24130,7 +24164,7 @@ func (ec *executionContext) _Mutation_restoreOrder(ctx context.Context, field gr
 			return ec.resolvers.Mutation().RestoreOrder(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
+		ec.marshalOApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
 		true,
 		false,
 	)
@@ -24179,7 +24213,7 @@ func (ec *executionContext) _Mutation_deleteOrderPermanent(ctx context.Context, 
 			return ec.resolvers.Mutation().DeleteOrderPermanent(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete,
+		ec.marshalOApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete,
 		true,
 		false,
 	)
@@ -24225,7 +24259,7 @@ func (ec *executionContext) _Mutation_restoreAllOrder(ctx context.Context, field
 			return ec.resolvers.Mutation().RestoreAllOrder(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
+		ec.marshalOApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
 		true,
 		false,
 	)
@@ -24260,7 +24294,7 @@ func (ec *executionContext) _Mutation_deleteAllOrderPermanent(ctx context.Contex
 			return ec.resolvers.Mutation().DeleteAllOrderPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
+		ec.marshalOApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
 		true,
 		false,
 	)
@@ -24296,7 +24330,7 @@ func (ec *executionContext) _Mutation_createProduct(ctx context.Context, field g
 			return ec.resolvers.Mutation().CreateProduct(ctx, fc.Args["input"].(model.CreateProductInput))
 		},
 		nil,
-		ec.marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
+		ec.marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
 		true,
 		true,
 	)
@@ -24345,7 +24379,7 @@ func (ec *executionContext) _Mutation_updateProduct(ctx context.Context, field g
 			return ec.resolvers.Mutation().UpdateProduct(ctx, fc.Args["input"].(model.UpdateProductInput))
 		},
 		nil,
-		ec.marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
+		ec.marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
 		true,
 		true,
 	)
@@ -24394,7 +24428,7 @@ func (ec *executionContext) _Mutation_trashedProduct(ctx context.Context, field 
 			return ec.resolvers.Mutation().TrashedProduct(ctx, fc.Args["input"].(model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalNApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
+		ec.marshalNApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
 		true,
 		true,
 	)
@@ -24443,7 +24477,7 @@ func (ec *executionContext) _Mutation_restoreProduct(ctx context.Context, field 
 			return ec.resolvers.Mutation().RestoreProduct(ctx, fc.Args["input"].(model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalNApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
+		ec.marshalNApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
 		true,
 		true,
 	)
@@ -24492,7 +24526,7 @@ func (ec *executionContext) _Mutation_deleteProductPermanent(ctx context.Context
 			return ec.resolvers.Mutation().DeleteProductPermanent(ctx, fc.Args["input"].(model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalNApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete,
+		ec.marshalNApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete,
 		true,
 		true,
 	)
@@ -24538,7 +24572,7 @@ func (ec *executionContext) _Mutation_restoreAllProduct(ctx context.Context, fie
 			return ec.resolvers.Mutation().RestoreAllProduct(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
+		ec.marshalNApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
 		true,
 		true,
 	)
@@ -24573,7 +24607,7 @@ func (ec *executionContext) _Mutation_deleteAllProductPermanent(ctx context.Cont
 			return ec.resolvers.Mutation().DeleteAllProductPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
+		ec.marshalNApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
 		true,
 		true,
 	)
@@ -24608,8 +24642,26 @@ func (ec *executionContext) _Mutation_createRole(ctx context.Context, field grap
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().CreateRole(ctx, fc.Args["input"].(model.CreateRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
 		true,
 		false,
 	)
@@ -24657,8 +24709,26 @@ func (ec *executionContext) _Mutation_updateRole(ctx context.Context, field grap
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().UpdateRole(ctx, fc.Args["input"].(model.UpdateRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
 		true,
 		false,
 	)
@@ -24706,8 +24776,26 @@ func (ec *executionContext) _Mutation_trashedRole(ctx context.Context, field gra
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().TrashedRole(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
 		true,
 		false,
 	)
@@ -24755,8 +24843,26 @@ func (ec *executionContext) _Mutation_restoreRole(ctx context.Context, field gra
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().RestoreRole(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
 		true,
 		false,
 	)
@@ -24804,8 +24910,26 @@ func (ec *executionContext) _Mutation_deleteRolePermanent(ctx context.Context, f
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().DeleteRolePermanent(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleDelete
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleDelete
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete,
 		true,
 		false,
 	)
@@ -24850,8 +24974,26 @@ func (ec *executionContext) _Mutation_restoreAllRole(ctx context.Context, field 
 		func(ctx context.Context) (any, error) {
 			return ec.resolvers.Mutation().RestoreAllRole(ctx)
 		},
-		nil,
-		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
 		true,
 		false,
 	)
@@ -24885,8 +25027,26 @@ func (ec *executionContext) _Mutation_deleteAllRolePermanent(ctx context.Context
 		func(ctx context.Context) (any, error) {
 			return ec.resolvers.Mutation().DeleteAllRolePermanent(ctx)
 		},
-		nil,
-		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
 		true,
 		false,
 	)
@@ -24922,7 +25082,7 @@ func (ec *executionContext) _Mutation_createTransaction(ctx context.Context, fie
 			return ec.resolvers.Mutation().CreateTransaction(ctx, fc.Args["input"].(model.CreateTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
+		ec.marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
 		true,
 		true,
 	)
@@ -24971,7 +25131,7 @@ func (ec *executionContext) _Mutation_updateTransaction(ctx context.Context, fie
 			return ec.resolvers.Mutation().UpdateTransaction(ctx, fc.Args["input"].(model.UpdateTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
+		ec.marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
 		true,
 		true,
 	)
@@ -25020,7 +25180,7 @@ func (ec *executionContext) _Mutation_trashedTransaction(ctx context.Context, fi
 			return ec.resolvers.Mutation().TrashedTransaction(ctx, fc.Args["input"].(model.FindByIDTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
+		ec.marshalNApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
 		true,
 		true,
 	)
@@ -25069,7 +25229,7 @@ func (ec *executionContext) _Mutation_restoreTransaction(ctx context.Context, fi
 			return ec.resolvers.Mutation().RestoreTransaction(ctx, fc.Args["input"].(model.FindByIDTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
+		ec.marshalNApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
 		true,
 		true,
 	)
@@ -25118,7 +25278,7 @@ func (ec *executionContext) _Mutation_deleteTransactionPermanent(ctx context.Con
 			return ec.resolvers.Mutation().DeleteTransactionPermanent(ctx, fc.Args["input"].(model.FindByIDTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete,
+		ec.marshalNApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete,
 		true,
 		true,
 	)
@@ -25164,7 +25324,7 @@ func (ec *executionContext) _Mutation_restoreAllTransaction(ctx context.Context,
 			return ec.resolvers.Mutation().RestoreAllTransaction(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
+		ec.marshalNApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
 		true,
 		true,
 	)
@@ -25199,7 +25359,7 @@ func (ec *executionContext) _Mutation_deleteAllTransactionPermanent(ctx context.
 			return ec.resolvers.Mutation().DeleteAllTransactionPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
+		ec.marshalNApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
 		true,
 		true,
 	)
@@ -25235,7 +25395,7 @@ func (ec *executionContext) _Mutation_createUser(ctx context.Context, field grap
 			return ec.resolvers.Mutation().CreateUser(ctx, fc.Args["input"].(model.CreateUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
+		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
 		true,
 		true,
 	)
@@ -25284,7 +25444,7 @@ func (ec *executionContext) _Mutation_updateUser(ctx context.Context, field grap
 			return ec.resolvers.Mutation().UpdateUser(ctx, fc.Args["input"].(model.UpdateUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
+		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
 		true,
 		true,
 	)
@@ -25333,7 +25493,7 @@ func (ec *executionContext) _Mutation_trashedUser(ctx context.Context, field gra
 			return ec.resolvers.Mutation().TrashedUser(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
+		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
 		true,
 		true,
 	)
@@ -25382,7 +25542,7 @@ func (ec *executionContext) _Mutation_restoreUser(ctx context.Context, field gra
 			return ec.resolvers.Mutation().RestoreUser(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
+		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
 		true,
 		true,
 	)
@@ -25431,7 +25591,7 @@ func (ec *executionContext) _Mutation_deleteUserPermanent(ctx context.Context, f
 			return ec.resolvers.Mutation().DeleteUserPermanent(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete,
+		ec.marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete,
 		true,
 		true,
 	)
@@ -25477,7 +25637,7 @@ func (ec *executionContext) _Mutation_restoreAllUser(ctx context.Context, field 
 			return ec.resolvers.Mutation().RestoreAllUser(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
+		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
 		true,
 		true,
 	)
@@ -25512,7 +25672,7 @@ func (ec *executionContext) _Mutation_deleteAllUserPermanent(ctx context.Context
 			return ec.resolvers.Mutation().DeleteAllUserPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
+		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
 		true,
 		true,
 	)
@@ -27984,7 +28144,7 @@ func (ec *executionContext) _Query_getMe(ctx context.Context, field graphql.Coll
 			return ec.resolvers.Query().GetMe(ctx, fc.Args["input"].(model.GetMeInput))
 		},
 		nil,
-		ec.marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe,
+		ec.marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe,
 		true,
 		true,
 	)
@@ -28033,7 +28193,7 @@ func (ec *executionContext) _Query_findMonthlyTotalSales(ctx context.Context, fi
 			return ec.resolvers.Query().FindMonthlyTotalSales(ctx, fc.Args["input"].(model.FindYearMonthTotalSales))
 		},
 		nil,
-		ec.marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales,
+		ec.marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales,
 		true,
 		false,
 	)
@@ -28082,7 +28242,7 @@ func (ec *executionContext) _Query_findYearlyTotalSales(ctx context.Context, fie
 			return ec.resolvers.Query().FindYearlyTotalSales(ctx, fc.Args["input"].(model.FindYearTotalSales))
 		},
 		nil,
-		ec.marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales,
+		ec.marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales,
 		true,
 		false,
 	)
@@ -28131,7 +28291,7 @@ func (ec *executionContext) _Query_findMonthlyTotalSalesById(ctx context.Context
 			return ec.resolvers.Query().FindMonthlyTotalSalesByID(ctx, fc.Args["input"].(model.FindYearMonthTotalSalesByID))
 		},
 		nil,
-		ec.marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales,
+		ec.marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales,
 		true,
 		false,
 	)
@@ -28180,7 +28340,7 @@ func (ec *executionContext) _Query_findYearlyTotalSalesById(ctx context.Context,
 			return ec.resolvers.Query().FindYearlyTotalSalesByID(ctx, fc.Args["input"].(model.FindYearTotalSalesByID))
 		},
 		nil,
-		ec.marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales,
+		ec.marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales,
 		true,
 		false,
 	)
@@ -28229,7 +28389,7 @@ func (ec *executionContext) _Query_findMonthlyTotalSalesByMerchant(ctx context.C
 			return ec.resolvers.Query().FindMonthlyTotalSalesByMerchant(ctx, fc.Args["input"].(model.FindYearMonthTotalSalesByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales,
+		ec.marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales,
 		true,
 		false,
 	)
@@ -28278,7 +28438,7 @@ func (ec *executionContext) _Query_findYearlyTotalSalesByMerchant(ctx context.Co
 			return ec.resolvers.Query().FindYearlyTotalSalesByMerchant(ctx, fc.Args["input"].(model.FindYearTotalSalesByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales,
+		ec.marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales,
 		true,
 		false,
 	)
@@ -28327,7 +28487,7 @@ func (ec *executionContext) _Query_findAllCashier(ctx context.Context, field gra
 			return ec.resolvers.Query().FindAllCashier(ctx, fc.Args["input"].(*model.FindAllCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationCashier2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashier,
+		ec.marshalOApiResponsePaginationCashier2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashier,
 		true,
 		false,
 	)
@@ -28378,7 +28538,7 @@ func (ec *executionContext) _Query_findByIdCashier(ctx context.Context, field gr
 			return ec.resolvers.Query().FindByIDCashier(ctx, fc.Args["input"].(model.FindByIDCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier,
+		ec.marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier,
 		true,
 		false,
 	)
@@ -28427,7 +28587,7 @@ func (ec *executionContext) _Query_findMonthSales(ctx context.Context, field gra
 			return ec.resolvers.Query().FindMonthSales(ctx, fc.Args["input"].(model.FindYearCashier))
 		},
 		nil,
-		ec.marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales,
+		ec.marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales,
 		true,
 		false,
 	)
@@ -28476,7 +28636,7 @@ func (ec *executionContext) _Query_findYearSales(ctx context.Context, field grap
 			return ec.resolvers.Query().FindYearSales(ctx, fc.Args["input"].(model.FindYearCashier))
 		},
 		nil,
-		ec.marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales,
+		ec.marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales,
 		true,
 		false,
 	)
@@ -28525,7 +28685,7 @@ func (ec *executionContext) _Query_findMonthSalesByMerchant(ctx context.Context,
 			return ec.resolvers.Query().FindMonthSalesByMerchant(ctx, fc.Args["input"].(model.FindYearCashierByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales,
+		ec.marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales,
 		true,
 		false,
 	)
@@ -28574,7 +28734,7 @@ func (ec *executionContext) _Query_findYearSalesByMerchant(ctx context.Context, 
 			return ec.resolvers.Query().FindYearSalesByMerchant(ctx, fc.Args["input"].(model.FindYearCashierByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales,
+		ec.marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales,
 		true,
 		false,
 	)
@@ -28623,7 +28783,7 @@ func (ec *executionContext) _Query_findMonthSalesById(ctx context.Context, field
 			return ec.resolvers.Query().FindMonthSalesByID(ctx, fc.Args["input"].(model.FindYearCashierByID))
 		},
 		nil,
-		ec.marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales,
+		ec.marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales,
 		true,
 		false,
 	)
@@ -28672,7 +28832,7 @@ func (ec *executionContext) _Query_findYearSalesById(ctx context.Context, field 
 			return ec.resolvers.Query().FindYearSalesByID(ctx, fc.Args["input"].(model.FindYearCashierByID))
 		},
 		nil,
-		ec.marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales,
+		ec.marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales,
 		true,
 		false,
 	)
@@ -28721,7 +28881,7 @@ func (ec *executionContext) _Query_findByActiveCashier(ctx context.Context, fiel
 			return ec.resolvers.Query().FindByActiveCashier(ctx, fc.Args["input"].(*model.FindAllCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashierDeleteAt,
+		ec.marshalOApiResponsePaginationCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashierDeleteAt,
 		true,
 		false,
 	)
@@ -28772,7 +28932,7 @@ func (ec *executionContext) _Query_findByTrashedCashier(ctx context.Context, fie
 			return ec.resolvers.Query().FindByTrashedCashier(ctx, fc.Args["input"].(*model.FindAllCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashierDeleteAt,
+		ec.marshalOApiResponsePaginationCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashierDeleteAt,
 		true,
 		false,
 	)
@@ -28823,7 +28983,7 @@ func (ec *executionContext) _Query_findByMerchantCashier(ctx context.Context, fi
 			return ec.resolvers.Query().FindByMerchantCashier(ctx, fc.Args["input"].(*model.FindByMerchantCashierRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationCashier2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashier,
+		ec.marshalOApiResponsePaginationCashier2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashier,
 		true,
 		false,
 	)
@@ -28874,7 +29034,7 @@ func (ec *executionContext) _Query_findMonthlyTotalPrices(ctx context.Context, f
 			return ec.resolvers.Query().FindMonthlyTotalPrices(ctx, fc.Args["input"].(model.FindYearMonthTotalPrices))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
+		ec.marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
 		true,
 		false,
 	)
@@ -28923,7 +29083,7 @@ func (ec *executionContext) _Query_findYearlyTotalPrices(ctx context.Context, fi
 			return ec.resolvers.Query().FindYearlyTotalPrices(ctx, fc.Args["input"].(model.FindYearTotalPrices))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
+		ec.marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
 		true,
 		false,
 	)
@@ -28972,7 +29132,7 @@ func (ec *executionContext) _Query_findMonthlyTotalPricesById(ctx context.Contex
 			return ec.resolvers.Query().FindMonthlyTotalPricesByID(ctx, fc.Args["input"].(model.FindYearMonthTotalPriceByID))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
+		ec.marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
 		true,
 		false,
 	)
@@ -29021,7 +29181,7 @@ func (ec *executionContext) _Query_findYearlyTotalPricesById(ctx context.Context
 			return ec.resolvers.Query().FindYearlyTotalPricesByID(ctx, fc.Args["input"].(model.FindYearTotalPriceByID))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
+		ec.marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
 		true,
 		false,
 	)
@@ -29070,7 +29230,7 @@ func (ec *executionContext) _Query_findMonthlyTotalPricesByMerchant(ctx context.
 			return ec.resolvers.Query().FindMonthlyTotalPricesByMerchant(ctx, fc.Args["input"].(model.FindYearMonthTotalPriceByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
+		ec.marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
 		true,
 		false,
 	)
@@ -29119,7 +29279,7 @@ func (ec *executionContext) _Query_findYearlyTotalPricesByMerchant(ctx context.C
 			return ec.resolvers.Query().FindYearlyTotalPricesByMerchant(ctx, fc.Args["input"].(model.FindYearTotalPriceByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
+		ec.marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
 		true,
 		false,
 	)
@@ -29168,7 +29328,7 @@ func (ec *executionContext) _Query_findMonthPrice(ctx context.Context, field gra
 			return ec.resolvers.Query().FindMonthPrice(ctx, fc.Args["input"].(model.FindYearCategory))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
+		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
 		true,
 		false,
 	)
@@ -29217,7 +29377,7 @@ func (ec *executionContext) _Query_findYearPrice(ctx context.Context, field grap
 			return ec.resolvers.Query().FindYearPrice(ctx, fc.Args["input"].(model.FindYearCategory))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
+		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
 		true,
 		false,
 	)
@@ -29266,7 +29426,7 @@ func (ec *executionContext) _Query_findMonthPriceByMerchant(ctx context.Context,
 			return ec.resolvers.Query().FindMonthPriceByMerchant(ctx, fc.Args["input"].(model.FindYearCategoryByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
+		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
 		true,
 		false,
 	)
@@ -29315,7 +29475,7 @@ func (ec *executionContext) _Query_findYearPriceByMerchant(ctx context.Context, 
 			return ec.resolvers.Query().FindYearPriceByMerchant(ctx, fc.Args["input"].(model.FindYearCategoryByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
+		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
 		true,
 		false,
 	)
@@ -29364,7 +29524,7 @@ func (ec *executionContext) _Query_findMonthPriceById(ctx context.Context, field
 			return ec.resolvers.Query().FindMonthPriceByID(ctx, fc.Args["input"].(model.FindYearCategoryByID))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
+		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
 		true,
 		false,
 	)
@@ -29413,7 +29573,7 @@ func (ec *executionContext) _Query_findYearPriceById(ctx context.Context, field 
 			return ec.resolvers.Query().FindYearPriceByID(ctx, fc.Args["input"].(model.FindYearCategoryByID))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
+		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
 		true,
 		false,
 	)
@@ -29462,7 +29622,7 @@ func (ec *executionContext) _Query_findByActiveCategory(ctx context.Context, fie
 			return ec.resolvers.Query().FindByActiveCategory(ctx, fc.Args["input"].(*model.FindAllCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
+		ec.marshalOApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
 		true,
 		false,
 	)
@@ -29513,7 +29673,7 @@ func (ec *executionContext) _Query_findByTrashedCategory(ctx context.Context, fi
 			return ec.resolvers.Query().FindByTrashedCategory(ctx, fc.Args["input"].(*model.FindAllCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
+		ec.marshalOApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
 		true,
 		false,
 	)
@@ -29564,7 +29724,7 @@ func (ec *executionContext) _Query_findAllCategory(ctx context.Context, field gr
 			return ec.resolvers.Query().FindAllCategory(ctx, fc.Args["input"].(*model.FindAllCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory,
+		ec.marshalOApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory,
 		true,
 		false,
 	)
@@ -29615,7 +29775,7 @@ func (ec *executionContext) _Query_findByIdCategory(ctx context.Context, field g
 			return ec.resolvers.Query().FindByIDCategory(ctx, fc.Args["input"].(model.FindByIDCategoryRequest))
 		},
 		nil,
-		ec.marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
+		ec.marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
 		true,
 		false,
 	)
@@ -29664,7 +29824,7 @@ func (ec *executionContext) _Query_findAllMerchant(ctx context.Context, field gr
 			return ec.resolvers.Query().FindAllMerchant(ctx, fc.Args["input"].(model.FindAllMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant,
+		ec.marshalOApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant,
 		true,
 		false,
 	)
@@ -29715,7 +29875,7 @@ func (ec *executionContext) _Query_findByIdMerchant(ctx context.Context, field g
 			return ec.resolvers.Query().FindByIDMerchant(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
+		ec.marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
 		true,
 		false,
 	)
@@ -29764,7 +29924,7 @@ func (ec *executionContext) _Query_findByActiveMerchant(ctx context.Context, fie
 			return ec.resolvers.Query().FindByActiveMerchant(ctx, fc.Args["input"].(model.FindAllMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
+		ec.marshalOApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
 		true,
 		false,
 	)
@@ -29815,7 +29975,7 @@ func (ec *executionContext) _Query_findByTrashedMerchant(ctx context.Context, fi
 			return ec.resolvers.Query().FindByTrashedMerchant(ctx, fc.Args["input"].(model.FindAllMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
+		ec.marshalOApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
 		true,
 		false,
 	)
@@ -29866,7 +30026,7 @@ func (ec *executionContext) _Query_findAllMerchantDocuments(ctx context.Context,
 			return ec.resolvers.Query().FindAllMerchantDocuments(ctx, fc.Args["input"].(model.FindAllMerchantDocumentsInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocument,
+		ec.marshalNApiResponsePaginationMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocument,
 		true,
 		true,
 	)
@@ -29917,7 +30077,7 @@ func (ec *executionContext) _Query_findAllActiveMerchantDocuments(ctx context.Co
 			return ec.resolvers.Query().FindAllActiveMerchantDocuments(ctx, fc.Args["input"].(model.FindAllMerchantDocumentsInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDocumentAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt,
+		ec.marshalNApiResponsePaginationMerchantDocumentAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt,
 		true,
 		true,
 	)
@@ -29968,7 +30128,7 @@ func (ec *executionContext) _Query_findAllTrashedMerchantDocuments(ctx context.C
 			return ec.resolvers.Query().FindAllTrashedMerchantDocuments(ctx, fc.Args["input"].(model.FindAllMerchantDocumentsInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDocumentAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt,
+		ec.marshalNApiResponsePaginationMerchantDocumentAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt,
 		true,
 		true,
 	)
@@ -30019,7 +30179,7 @@ func (ec *executionContext) _Query_findMerchantDocumentById(ctx context.Context,
 			return ec.resolvers.Query().FindMerchantDocumentByID(ctx, fc.Args["input"].(model.FindMerchantDocumentByIDInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
+		ec.marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument,
 		true,
 		true,
 	)
@@ -30068,7 +30228,7 @@ func (ec *executionContext) _Query_findMonthlyTotalRevenue(ctx context.Context, 
 			return ec.resolvers.Query().FindMonthlyTotalRevenue(ctx, fc.Args["input"].(model.FindYearMonthTotalRevenueInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
+		ec.marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
 		true,
 		false,
 	)
@@ -30117,7 +30277,7 @@ func (ec *executionContext) _Query_findYearlyTotalRevenue(ctx context.Context, f
 			return ec.resolvers.Query().FindYearlyTotalRevenue(ctx, fc.Args["input"].(model.FindYearTotalRevenueInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
+		ec.marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
 		true,
 		false,
 	)
@@ -30166,7 +30326,7 @@ func (ec *executionContext) _Query_findMonthlyTotalRevenueById(ctx context.Conte
 			return ec.resolvers.Query().FindMonthlyTotalRevenueByID(ctx, fc.Args["input"].(model.FindYearMonthTotalRevenueByIDInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
+		ec.marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
 		true,
 		false,
 	)
@@ -30215,7 +30375,7 @@ func (ec *executionContext) _Query_findYearlyTotalRevenueById(ctx context.Contex
 			return ec.resolvers.Query().FindYearlyTotalRevenueByID(ctx, fc.Args["input"].(model.FindYearTotalRevenueByIDInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
+		ec.marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
 		true,
 		false,
 	)
@@ -30264,7 +30424,7 @@ func (ec *executionContext) _Query_findMonthlyTotalRevenueByMerchant(ctx context
 			return ec.resolvers.Query().FindMonthlyTotalRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearMonthTotalRevenueByMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
+		ec.marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
 		true,
 		false,
 	)
@@ -30313,7 +30473,7 @@ func (ec *executionContext) _Query_findYearlyTotalRevenueByMerchant(ctx context.
 			return ec.resolvers.Query().FindYearlyTotalRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearTotalRevenueByMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
+		ec.marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
 		true,
 		false,
 	)
@@ -30362,7 +30522,7 @@ func (ec *executionContext) _Query_findAllOrder(ctx context.Context, field graph
 			return ec.resolvers.Query().FindAllOrder(ctx, fc.Args["input"].(model.FindAllOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder,
+		ec.marshalOApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder,
 		true,
 		false,
 	)
@@ -30413,7 +30573,7 @@ func (ec *executionContext) _Query_findByMerchantOrder(ctx context.Context, fiel
 			return ec.resolvers.Query().FindByMerchantOrder(ctx, fc.Args["input"].(model.FindAllOrderMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder,
+		ec.marshalOApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder,
 		true,
 		false,
 	)
@@ -30464,7 +30624,7 @@ func (ec *executionContext) _Query_findByIdOrder(ctx context.Context, field grap
 			return ec.resolvers.Query().FindByIDOrder(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
+		ec.marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
 		true,
 		false,
 	)
@@ -30513,7 +30673,7 @@ func (ec *executionContext) _Query_findByActiveOrder(ctx context.Context, field 
 			return ec.resolvers.Query().FindByActiveOrder(ctx, fc.Args["input"].(model.FindAllOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
+		ec.marshalOApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
 		true,
 		false,
 	)
@@ -30564,7 +30724,7 @@ func (ec *executionContext) _Query_findByTrashedOrder(ctx context.Context, field
 			return ec.resolvers.Query().FindByTrashedOrder(ctx, fc.Args["input"].(model.FindAllOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
+		ec.marshalOApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
 		true,
 		false,
 	)
@@ -30615,7 +30775,7 @@ func (ec *executionContext) _Query_findMonthlyRevenue(ctx context.Context, field
 			return ec.resolvers.Query().FindMonthlyRevenue(ctx, fc.Args["input"].(model.FindYearOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
+		ec.marshalOApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
 		true,
 		false,
 	)
@@ -30664,7 +30824,7 @@ func (ec *executionContext) _Query_findYearlyRevenue(ctx context.Context, field 
 			return ec.resolvers.Query().FindYearlyRevenue(ctx, fc.Args["input"].(model.FindYearOrderInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
+		ec.marshalOApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
 		true,
 		false,
 	)
@@ -30713,7 +30873,7 @@ func (ec *executionContext) _Query_findMonthlyRevenueByMerchant(ctx context.Cont
 			return ec.resolvers.Query().FindMonthlyRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearOrderByMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
+		ec.marshalOApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
 		true,
 		false,
 	)
@@ -30762,7 +30922,7 @@ func (ec *executionContext) _Query_findYearlyRevenueByMerchant(ctx context.Conte
 			return ec.resolvers.Query().FindYearlyRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearOrderByMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
+		ec.marshalOApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
 		true,
 		false,
 	)
@@ -30811,7 +30971,7 @@ func (ec *executionContext) _Query_findAllOrderItem(ctx context.Context, field g
 			return ec.resolvers.Query().FindAllOrderItem(ctx, fc.Args["input"].(model.FindAllOrderItemInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem,
+		ec.marshalOApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem,
 		true,
 		false,
 	)
@@ -30862,7 +31022,7 @@ func (ec *executionContext) _Query_findByActiveOrderItem(ctx context.Context, fi
 			return ec.resolvers.Query().FindByActiveOrderItem(ctx, fc.Args["input"].(model.FindAllOrderItemInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
+		ec.marshalOApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
 		true,
 		false,
 	)
@@ -30913,7 +31073,7 @@ func (ec *executionContext) _Query_findByTrashedOrderItem(ctx context.Context, f
 			return ec.resolvers.Query().FindByTrashedOrderItem(ctx, fc.Args["input"].(model.FindAllOrderItemInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
+		ec.marshalOApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
 		true,
 		false,
 	)
@@ -30964,7 +31124,7 @@ func (ec *executionContext) _Query_findOrderItemByOrder(ctx context.Context, fie
 			return ec.resolvers.Query().FindOrderItemByOrder(ctx, fc.Args["input"].(model.FindByIDOrderItemInput))
 		},
 		nil,
-		ec.marshalOApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem,
+		ec.marshalOApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem,
 		true,
 		false,
 	)
@@ -31013,7 +31173,7 @@ func (ec *executionContext) _Query_findAllProduct(ctx context.Context, field gra
 			return ec.resolvers.Query().FindAllProduct(ctx, fc.Args["input"].(*model.FindAllProductInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
+		ec.marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
 		true,
 		true,
 	)
@@ -31064,7 +31224,7 @@ func (ec *executionContext) _Query_findByMerchantProduct(ctx context.Context, fi
 			return ec.resolvers.Query().FindByMerchantProduct(ctx, fc.Args["input"].(model.FindAllProductMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
+		ec.marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
 		true,
 		true,
 	)
@@ -31115,7 +31275,7 @@ func (ec *executionContext) _Query_findByCategoryProduct(ctx context.Context, fi
 			return ec.resolvers.Query().FindByCategoryProduct(ctx, fc.Args["input"].(model.FindAllProductCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
+		ec.marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
 		true,
 		true,
 	)
@@ -31166,7 +31326,7 @@ func (ec *executionContext) _Query_findByIdProduct(ctx context.Context, field gr
 			return ec.resolvers.Query().FindByIDProduct(ctx, fc.Args["input"].(model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
+		ec.marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
 		true,
 		true,
 	)
@@ -31215,7 +31375,7 @@ func (ec *executionContext) _Query_findByActiveProduct(ctx context.Context, fiel
 			return ec.resolvers.Query().FindByActiveProduct(ctx, fc.Args["input"].(*model.FindAllProductInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
+		ec.marshalNApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
 		true,
 		true,
 	)
@@ -31266,7 +31426,7 @@ func (ec *executionContext) _Query_findByTrashedProduct(ctx context.Context, fie
 			return ec.resolvers.Query().FindByTrashedProduct(ctx, fc.Args["input"].(*model.FindAllProductInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
+		ec.marshalNApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
 		true,
 		true,
 	)
@@ -31316,8 +31476,26 @@ func (ec *executionContext) _Query_findAllRole(ctx context.Context, field graphq
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindAllRole(ctx, fc.Args["input"].(*model.FindAllRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsePaginationRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsePaginationRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole,
 		true,
 		false,
 	)
@@ -31367,8 +31545,26 @@ func (ec *executionContext) _Query_findByIdRole(ctx context.Context, field graph
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByIDRole(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
 		true,
 		false,
 	)
@@ -31416,8 +31612,26 @@ func (ec *executionContext) _Query_findByActiveRole(ctx context.Context, field g
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByActiveRole(ctx, fc.Args["input"].(*model.FindAllRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
 		true,
 		false,
 	)
@@ -31467,8 +31681,26 @@ func (ec *executionContext) _Query_findByTrashedRole(ctx context.Context, field 
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByTrashedRole(ctx, fc.Args["input"].(*model.FindAllRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
 		true,
 		false,
 	)
@@ -31518,8 +31750,26 @@ func (ec *executionContext) _Query_findByUserIdRole(ctx context.Context, field g
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByUserIDRole(ctx, fc.Args["input"].(model.FindByIDUserRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsesRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsesRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole,
 		true,
 		false,
 	)
@@ -31568,7 +31818,7 @@ func (ec *executionContext) _Query_findAllTransaction(ctx context.Context, field
 			return ec.resolvers.Query().FindAllTransaction(ctx, fc.Args["input"].(*model.FindAllTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
+		ec.marshalNApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
 		true,
 		true,
 	)
@@ -31619,7 +31869,7 @@ func (ec *executionContext) _Query_findByMerchantTransaction(ctx context.Context
 			return ec.resolvers.Query().FindByMerchantTransaction(ctx, fc.Args["input"].(model.FindAllTransactionMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
+		ec.marshalNApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
 		true,
 		true,
 	)
@@ -31670,7 +31920,7 @@ func (ec *executionContext) _Query_findByIdTransaction(ctx context.Context, fiel
 			return ec.resolvers.Query().FindByIDTransaction(ctx, fc.Args["input"].(model.FindByIDTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
+		ec.marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
 		true,
 		true,
 	)
@@ -31719,7 +31969,7 @@ func (ec *executionContext) _Query_findMonthStatusSuccess(ctx context.Context, f
 			return ec.resolvers.Query().FindMonthStatusSuccess(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatusInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
+		ec.marshalNApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
 		true,
 		true,
 	)
@@ -31768,7 +32018,7 @@ func (ec *executionContext) _Query_findYearStatusSuccess(ctx context.Context, fi
 			return ec.resolvers.Query().FindYearStatusSuccess(ctx, fc.Args["input"].(model.FindYearlyTransactionStatusInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
+		ec.marshalNApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
 		true,
 		true,
 	)
@@ -31817,7 +32067,7 @@ func (ec *executionContext) _Query_findMonthStatusFailed(ctx context.Context, fi
 			return ec.resolvers.Query().FindMonthStatusFailed(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatusInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
+		ec.marshalNApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
 		true,
 		true,
 	)
@@ -31866,7 +32116,7 @@ func (ec *executionContext) _Query_findYearStatusFailed(ctx context.Context, fie
 			return ec.resolvers.Query().FindYearStatusFailed(ctx, fc.Args["input"].(model.FindYearlyTransactionStatusInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
+		ec.marshalNApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
 		true,
 		true,
 	)
@@ -31915,7 +32165,7 @@ func (ec *executionContext) _Query_findMonthStatusSuccessByMerchant(ctx context.
 			return ec.resolvers.Query().FindMonthStatusSuccessByMerchant(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatusByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
+		ec.marshalNApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
 		true,
 		true,
 	)
@@ -31964,7 +32214,7 @@ func (ec *executionContext) _Query_findYearStatusSuccessByMerchant(ctx context.C
 			return ec.resolvers.Query().FindYearStatusSuccessByMerchant(ctx, fc.Args["input"].(model.FindYearlyTransactionStatusByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
+		ec.marshalNApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
 		true,
 		true,
 	)
@@ -32013,7 +32263,7 @@ func (ec *executionContext) _Query_findMonthStatusFailedByMerchant(ctx context.C
 			return ec.resolvers.Query().FindMonthStatusFailedByMerchant(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatusByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
+		ec.marshalNApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
 		true,
 		true,
 	)
@@ -32062,7 +32312,7 @@ func (ec *executionContext) _Query_findYearStatusFailedByMerchant(ctx context.Co
 			return ec.resolvers.Query().FindYearStatusFailedByMerchant(ctx, fc.Args["input"].(model.FindYearlyTransactionStatusByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
+		ec.marshalNApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
 		true,
 		true,
 	)
@@ -32111,7 +32361,7 @@ func (ec *executionContext) _Query_findMonthMethodSuccess(ctx context.Context, f
 			return ec.resolvers.Query().FindMonthMethodSuccess(ctx, fc.Args["input"].(model.MonthTransactionMethodInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		true,
 	)
@@ -32160,7 +32410,7 @@ func (ec *executionContext) _Query_findYearMethodSuccess(ctx context.Context, fi
 			return ec.resolvers.Query().FindYearMethodSuccess(ctx, fc.Args["input"].(model.YearTransactionMethodInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		true,
 	)
@@ -32209,7 +32459,7 @@ func (ec *executionContext) _Query_findMonthMethodByMerchantSuccess(ctx context.
 			return ec.resolvers.Query().FindMonthMethodByMerchantSuccess(ctx, fc.Args["input"].(model.MonthTransactionMethodByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		true,
 	)
@@ -32258,7 +32508,7 @@ func (ec *executionContext) _Query_findYearMethodByMerchantSuccess(ctx context.C
 			return ec.resolvers.Query().FindYearMethodByMerchantSuccess(ctx, fc.Args["input"].(model.YearTransactionMethodByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		true,
 	)
@@ -32307,7 +32557,7 @@ func (ec *executionContext) _Query_findMonthMethodFailed(ctx context.Context, fi
 			return ec.resolvers.Query().FindMonthMethodFailed(ctx, fc.Args["input"].(model.MonthTransactionMethodInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		true,
 	)
@@ -32356,7 +32606,7 @@ func (ec *executionContext) _Query_findYearMethodFailed(ctx context.Context, fie
 			return ec.resolvers.Query().FindYearMethodFailed(ctx, fc.Args["input"].(model.YearTransactionMethodInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		true,
 	)
@@ -32405,7 +32655,7 @@ func (ec *executionContext) _Query_findMonthMethodByMerchantFailed(ctx context.C
 			return ec.resolvers.Query().FindMonthMethodByMerchantFailed(ctx, fc.Args["input"].(model.MonthTransactionMethodByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		true,
 	)
@@ -32454,7 +32704,7 @@ func (ec *executionContext) _Query_findYearMethodByMerchantFailed(ctx context.Co
 			return ec.resolvers.Query().FindYearMethodByMerchantFailed(ctx, fc.Args["input"].(model.YearTransactionMethodByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		true,
 	)
@@ -32503,7 +32753,7 @@ func (ec *executionContext) _Query_findByActiveTransaction(ctx context.Context, 
 			return ec.resolvers.Query().FindByActiveTransaction(ctx, fc.Args["input"].(*model.FindAllTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt,
+		ec.marshalNApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt,
 		true,
 		true,
 	)
@@ -32554,7 +32804,7 @@ func (ec *executionContext) _Query_findByTrashedTransaction(ctx context.Context,
 			return ec.resolvers.Query().FindByTrashedTransaction(ctx, fc.Args["input"].(*model.FindAllTransactionInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt,
+		ec.marshalNApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt,
 		true,
 		true,
 	)
@@ -32605,7 +32855,7 @@ func (ec *executionContext) _Query_findAllUsers(ctx context.Context, field graph
 			return ec.resolvers.Query().FindAllUsers(ctx, fc.Args["input"].(*model.FindAllUserInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser,
+		ec.marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser,
 		true,
 		true,
 	)
@@ -32656,7 +32906,7 @@ func (ec *executionContext) _Query_findByIdUser(ctx context.Context, field graph
 			return ec.resolvers.Query().FindByIDUser(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
+		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
 		true,
 		true,
 	)
@@ -32705,7 +32955,7 @@ func (ec *executionContext) _Query_findByActiveUsers(ctx context.Context, field 
 			return ec.resolvers.Query().FindByActiveUsers(ctx, fc.Args["input"].(*model.FindAllUserInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
+		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
 		true,
 		true,
 	)
@@ -32756,7 +33006,7 @@ func (ec *executionContext) _Query_findByTrashedUsers(ctx context.Context, field
 			return ec.resolvers.Query().FindByTrashedUsers(ctx, fc.Args["input"].(*model.FindAllUserInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
+		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
 		true,
 		true,
 	)
@@ -36450,7 +36700,7 @@ func (ec *executionContext) unmarshalInputCreateOrderInput(ctx context.Context, 
 			it.CashierID = data
 		case "items":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("items"))
-			data, err := ec.unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx, v)
+			data, err := ec.unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -39375,7 +39625,7 @@ func (ec *executionContext) unmarshalInputUpdateOrderInput(ctx context.Context, 
 			it.OrderID = data
 		case "items":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("items"))
-			data, err := ec.unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx, v)
+			data, err := ec.unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -49271,11 +49521,11 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) marshalNApiResponseForgotPassword2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseForgotPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseForgotPassword2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseForgotPassword) graphql.Marshaler {
 	return ec._ApiResponseForgotPassword(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseForgotPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseForgotPassword) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49285,11 +49535,11 @@ func (ec *executionContext) marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseForgotPassword(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseGetMe2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v model.APIResponseGetMe) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseGetMe2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v model.APIResponseGetMe) graphql.Marshaler {
 	return ec._ApiResponseGetMe(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseGetMe) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseGetMe) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49299,11 +49549,11 @@ func (ec *executionContext) marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRus
 	return ec._ApiResponseGetMe(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseLogin2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v model.APIResponseLogin) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseLogin2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v model.APIResponseLogin) graphql.Marshaler {
 	return ec._ApiResponseLogin(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseLogin) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseLogin) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49313,11 +49563,11 @@ func (ec *executionContext) marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRus
 	return ec._ApiResponseLogin(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocument2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocument) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocument2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocument) graphql.Marshaler {
 	return ec._ApiResponseMerchantDocument(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocument) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocument(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocument) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49327,11 +49577,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDocument2ᚖgithubᚗcom�
 	return ec._ApiResponseMerchantDocument(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocumentAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocumentAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocumentAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocumentAll) graphql.Marshaler {
 	return ec._ApiResponseMerchantDocumentAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocumentAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocumentAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocumentAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocumentAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49341,11 +49591,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDocumentAll2ᚖgithubᚗc
 	return ec._ApiResponseMerchantDocumentAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocumentDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocumentDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocumentDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocumentDelete) graphql.Marshaler {
 	return ec._ApiResponseMerchantDocumentDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocumentDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocumentDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocumentDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocumentDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49355,11 +49605,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDocumentDelete2ᚖgithub�
 	return ec._ApiResponseMerchantDocumentDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocumentDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocumentDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocumentDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDocumentDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseMerchantDocumentDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDocumentDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocumentDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDocumentDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDocumentDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDocumentDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49369,11 +49619,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDocumentDeleteAt2ᚖgithu
 	return ec._ApiResponseMerchantDocumentDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDocument2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocument(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDocument) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDocument2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocument(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDocument) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantDocument(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocument(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDocument) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDocument2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocument(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDocument) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49383,11 +49633,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantDocument2ᚖgit
 	return ec._ApiResponsePaginationMerchantDocument(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDocumentAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDocumentAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDocumentAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDocumentAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantDocumentAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDocumentAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDocumentAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDocumentAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDocumentAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDocumentAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49397,11 +49647,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantDocumentAt2ᚖg
 	return ec._ApiResponsePaginationMerchantDocumentAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationProduct2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationProduct) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationProduct2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationProduct) graphql.Marshaler {
 	return ec._ApiResponsePaginationProduct(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProduct) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProduct) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49411,11 +49661,11 @@ func (ec *executionContext) marshalNApiResponsePaginationProduct2ᚖgithubᚗcom
 	return ec._ApiResponsePaginationProduct(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationProductDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationProductDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationProductDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationProductDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationProductDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProductDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProductDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49425,11 +49675,11 @@ func (ec *executionContext) marshalNApiResponsePaginationProductDeleteAt2ᚖgith
 	return ec._ApiResponsePaginationProductDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationTransaction2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationTransaction) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationTransaction2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationTransaction) graphql.Marshaler {
 	return ec._ApiResponsePaginationTransaction(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransaction) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransaction) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49439,11 +49689,11 @@ func (ec *executionContext) marshalNApiResponsePaginationTransaction2ᚖgithub�
 	return ec._ApiResponsePaginationTransaction(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationTransactionDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationTransactionDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationTransactionDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationTransactionDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationTransactionDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransactionDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransactionDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49453,11 +49703,11 @@ func (ec *executionContext) marshalNApiResponsePaginationTransactionDeleteAt2ᚖ
 	return ec._ApiResponsePaginationTransactionDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUser2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUser) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUser2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUser) graphql.Marshaler {
 	return ec._ApiResponsePaginationUser(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUser) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUser) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49467,11 +49717,11 @@ func (ec *executionContext) marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋ
 	return ec._ApiResponsePaginationUser(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationUserDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49481,11 +49731,11 @@ func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2ᚖgithub�
 	return ec._ApiResponsePaginationUserDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseProduct2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProduct) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProduct2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProduct) graphql.Marshaler {
 	return ec._ApiResponseProduct(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProduct) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProduct) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49495,11 +49745,11 @@ func (ec *executionContext) marshalNApiResponseProduct2ᚖgithubᚗcomᚋMamangR
 	return ec._ApiResponseProduct(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseProductAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProductAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProductAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProductAll) graphql.Marshaler {
 	return ec._ApiResponseProductAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49509,11 +49759,11 @@ func (ec *executionContext) marshalNApiResponseProductAll2ᚖgithubᚗcomᚋMama
 	return ec._ApiResponseProductAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseProductDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProductDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProductDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProductDelete) graphql.Marshaler {
 	return ec._ApiResponseProductDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49523,11 +49773,11 @@ func (ec *executionContext) marshalNApiResponseProductDelete2ᚖgithubᚗcomᚋM
 	return ec._ApiResponseProductDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseProductDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProductDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProductDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseProductDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseProductDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49537,11 +49787,11 @@ func (ec *executionContext) marshalNApiResponseProductDeleteAt2ᚖgithubᚗcom�
 	return ec._ApiResponseProductDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseRefreshToken2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRefreshToken) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRefreshToken2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRefreshToken) graphql.Marshaler {
 	return ec._ApiResponseRefreshToken(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRefreshToken) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRefreshToken) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49551,11 +49801,11 @@ func (ec *executionContext) marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMa
 	return ec._ApiResponseRefreshToken(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseRegister2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRegister) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRegister2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRegister) graphql.Marshaler {
 	return ec._ApiResponseRegister(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRegister) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRegister) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49565,11 +49815,11 @@ func (ec *executionContext) marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamang
 	return ec._ApiResponseRegister(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseResetPassword2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseResetPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseResetPassword2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseResetPassword) graphql.Marshaler {
 	return ec._ApiResponseResetPassword(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseResetPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseResetPassword) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49579,11 +49829,11 @@ func (ec *executionContext) marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋM
 	return ec._ApiResponseResetPassword(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransaction2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransaction) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransaction2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransaction) graphql.Marshaler {
 	return ec._ApiResponseTransaction(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransaction) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransaction) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49593,11 +49843,11 @@ func (ec *executionContext) marshalNApiResponseTransaction2ᚖgithubᚗcomᚋMam
 	return ec._ApiResponseTransaction(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionAll) graphql.Marshaler {
 	return ec._ApiResponseTransactionAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49607,11 +49857,11 @@ func (ec *executionContext) marshalNApiResponseTransactionAll2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseTransactionAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionDelete) graphql.Marshaler {
 	return ec._ApiResponseTransactionDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49621,11 +49871,11 @@ func (ec *executionContext) marshalNApiResponseTransactionDelete2ᚖgithubᚗcom
 	return ec._ApiResponseTransactionDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseTransactionDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49635,11 +49885,11 @@ func (ec *executionContext) marshalNApiResponseTransactionDeleteAt2ᚖgithubᚗc
 	return ec._ApiResponseTransactionDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionMonthAmountFailed2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionMonthAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionMonthAmountFailed2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionMonthAmountFailed) graphql.Marshaler {
 	return ec._ApiResponseTransactionMonthAmountFailed(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountFailed) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49649,11 +49899,11 @@ func (ec *executionContext) marshalNApiResponseTransactionMonthAmountFailed2ᚖg
 	return ec._ApiResponseTransactionMonthAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionMonthAmountSuccess2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionMonthAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionMonthAmountSuccess2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionMonthAmountSuccess) graphql.Marshaler {
 	return ec._ApiResponseTransactionMonthAmountSuccess(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49663,11 +49913,11 @@ func (ec *executionContext) marshalNApiResponseTransactionMonthAmountSuccess2ᚖ
 	return ec._ApiResponseTransactionMonthAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionMonthPaymentMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionMonthPaymentMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionMonthPaymentMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionMonthPaymentMethod) graphql.Marshaler {
 	return ec._ApiResponseTransactionMonthPaymentMethod(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthPaymentMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthPaymentMethod) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49677,11 +49927,11 @@ func (ec *executionContext) marshalNApiResponseTransactionMonthPaymentMethod2ᚖ
 	return ec._ApiResponseTransactionMonthPaymentMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionYearAmountFailed2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionYearAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionYearAmountFailed2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionYearAmountFailed) graphql.Marshaler {
 	return ec._ApiResponseTransactionYearAmountFailed(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountFailed) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49691,11 +49941,11 @@ func (ec *executionContext) marshalNApiResponseTransactionYearAmountFailed2ᚖgi
 	return ec._ApiResponseTransactionYearAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionYearAmountSuccess2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionYearAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionYearAmountSuccess2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionYearAmountSuccess) graphql.Marshaler {
 	return ec._ApiResponseTransactionYearAmountSuccess(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49705,11 +49955,11 @@ func (ec *executionContext) marshalNApiResponseTransactionYearAmountSuccess2ᚖg
 	return ec._ApiResponseTransactionYearAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionYearPaymentMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionYearPaymentMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionYearPaymentMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod(ctx context.Context, sel ast.SelectionSet, v model.APIResponseTransactionYearPaymentMethod) graphql.Marshaler {
 	return ec._ApiResponseTransactionYearPaymentMethod(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearPaymentMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearPaymentMethod) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49719,11 +49969,11 @@ func (ec *executionContext) marshalNApiResponseTransactionYearPaymentMethod2ᚖg
 	return ec._ApiResponseTransactionYearPaymentMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserAll) graphql.Marshaler {
 	return ec._ApiResponseUserAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49733,11 +49983,11 @@ func (ec *executionContext) marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangR
 	return ec._ApiResponseUserAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserDelete) graphql.Marshaler {
 	return ec._ApiResponseUserDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49747,11 +49997,11 @@ func (ec *executionContext) marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMama
 	return ec._ApiResponseUserDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponse2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponse2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponse) graphql.Marshaler {
 	return ec._ApiResponseUserResponse(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49761,11 +50011,11 @@ func (ec *executionContext) marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMa
 	return ec._ApiResponseUserResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseUserResponseDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49775,11 +50025,11 @@ func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗ
 	return ec._ApiResponseUserResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseVerifyCode2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v model.APIResponseVerifyCode) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseVerifyCode2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v model.APIResponseVerifyCode) graphql.Marshaler {
 	return ec._ApiResponseVerifyCode(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseVerifyCode) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseVerifyCode) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49805,7 +50055,7 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49815,7 +50065,7 @@ func (ec *executionContext) marshalNCashierResponse2ᚖgithubᚗcomᚋMamangRust
 	return ec._CashierResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49825,7 +50075,7 @@ func (ec *executionContext) marshalNCashierResponseDeleteAt2ᚖgithubᚗcomᚋMa
 	return ec._CashierResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCashierResponseMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseMonthSales) graphql.Marshaler {
+func (ec *executionContext) marshalNCashierResponseMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseMonthSales) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49835,7 +50085,7 @@ func (ec *executionContext) marshalNCashierResponseMonthSales2ᚖgithubᚗcomᚋ
 	return ec._CashierResponseMonthSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCashierResponseMonthTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseMonthTotalSales) graphql.Marshaler {
+func (ec *executionContext) marshalNCashierResponseMonthTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseMonthTotalSales) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49845,7 +50095,7 @@ func (ec *executionContext) marshalNCashierResponseMonthTotalSales2ᚖgithubᚗc
 	return ec._CashierResponseMonthTotalSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCashierResponseYearSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseYearSales) graphql.Marshaler {
+func (ec *executionContext) marshalNCashierResponseYearSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseYearSales) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49855,7 +50105,7 @@ func (ec *executionContext) marshalNCashierResponseYearSales2ᚖgithubᚗcomᚋM
 	return ec._CashierResponseYearSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCashierResponseYearTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseYearTotalSales) graphql.Marshaler {
+func (ec *executionContext) marshalNCashierResponseYearTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseYearTotalSales) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49865,7 +50115,7 @@ func (ec *executionContext) marshalNCashierResponseYearTotalSales2ᚖgithubᚗco
 	return ec._CashierResponseYearTotalSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoriesMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoriesMonthlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoriesMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoriesMonthlyTotalPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49875,7 +50125,7 @@ func (ec *executionContext) marshalNCategoriesMonthlyTotalPriceResponse2ᚖgithu
 	return ec._CategoriesMonthlyTotalPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoriesYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoriesYearlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoriesYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoriesYearlyTotalPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49885,7 +50135,7 @@ func (ec *executionContext) marshalNCategoriesYearlyTotalPriceResponse2ᚖgithub
 	return ec._CategoriesYearlyTotalPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryMonthPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryMonthPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49895,7 +50145,7 @@ func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚖgithubᚗcom�
 	return ec._CategoryMonthPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49905,7 +50155,7 @@ func (ec *executionContext) marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRus
 	return ec._CategoryResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49915,7 +50165,7 @@ func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋM
 	return ec._CategoryResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryYearPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryYearPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -49925,39 +50175,39 @@ func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋ
 	return ec._CategoryYearPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNCreateCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCashierRequest(ctx context.Context, v any) (model.CreateCashierRequest, error) {
+func (ec *executionContext) unmarshalNCreateCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCashierRequest(ctx context.Context, v any) (model.CreateCashierRequest, error) {
 	res, err := ec.unmarshalInputCreateCashierRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryRequest(ctx context.Context, v any) (model.CreateCategoryRequest, error) {
+func (ec *executionContext) unmarshalNCreateCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryRequest(ctx context.Context, v any) (model.CreateCategoryRequest, error) {
 	res, err := ec.unmarshalInputCreateCategoryRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDocumentInput(ctx context.Context, v any) (model.CreateMerchantDocumentInput, error) {
+func (ec *executionContext) unmarshalNCreateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDocumentInput(ctx context.Context, v any) (model.CreateMerchantDocumentInput, error) {
 	res, err := ec.unmarshalInputCreateMerchantDocumentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput(ctx context.Context, v any) (model.CreateMerchantInput, error) {
+func (ec *executionContext) unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput(ctx context.Context, v any) (model.CreateMerchantInput, error) {
 	res, err := ec.unmarshalInputCreateMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput(ctx context.Context, v any) (model.CreateOrderInput, error) {
+func (ec *executionContext) unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput(ctx context.Context, v any) (model.CreateOrderInput, error) {
 	res, err := ec.unmarshalInputCreateOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.CreateOrderItemInput, error) {
+func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.CreateOrderItemInput, error) {
 	var vSlice []any
 	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]*model.CreateOrderItemInput, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -49965,27 +50215,27 @@ func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋ
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx context.Context, v any) (*model.CreateOrderItemInput, error) {
+func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx context.Context, v any) (*model.CreateOrderItemInput, error) {
 	res, err := ec.unmarshalInputCreateOrderItemInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput(ctx context.Context, v any) (model.CreateProductInput, error) {
+func (ec *executionContext) unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput(ctx context.Context, v any) (model.CreateProductInput, error) {
 	res, err := ec.unmarshalInputCreateProductInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput(ctx context.Context, v any) (model.CreateRoleInput, error) {
+func (ec *executionContext) unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput(ctx context.Context, v any) (model.CreateRoleInput, error) {
 	res, err := ec.unmarshalInputCreateRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionInput(ctx context.Context, v any) (model.CreateTransactionInput, error) {
+func (ec *executionContext) unmarshalNCreateTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionInput(ctx context.Context, v any) (model.CreateTransactionInput, error) {
 	res, err := ec.unmarshalInputCreateTransactionInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput(ctx context.Context, v any) (model.CreateUserInput, error) {
+func (ec *executionContext) unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput(ctx context.Context, v any) (model.CreateUserInput, error) {
 	res, err := ec.unmarshalInputCreateUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -50006,262 +50256,262 @@ func (ec *executionContext) marshalNDateTime2string(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) unmarshalNDeleteMerchantDocumentPermanentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐDeleteMerchantDocumentPermanentInput(ctx context.Context, v any) (model.DeleteMerchantDocumentPermanentInput, error) {
+func (ec *executionContext) unmarshalNDeleteMerchantDocumentPermanentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐDeleteMerchantDocumentPermanentInput(ctx context.Context, v any) (model.DeleteMerchantDocumentPermanentInput, error) {
 	res, err := ec.unmarshalInputDeleteMerchantDocumentPermanentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput(ctx context.Context, v any) (model.FindAllMerchantDocumentsInput, error) {
+func (ec *executionContext) unmarshalNFindAllMerchantDocumentsInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDocumentsInput(ctx context.Context, v any) (model.FindAllMerchantDocumentsInput, error) {
 	res, err := ec.unmarshalInputFindAllMerchantDocumentsInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput(ctx context.Context, v any) (model.FindAllMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput(ctx context.Context, v any) (model.FindAllMerchantInput, error) {
 	res, err := ec.unmarshalInputFindAllMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput(ctx context.Context, v any) (model.FindAllOrderInput, error) {
+func (ec *executionContext) unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput(ctx context.Context, v any) (model.FindAllOrderInput, error) {
 	res, err := ec.unmarshalInputFindAllOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput(ctx context.Context, v any) (model.FindAllOrderItemInput, error) {
+func (ec *executionContext) unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput(ctx context.Context, v any) (model.FindAllOrderItemInput, error) {
 	res, err := ec.unmarshalInputFindAllOrderItemInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllOrderMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderMerchantInput(ctx context.Context, v any) (model.FindAllOrderMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindAllOrderMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderMerchantInput(ctx context.Context, v any) (model.FindAllOrderMerchantInput, error) {
 	res, err := ec.unmarshalInputFindAllOrderMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllProductCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput(ctx context.Context, v any) (model.FindAllProductCategoryInput, error) {
+func (ec *executionContext) unmarshalNFindAllProductCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput(ctx context.Context, v any) (model.FindAllProductCategoryInput, error) {
 	res, err := ec.unmarshalInputFindAllProductCategoryInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllProductMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput(ctx context.Context, v any) (model.FindAllProductMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindAllProductMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput(ctx context.Context, v any) (model.FindAllProductMerchantInput, error) {
 	res, err := ec.unmarshalInputFindAllProductMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllTransactionMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantInput(ctx context.Context, v any) (model.FindAllTransactionMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindAllTransactionMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantInput(ctx context.Context, v any) (model.FindAllTransactionMerchantInput, error) {
 	res, err := ec.unmarshalInputFindAllTransactionMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest(ctx context.Context, v any) (model.FindByIDCashierRequest, error) {
+func (ec *executionContext) unmarshalNFindByIdCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCashierRequest(ctx context.Context, v any) (model.FindByIDCashierRequest, error) {
 	res, err := ec.unmarshalInputFindByIdCashierRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest(ctx context.Context, v any) (model.FindByIDCategoryRequest, error) {
+func (ec *executionContext) unmarshalNFindByIdCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryRequest(ctx context.Context, v any) (model.FindByIDCategoryRequest, error) {
 	res, err := ec.unmarshalInputFindByIdCategoryRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput(ctx context.Context, v any) (model.FindByIDMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput(ctx context.Context, v any) (model.FindByIDMerchantInput, error) {
 	res, err := ec.unmarshalInputFindByIdMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput(ctx context.Context, v any) (model.FindByIDOrderInput, error) {
+func (ec *executionContext) unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput(ctx context.Context, v any) (model.FindByIDOrderInput, error) {
 	res, err := ec.unmarshalInputFindByIdOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput(ctx context.Context, v any) (model.FindByIDOrderItemInput, error) {
+func (ec *executionContext) unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput(ctx context.Context, v any) (model.FindByIDOrderItemInput, error) {
 	res, err := ec.unmarshalInputFindByIdOrderItemInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput(ctx context.Context, v any) (model.FindByIDProductInput, error) {
+func (ec *executionContext) unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput(ctx context.Context, v any) (model.FindByIDProductInput, error) {
 	res, err := ec.unmarshalInputFindByIdProductInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput(ctx context.Context, v any) (model.FindByIDRoleInput, error) {
+func (ec *executionContext) unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput(ctx context.Context, v any) (model.FindByIDRoleInput, error) {
 	res, err := ec.unmarshalInputFindByIdRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput(ctx context.Context, v any) (model.FindByIDTransactionInput, error) {
+func (ec *executionContext) unmarshalNFindByIdTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionInput(ctx context.Context, v any) (model.FindByIDTransactionInput, error) {
 	res, err := ec.unmarshalInputFindByIdTransactionInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput(ctx context.Context, v any) (model.FindByIDUserInput, error) {
+func (ec *executionContext) unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput(ctx context.Context, v any) (model.FindByIDUserInput, error) {
 	res, err := ec.unmarshalInputFindByIdUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput(ctx context.Context, v any) (model.FindByIDUserRoleInput, error) {
+func (ec *executionContext) unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput(ctx context.Context, v any) (model.FindByIDUserRoleInput, error) {
 	res, err := ec.unmarshalInputFindByIdUserRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindMerchantDocumentByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMerchantDocumentByIDInput(ctx context.Context, v any) (model.FindMerchantDocumentByIDInput, error) {
+func (ec *executionContext) unmarshalNFindMerchantDocumentByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMerchantDocumentByIDInput(ctx context.Context, v any) (model.FindMerchantDocumentByIDInput, error) {
 	res, err := ec.unmarshalInputFindMerchantDocumentByIdInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindMonthlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchantInput(ctx context.Context, v any) (model.FindMonthlyTransactionStatusByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindMonthlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchantInput(ctx context.Context, v any) (model.FindMonthlyTransactionStatusByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindMonthlyTransactionStatusByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindMonthlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusInput(ctx context.Context, v any) (model.FindMonthlyTransactionStatusInput, error) {
+func (ec *executionContext) unmarshalNFindMonthlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusInput(ctx context.Context, v any) (model.FindMonthlyTransactionStatusInput, error) {
 	res, err := ec.unmarshalInputFindMonthlyTransactionStatusInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCashier2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashier(ctx context.Context, v any) (model.FindYearCashier, error) {
+func (ec *executionContext) unmarshalNFindYearCashier2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashier(ctx context.Context, v any) (model.FindYearCashier, error) {
 	res, err := ec.unmarshalInputFindYearCashier(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCashierById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByID(ctx context.Context, v any) (model.FindYearCashierByID, error) {
+func (ec *executionContext) unmarshalNFindYearCashierById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByID(ctx context.Context, v any) (model.FindYearCashierByID, error) {
 	res, err := ec.unmarshalInputFindYearCashierById(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCashierByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByMerchant(ctx context.Context, v any) (model.FindYearCashierByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearCashierByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCashierByMerchant(ctx context.Context, v any) (model.FindYearCashierByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearCashierByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCategory2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategory(ctx context.Context, v any) (model.FindYearCategory, error) {
+func (ec *executionContext) unmarshalNFindYearCategory2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategory(ctx context.Context, v any) (model.FindYearCategory, error) {
 	res, err := ec.unmarshalInputFindYearCategory(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCategoryById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByID(ctx context.Context, v any) (model.FindYearCategoryByID, error) {
+func (ec *executionContext) unmarshalNFindYearCategoryById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByID(ctx context.Context, v any) (model.FindYearCategoryByID, error) {
 	res, err := ec.unmarshalInputFindYearCategoryById(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCategoryByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchant(ctx context.Context, v any) (model.FindYearCategoryByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearCategoryByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchant(ctx context.Context, v any) (model.FindYearCategoryByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearCategoryByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalPriceById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByID(ctx context.Context, v any) (model.FindYearMonthTotalPriceByID, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalPriceById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByID(ctx context.Context, v any) (model.FindYearMonthTotalPriceByID, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalPriceById(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchant(ctx context.Context, v any) (model.FindYearMonthTotalPriceByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchant(ctx context.Context, v any) (model.FindYearMonthTotalPriceByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalPriceByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalPrices2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPrices(ctx context.Context, v any) (model.FindYearMonthTotalPrices, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalPrices2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPrices(ctx context.Context, v any) (model.FindYearMonthTotalPrices, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalPrices(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByIDInput(ctx context.Context, v any) (model.FindYearMonthTotalRevenueByIDInput, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByIDInput(ctx context.Context, v any) (model.FindYearMonthTotalRevenueByIDInput, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalRevenueByIdInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchantInput(ctx context.Context, v any) (model.FindYearMonthTotalRevenueByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchantInput(ctx context.Context, v any) (model.FindYearMonthTotalRevenueByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalRevenueByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueInput(ctx context.Context, v any) (model.FindYearMonthTotalRevenueInput, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueInput(ctx context.Context, v any) (model.FindYearMonthTotalRevenueInput, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalRevenueInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalSales2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSales(ctx context.Context, v any) (model.FindYearMonthTotalSales, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalSales2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSales(ctx context.Context, v any) (model.FindYearMonthTotalSales, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalSales(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalSalesById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByID(ctx context.Context, v any) (model.FindYearMonthTotalSalesByID, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalSalesById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByID(ctx context.Context, v any) (model.FindYearMonthTotalSalesByID, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalSalesById(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByMerchant(ctx context.Context, v any) (model.FindYearMonthTotalSalesByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalSalesByMerchant(ctx context.Context, v any) (model.FindYearMonthTotalSalesByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalSalesByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput(ctx context.Context, v any) (model.FindYearOrderByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput(ctx context.Context, v any) (model.FindYearOrderByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearOrderByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput(ctx context.Context, v any) (model.FindYearOrderInput, error) {
+func (ec *executionContext) unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput(ctx context.Context, v any) (model.FindYearOrderInput, error) {
 	res, err := ec.unmarshalInputFindYearOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalPriceById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByID(ctx context.Context, v any) (model.FindYearTotalPriceByID, error) {
+func (ec *executionContext) unmarshalNFindYearTotalPriceById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByID(ctx context.Context, v any) (model.FindYearTotalPriceByID, error) {
 	res, err := ec.unmarshalInputFindYearTotalPriceById(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchant(ctx context.Context, v any) (model.FindYearTotalPriceByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearTotalPriceByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchant(ctx context.Context, v any) (model.FindYearTotalPriceByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearTotalPriceByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalPrices2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPrices(ctx context.Context, v any) (model.FindYearTotalPrices, error) {
+func (ec *executionContext) unmarshalNFindYearTotalPrices2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPrices(ctx context.Context, v any) (model.FindYearTotalPrices, error) {
 	res, err := ec.unmarshalInputFindYearTotalPrices(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByIDInput(ctx context.Context, v any) (model.FindYearTotalRevenueByIDInput, error) {
+func (ec *executionContext) unmarshalNFindYearTotalRevenueByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByIDInput(ctx context.Context, v any) (model.FindYearTotalRevenueByIDInput, error) {
 	res, err := ec.unmarshalInputFindYearTotalRevenueByIdInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchantInput(ctx context.Context, v any) (model.FindYearTotalRevenueByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearTotalRevenueByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchantInput(ctx context.Context, v any) (model.FindYearTotalRevenueByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearTotalRevenueByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalRevenueInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueInput(ctx context.Context, v any) (model.FindYearTotalRevenueInput, error) {
+func (ec *executionContext) unmarshalNFindYearTotalRevenueInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueInput(ctx context.Context, v any) (model.FindYearTotalRevenueInput, error) {
 	res, err := ec.unmarshalInputFindYearTotalRevenueInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalSales2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSales(ctx context.Context, v any) (model.FindYearTotalSales, error) {
+func (ec *executionContext) unmarshalNFindYearTotalSales2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSales(ctx context.Context, v any) (model.FindYearTotalSales, error) {
 	res, err := ec.unmarshalInputFindYearTotalSales(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalSalesById2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByID(ctx context.Context, v any) (model.FindYearTotalSalesByID, error) {
+func (ec *executionContext) unmarshalNFindYearTotalSalesById2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByID(ctx context.Context, v any) (model.FindYearTotalSalesByID, error) {
 	res, err := ec.unmarshalInputFindYearTotalSalesById(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByMerchant(ctx context.Context, v any) (model.FindYearTotalSalesByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearTotalSalesByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalSalesByMerchant(ctx context.Context, v any) (model.FindYearTotalSalesByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearTotalSalesByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchantInput(ctx context.Context, v any) (model.FindYearlyTransactionStatusByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearlyTransactionStatusByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchantInput(ctx context.Context, v any) (model.FindYearlyTransactionStatusByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearlyTransactionStatusByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusInput(ctx context.Context, v any) (model.FindYearlyTransactionStatusInput, error) {
+func (ec *executionContext) unmarshalNFindYearlyTransactionStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusInput(ctx context.Context, v any) (model.FindYearlyTransactionStatusInput, error) {
 	res, err := ec.unmarshalInputFindYearlyTransactionStatusInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput(ctx context.Context, v any) (model.ForgotPasswordInput, error) {
+func (ec *executionContext) unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput(ctx context.Context, v any) (model.ForgotPasswordInput, error) {
 	res, err := ec.unmarshalInputForgotPasswordInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐGetMeInput(ctx context.Context, v any) (model.GetMeInput, error) {
+func (ec *executionContext) unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐGetMeInput(ctx context.Context, v any) (model.GetMeInput, error) {
 	res, err := ec.unmarshalInputGetMeInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -50282,12 +50532,12 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐLoginInput(ctx context.Context, v any) (model.LoginInput, error) {
+func (ec *executionContext) unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐLoginInput(ctx context.Context, v any) (model.LoginInput, error) {
 	res, err := ec.unmarshalInputLoginInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDocumentResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDocumentResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50311,7 +50561,7 @@ func (ec *executionContext) marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50331,7 +50581,7 @@ func (ec *executionContext) marshalNMerchantDocumentResponse2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50341,7 +50591,7 @@ func (ec *executionContext) marshalNMerchantDocumentResponse2ᚖgithubᚗcomᚋM
 	return ec._MerchantDocumentResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantDocumentResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDocumentResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDocumentResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDocumentResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50365,7 +50615,7 @@ func (ec *executionContext) marshalNMerchantDocumentResponseDeleteAt2ᚕᚖgithu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50385,7 +50635,7 @@ func (ec *executionContext) marshalNMerchantDocumentResponseDeleteAt2ᚕᚖgithu
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50395,7 +50645,7 @@ func (ec *executionContext) marshalNMerchantDocumentResponseDeleteAt2ᚖgithub�
 	return ec._MerchantDocumentResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50405,7 +50655,7 @@ func (ec *executionContext) marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRus
 	return ec._MerchantResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50415,17 +50665,17 @@ func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋM
 	return ec._MerchantResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNMonthTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchantInput(ctx context.Context, v any) (model.MonthTransactionMethodByMerchantInput, error) {
+func (ec *executionContext) unmarshalNMonthTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchantInput(ctx context.Context, v any) (model.MonthTransactionMethodByMerchantInput, error) {
 	res, err := ec.unmarshalInputMonthTransactionMethodByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNMonthTransactionMethodInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodInput(ctx context.Context, v any) (model.MonthTransactionMethodInput, error) {
+func (ec *executionContext) unmarshalNMonthTransactionMethodInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodInput(ctx context.Context, v any) (model.MonthTransactionMethodInput, error) {
 	res, err := ec.unmarshalInputMonthTransactionMethodInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50435,7 +50685,7 @@ func (ec *executionContext) marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRu
 	return ec._OrderItemResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50445,7 +50695,7 @@ func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋ
 	return ec._OrderItemResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50455,7 +50705,7 @@ func (ec *executionContext) marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMaman
 	return ec._OrderMonthlyResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50465,7 +50715,7 @@ func (ec *executionContext) marshalNOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋM
 	return ec._OrderMonthlyTotalRevenue(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50475,7 +50725,7 @@ func (ec *executionContext) marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRust�
 	return ec._OrderResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50485,7 +50735,7 @@ func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMama
 	return ec._OrderResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50495,7 +50745,7 @@ func (ec *executionContext) marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamang
 	return ec._OrderYearlyResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50505,7 +50755,7 @@ func (ec *executionContext) marshalNOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMa
 	return ec._OrderYearlyTotalRevenue(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
+func (ec *executionContext) marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50515,7 +50765,7 @@ func (ec *executionContext) marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRust�
 	return ec._PaginationMeta(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50539,7 +50789,7 @@ func (ec *executionContext) marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangR
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50559,7 +50809,7 @@ func (ec *executionContext) marshalNProductResponse2ᚕᚖgithubᚗcomᚋMamangR
 	return ret
 }
 
-func (ec *executionContext) marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50569,7 +50819,7 @@ func (ec *executionContext) marshalNProductResponse2ᚖgithubᚗcomᚋMamangRust
 	return ec._ProductResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50593,7 +50843,7 @@ func (ec *executionContext) marshalNProductResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50613,7 +50863,7 @@ func (ec *executionContext) marshalNProductResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50623,27 +50873,27 @@ func (ec *executionContext) marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMa
 	return ec._ProductResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput(ctx context.Context, v any) (model.RefreshTokenInput, error) {
+func (ec *executionContext) unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput(ctx context.Context, v any) (model.RefreshTokenInput, error) {
 	res, err := ec.unmarshalInputRefreshTokenInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRegisterInput(ctx context.Context, v any) (model.RegisterInput, error) {
+func (ec *executionContext) unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRegisterInput(ctx context.Context, v any) (model.RegisterInput, error) {
 	res, err := ec.unmarshalInputRegisterInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput(ctx context.Context, v any) (model.ResetPasswordInput, error) {
+func (ec *executionContext) unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput(ctx context.Context, v any) (model.ResetPasswordInput, error) {
 	res, err := ec.unmarshalInputResetPasswordInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNRestoreMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRestoreMerchantDocumentInput(ctx context.Context, v any) (model.RestoreMerchantDocumentInput, error) {
+func (ec *executionContext) unmarshalNRestoreMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRestoreMerchantDocumentInput(ctx context.Context, v any) (model.RestoreMerchantDocumentInput, error) {
 	res, err := ec.unmarshalInputRestoreMerchantDocumentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50653,7 +50903,7 @@ func (ec *executionContext) marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋ
 	return ec._RoleResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50679,7 +50929,37 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
-func (ec *executionContext) marshalNTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailedᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailedᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountFailed) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50703,7 +50983,7 @@ func (ec *executionContext) marshalNTransactionMonthlyAmountFailed2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50723,7 +51003,7 @@ func (ec *executionContext) marshalNTransactionMonthlyAmountFailed2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountFailed) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50733,7 +51013,7 @@ func (ec *executionContext) marshalNTransactionMonthlyAmountFailed2ᚖgithubᚗc
 	return ec._TransactionMonthlyAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccessᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccessᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50757,7 +51037,7 @@ func (ec *executionContext) marshalNTransactionMonthlyAmountSuccess2ᚕᚖgithub
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50777,7 +51057,7 @@ func (ec *executionContext) marshalNTransactionMonthlyAmountSuccess2ᚕᚖgithub
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50787,7 +51067,7 @@ func (ec *executionContext) marshalNTransactionMonthlyAmountSuccess2ᚖgithubᚗ
 	return ec._TransactionMonthlyAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethodᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethodᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyMethod) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50811,7 +51091,7 @@ func (ec *executionContext) marshalNTransactionMonthlyMethod2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50831,7 +51111,7 @@ func (ec *executionContext) marshalNTransactionMonthlyMethod2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyMethod) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50841,7 +51121,7 @@ func (ec *executionContext) marshalNTransactionMonthlyMethod2ᚖgithubᚗcomᚋM
 	return ec._TransactionMonthlyMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50865,7 +51145,7 @@ func (ec *executionContext) marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMam
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50885,7 +51165,7 @@ func (ec *executionContext) marshalNTransactionResponse2ᚕᚖgithubᚗcomᚋMam
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50895,7 +51175,7 @@ func (ec *executionContext) marshalNTransactionResponse2ᚖgithubᚗcomᚋMamang
 	return ec._TransactionResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50919,7 +51199,7 @@ func (ec *executionContext) marshalNTransactionResponseDeleteAt2ᚕᚖgithubᚗc
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50939,7 +51219,7 @@ func (ec *executionContext) marshalNTransactionResponseDeleteAt2ᚕᚖgithubᚗc
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -50949,7 +51229,7 @@ func (ec *executionContext) marshalNTransactionResponseDeleteAt2ᚖgithubᚗcom�
 	return ec._TransactionResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailedᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailedᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountFailed) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -50973,7 +51253,7 @@ func (ec *executionContext) marshalNTransactionYearlyAmountFailed2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -50993,7 +51273,7 @@ func (ec *executionContext) marshalNTransactionYearlyAmountFailed2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountFailed) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -51003,7 +51283,7 @@ func (ec *executionContext) marshalNTransactionYearlyAmountFailed2ᚖgithubᚗco
 	return ec._TransactionYearlyAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccessᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccessᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountSuccess) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -51027,7 +51307,7 @@ func (ec *executionContext) marshalNTransactionYearlyAmountSuccess2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -51047,7 +51327,7 @@ func (ec *executionContext) marshalNTransactionYearlyAmountSuccess2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -51057,7 +51337,7 @@ func (ec *executionContext) marshalNTransactionYearlyAmountSuccess2ᚖgithubᚗc
 	return ec._TransactionYearlyAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethodᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethodᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyMethod) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -51081,7 +51361,7 @@ func (ec *executionContext) marshalNTransactionYearlyMethod2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -51101,7 +51381,7 @@ func (ec *executionContext) marshalNTransactionYearlyMethod2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalNTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyMethod) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -51111,49 +51391,49 @@ func (ec *executionContext) marshalNTransactionYearlyMethod2ᚖgithubᚗcomᚋMa
 	return ec._TransactionYearlyMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNTrashedMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTrashedMerchantDocumentInput(ctx context.Context, v any) (model.TrashedMerchantDocumentInput, error) {
+func (ec *executionContext) unmarshalNTrashedMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTrashedMerchantDocumentInput(ctx context.Context, v any) (model.TrashedMerchantDocumentInput, error) {
 	res, err := ec.unmarshalInputTrashedMerchantDocumentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateCashierRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCashierRequest(ctx context.Context, v any) (model.UpdateCashierRequest, error) {
+func (ec *executionContext) unmarshalNUpdateCashierRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCashierRequest(ctx context.Context, v any) (model.UpdateCashierRequest, error) {
 	res, err := ec.unmarshalInputUpdateCashierRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateCategoryRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryRequest(ctx context.Context, v any) (model.UpdateCategoryRequest, error) {
+func (ec *executionContext) unmarshalNUpdateCategoryRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryRequest(ctx context.Context, v any) (model.UpdateCategoryRequest, error) {
 	res, err := ec.unmarshalInputUpdateCategoryRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentInput(ctx context.Context, v any) (model.UpdateMerchantDocumentInput, error) {
+func (ec *executionContext) unmarshalNUpdateMerchantDocumentInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentInput(ctx context.Context, v any) (model.UpdateMerchantDocumentInput, error) {
 	res, err := ec.unmarshalInputUpdateMerchantDocumentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateMerchantDocumentStatusInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentStatusInput(ctx context.Context, v any) (model.UpdateMerchantDocumentStatusInput, error) {
+func (ec *executionContext) unmarshalNUpdateMerchantDocumentStatusInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDocumentStatusInput(ctx context.Context, v any) (model.UpdateMerchantDocumentStatusInput, error) {
 	res, err := ec.unmarshalInputUpdateMerchantDocumentStatusInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput(ctx context.Context, v any) (model.UpdateMerchantInput, error) {
+func (ec *executionContext) unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput(ctx context.Context, v any) (model.UpdateMerchantInput, error) {
 	res, err := ec.unmarshalInputUpdateMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput(ctx context.Context, v any) (model.UpdateOrderInput, error) {
+func (ec *executionContext) unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput(ctx context.Context, v any) (model.UpdateOrderInput, error) {
 	res, err := ec.unmarshalInputUpdateOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.UpdateOrderItemInput, error) {
+func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.UpdateOrderItemInput, error) {
 	var vSlice []any
 	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]*model.UpdateOrderItemInput, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -51161,27 +51441,27 @@ func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋ
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx context.Context, v any) (*model.UpdateOrderItemInput, error) {
+func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx context.Context, v any) (*model.UpdateOrderItemInput, error) {
 	res, err := ec.unmarshalInputUpdateOrderItemInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput(ctx context.Context, v any) (model.UpdateProductInput, error) {
+func (ec *executionContext) unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput(ctx context.Context, v any) (model.UpdateProductInput, error) {
 	res, err := ec.unmarshalInputUpdateProductInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput(ctx context.Context, v any) (model.UpdateRoleInput, error) {
+func (ec *executionContext) unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput(ctx context.Context, v any) (model.UpdateRoleInput, error) {
 	res, err := ec.unmarshalInputUpdateRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateTransactionInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionInput(ctx context.Context, v any) (model.UpdateTransactionInput, error) {
+func (ec *executionContext) unmarshalNUpdateTransactionInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionInput(ctx context.Context, v any) (model.UpdateTransactionInput, error) {
 	res, err := ec.unmarshalInputUpdateTransactionInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput(ctx context.Context, v any) (model.UpdateUserInput, error) {
+func (ec *executionContext) unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput(ctx context.Context, v any) (model.UpdateUserInput, error) {
 	res, err := ec.unmarshalInputUpdateUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -51202,7 +51482,7 @@ func (ec *executionContext) marshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋg
 	return res
 }
 
-func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -51226,7 +51506,7 @@ func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRust
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -51246,7 +51526,7 @@ func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRust
 	return ret
 }
 
-func (ec *executionContext) marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -51256,7 +51536,7 @@ func (ec *executionContext) marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋ
 	return ec._UserResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -51280,7 +51560,7 @@ func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -51300,7 +51580,7 @@ func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 	return ret
 }
 
-func (ec *executionContext) marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -51310,17 +51590,17 @@ func (ec *executionContext) marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMaman
 	return ec._UserResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput(ctx context.Context, v any) (model.VerifyCodeInput, error) {
+func (ec *executionContext) unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput(ctx context.Context, v any) (model.VerifyCodeInput, error) {
 	res, err := ec.unmarshalInputVerifyCodeInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNYearTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchantInput(ctx context.Context, v any) (model.YearTransactionMethodByMerchantInput, error) {
+func (ec *executionContext) unmarshalNYearTransactionMethodByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchantInput(ctx context.Context, v any) (model.YearTransactionMethodByMerchantInput, error) {
 	res, err := ec.unmarshalInputYearTransactionMethodByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNYearTransactionMethodInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodInput(ctx context.Context, v any) (model.YearTransactionMethodInput, error) {
+func (ec *executionContext) unmarshalNYearTransactionMethodInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodInput(ctx context.Context, v any) (model.YearTransactionMethodInput, error) {
 	res, err := ec.unmarshalInputYearTransactionMethodInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -51578,322 +51858,322 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
-func (ec *executionContext) marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashier) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashier2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashier(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashier) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashier(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCashierAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashierAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashierAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCashierDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashierDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashierDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashierDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierMonthSales) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashierMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierMonthSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashierMonthSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierMonthlyTotalSales) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashierMonthlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierMonthlyTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierMonthlyTotalSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashierMonthlyTotalSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierYearSales) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashierYearSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierYearSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashierYearSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierYearlyTotalSales) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCashierYearlyTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCashierYearlyTotalSales(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCashierYearlyTotalSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCashierYearlyTotalSales(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategory) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategory) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategory(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthPrice) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthPrice) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryMonthPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthlyTotalPrice) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthlyTotalPrice) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryMonthlyTotalPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearPrice) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearPrice) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryYearPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearlyTotalPrice) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearlyTotalPrice) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryYearlyTotalPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchant) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchant) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseMerchant(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseMerchantAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseMerchantDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseMerchantDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrder) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrder) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrder(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrderAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrderDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrderDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthly) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthly) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrderMonthly(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrderMonthlyTotalRevenue(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearly) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearly) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrderYearly(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseOrderYearlyTotalRevenue(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationCashier2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashier(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCashier) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationCashier2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashier(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCashier) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationCashier(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashierDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCashierDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationCashierDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCashierDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCashierDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationCashierDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategory) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategory) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationCategory(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategoryDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategoryDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationCategoryDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchant) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchant) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationMerchant(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationMerchantDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrder) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrder) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationOrder(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationOrderDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItem) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItem) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationOrderItem(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItemDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItemDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationOrderItemDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRole) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRole) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationRole(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRoleDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRoleDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationRoleDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRole) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRole) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRole(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRoleAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRoleDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRoleDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesOrderItem) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesOrderItem) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsesOrderItem(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesRole) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesRole) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -51930,7 +52210,7 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -51957,7 +52237,7 @@ func (ec *executionContext) marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangR
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -51977,14 +52257,14 @@ func (ec *executionContext) marshalOCashierResponse2ᚕᚖgithubᚗcomᚋMamangR
 	return ret
 }
 
-func (ec *executionContext) marshalOCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponse(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CashierResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOCashierResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52011,7 +52291,7 @@ func (ec *executionContext) marshalOCashierResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52031,14 +52311,14 @@ func (ec *executionContext) marshalOCashierResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CashierResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CashierResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOCashierResponseMonthSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseMonthSales) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponseMonthSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseMonthSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52065,7 +52345,7 @@ func (ec *executionContext) marshalOCashierResponseMonthSales2ᚕᚖgithubᚗcom
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCashierResponseMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSales(ctx, sel, v[i])
+			ret[i] = ec.marshalNCashierResponseMonthSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthSales(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52085,7 +52365,7 @@ func (ec *executionContext) marshalOCashierResponseMonthSales2ᚕᚖgithubᚗcom
 	return ret
 }
 
-func (ec *executionContext) marshalOCashierResponseMonthTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseMonthTotalSales) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponseMonthTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseMonthTotalSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52112,7 +52392,7 @@ func (ec *executionContext) marshalOCashierResponseMonthTotalSales2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCashierResponseMonthTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSales(ctx, sel, v[i])
+			ret[i] = ec.marshalNCashierResponseMonthTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseMonthTotalSales(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52132,7 +52412,7 @@ func (ec *executionContext) marshalOCashierResponseMonthTotalSales2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalOCashierResponseYearSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseYearSales) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponseYearSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseYearSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52159,7 +52439,7 @@ func (ec *executionContext) marshalOCashierResponseYearSales2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCashierResponseYearSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSales(ctx, sel, v[i])
+			ret[i] = ec.marshalNCashierResponseYearSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearSales(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52179,7 +52459,7 @@ func (ec *executionContext) marshalOCashierResponseYearSales2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOCashierResponseYearTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseYearTotalSales) graphql.Marshaler {
+func (ec *executionContext) marshalOCashierResponseYearTotalSales2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSalesᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CashierResponseYearTotalSales) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52206,7 +52486,7 @@ func (ec *executionContext) marshalOCashierResponseYearTotalSales2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCashierResponseYearTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSales(ctx, sel, v[i])
+			ret[i] = ec.marshalNCashierResponseYearTotalSales2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCashierResponseYearTotalSales(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52226,7 +52506,7 @@ func (ec *executionContext) marshalOCashierResponseYearTotalSales2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalOCategoriesMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoriesMonthlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoriesMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoriesMonthlyTotalPriceResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52253,7 +52533,7 @@ func (ec *executionContext) marshalOCategoriesMonthlyTotalPriceResponse2ᚕᚖgi
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoriesMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoriesMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesMonthlyTotalPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52273,7 +52553,7 @@ func (ec *executionContext) marshalOCategoriesMonthlyTotalPriceResponse2ᚕᚖgi
 	return ret
 }
 
-func (ec *executionContext) marshalOCategoriesYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoriesYearlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoriesYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoriesYearlyTotalPriceResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52300,7 +52580,7 @@ func (ec *executionContext) marshalOCategoriesYearlyTotalPriceResponse2ᚕᚖgit
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoriesYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoriesYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoriesYearlyTotalPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52320,7 +52600,7 @@ func (ec *executionContext) marshalOCategoriesYearlyTotalPriceResponse2ᚕᚖgit
 	return ret
 }
 
-func (ec *executionContext) marshalOCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryMonthPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryMonthPriceResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52347,7 +52627,7 @@ func (ec *executionContext) marshalOCategoryMonthPriceResponse2ᚕᚖgithubᚗco
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52367,7 +52647,7 @@ func (ec *executionContext) marshalOCategoryMonthPriceResponse2ᚕᚖgithubᚗco
 	return ret
 }
 
-func (ec *executionContext) marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52394,7 +52674,7 @@ func (ec *executionContext) marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamang
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52414,14 +52694,14 @@ func (ec *executionContext) marshalOCategoryResponse2ᚕᚖgithubᚗcomᚋMamang
 	return ret
 }
 
-func (ec *executionContext) marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CategoryResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52448,7 +52728,7 @@ func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52468,14 +52748,14 @@ func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CategoryResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryYearPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryYearPriceResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52502,7 +52782,7 @@ func (ec *executionContext) marshalOCategoryYearPriceResponse2ᚕᚖgithubᚗcom
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52522,7 +52802,7 @@ func (ec *executionContext) marshalOCategoryYearPriceResponse2ᚕᚖgithubᚗcom
 	return ret
 }
 
-func (ec *executionContext) unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest(ctx context.Context, v any) (*model.FindAllCashierRequest, error) {
+func (ec *executionContext) unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCashierRequest(ctx context.Context, v any) (*model.FindAllCashierRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -52530,7 +52810,7 @@ func (ec *executionContext) unmarshalOFindAllCashierRequest2ᚖgithubᚗcomᚋMa
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest(ctx context.Context, v any) (*model.FindAllCategoryRequest, error) {
+func (ec *executionContext) unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryRequest(ctx context.Context, v any) (*model.FindAllCategoryRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -52538,7 +52818,7 @@ func (ec *executionContext) unmarshalOFindAllCategoryRequest2ᚖgithubᚗcomᚋM
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput(ctx context.Context, v any) (*model.FindAllProductInput, error) {
+func (ec *executionContext) unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput(ctx context.Context, v any) (*model.FindAllProductInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -52546,7 +52826,7 @@ func (ec *executionContext) unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMama
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput(ctx context.Context, v any) (*model.FindAllRoleInput, error) {
+func (ec *executionContext) unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput(ctx context.Context, v any) (*model.FindAllRoleInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -52554,7 +52834,7 @@ func (ec *executionContext) unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangR
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput(ctx context.Context, v any) (*model.FindAllTransactionInput, error) {
+func (ec *executionContext) unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionInput(ctx context.Context, v any) (*model.FindAllTransactionInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -52562,7 +52842,7 @@ func (ec *executionContext) unmarshalOFindAllTransactionInput2ᚖgithubᚗcomᚋ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput(ctx context.Context, v any) (*model.FindAllUserInput, error) {
+func (ec *executionContext) unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput(ctx context.Context, v any) (*model.FindAllUserInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -52570,7 +52850,7 @@ func (ec *executionContext) unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangR
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindByMerchantCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐFindByMerchantCashierRequest(ctx context.Context, v any) (*model.FindByMerchantCashierRequest, error) {
+func (ec *executionContext) unmarshalOFindByMerchantCashierRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐFindByMerchantCashierRequest(ctx context.Context, v any) (*model.FindByMerchantCashierRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -52613,21 +52893,21 @@ func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalOMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantDocumentResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantDocumentResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantDocumentResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantDocumentResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDocumentResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantDocumentResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52654,7 +52934,7 @@ func (ec *executionContext) marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamang
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52674,14 +52954,14 @@ func (ec *executionContext) marshalOMerchantResponse2ᚕᚖgithubᚗcomᚋMamang
 	return ret
 }
 
-func (ec *executionContext) marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52708,7 +52988,7 @@ func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52728,14 +53008,14 @@ func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52762,7 +53042,7 @@ func (ec *executionContext) marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMaman
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52782,14 +53062,14 @@ func (ec *executionContext) marshalOOrderItemResponse2ᚕᚖgithubᚗcomᚋMaman
 	return ret
 }
 
-func (ec *executionContext) marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._OrderItemResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52816,7 +53096,7 @@ func (ec *executionContext) marshalOOrderItemResponseDeleteAt2ᚕᚖgithubᚗcom
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52836,7 +53116,7 @@ func (ec *executionContext) marshalOOrderItemResponseDeleteAt2ᚕᚖgithubᚗcom
 	return ret
 }
 
-func (ec *executionContext) marshalOOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52863,7 +53143,7 @@ func (ec *executionContext) marshalOOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52883,7 +53163,7 @@ func (ec *executionContext) marshalOOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMa
 	return ret
 }
 
-func (ec *executionContext) marshalOOrderMonthlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderMonthlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52910,7 +53190,7 @@ func (ec *executionContext) marshalOOrderMonthlyTotalRevenue2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenue(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenue(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52930,7 +53210,7 @@ func (ec *executionContext) marshalOOrderMonthlyTotalRevenue2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -52957,7 +53237,7 @@ func (ec *executionContext) marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRus
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -52977,14 +53257,14 @@ func (ec *executionContext) marshalOOrderResponse2ᚕᚖgithubᚗcomᚋMamangRus
 	return ret
 }
 
-func (ec *executionContext) marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._OrderResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -53011,7 +53291,7 @@ func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋM
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -53031,14 +53311,14 @@ func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋM
 	return ret
 }
 
-func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._OrderResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -53065,7 +53345,7 @@ func (ec *executionContext) marshalOOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMam
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -53085,7 +53365,7 @@ func (ec *executionContext) marshalOOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMam
 	return ret
 }
 
-func (ec *executionContext) marshalOOrderYearlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderYearlyTotalRevenue2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -53112,7 +53392,7 @@ func (ec *executionContext) marshalOOrderYearlyTotalRevenue2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenue(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenue(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -53132,28 +53412,28 @@ func (ec *executionContext) marshalOOrderYearlyTotalRevenue2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
+func (ec *executionContext) marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._PaginationMeta(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProductResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProductResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponse) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -53180,7 +53460,7 @@ func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRust
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -53200,14 +53480,14 @@ func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRust
 	return ret
 }
 
-func (ec *executionContext) marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._RoleResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -53234,7 +53514,7 @@ func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -53254,7 +53534,7 @@ func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 	return ret
 }
 
-func (ec *executionContext) marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -53279,21 +53559,21 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTokenResponse(ctx context.Context, sel ast.SelectionSet, v *model.TokenResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTokenResponse(ctx context.Context, sel ast.SelectionSet, v *model.TokenResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TokenResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -53318,14 +53598,14 @@ func (ec *executionContext) marshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgen�
 	return res
 }
 
-func (ec *executionContext) marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._UserResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑpointofsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑpointᚑofᚑsaleᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

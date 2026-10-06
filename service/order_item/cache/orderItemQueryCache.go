@@ -23,17 +23,17 @@ const (
 
 type orderItemQueryCacheResponse struct {
 	Data         []*repository.OrderItemResult `json:"data"`
-	TotalRecords *int                   `json:"total_records"`
+	TotalRecords *int                          `json:"total_records"`
 }
 
 type orderItemQueryCacheResponseActive struct {
 	Data         []*repository.OrderItemResultDeleteAt `json:"data"`
-	TotalRecords *int                         `json:"total_records"`
+	TotalRecords *int                                  `json:"total_records"`
 }
 
 type orderItemQueryCacheResponseTrashed struct {
 	Data         []*repository.OrderItemResultDeleteAt `json:"data"`
-	TotalRecords *int                          `json:"total_records"`
+	TotalRecords *int                                  `json:"total_records"`
 }
 
 type orderItemQueryCache struct {

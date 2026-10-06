@@ -6,11 +6,10 @@ package graph
 
 import (
 	"context"
+	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 
-	errors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
-
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	orderitempb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 )
 
 // FindAllOrderItem is the resolver for the findAllOrderItem field.
@@ -35,7 +34,7 @@ func (r *queryResolver) FindAllOrderItem(ctx context.Context, input model.FindAl
 			return cached, nil
 		}
 
-		req := &pb.FindAllOrderItemRequest{
+		req := &orderitempb.FindAllOrderItemRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -75,7 +74,7 @@ func (r *queryResolver) FindByActiveOrderItem(ctx context.Context, input model.F
 			return cached, nil
 		}
 
-		req := &pb.FindAllOrderItemRequest{
+		req := &orderitempb.FindAllOrderItemRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -115,7 +114,7 @@ func (r *queryResolver) FindByTrashedOrderItem(ctx context.Context, input model.
 			return cached, nil
 		}
 
-		req := &pb.FindAllOrderItemRequest{
+		req := &orderitempb.FindAllOrderItemRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -146,7 +145,7 @@ func (r *queryResolver) FindOrderItemByOrder(ctx context.Context, input model.Fi
 			return cached, nil
 		}
 
-		res, err := r.OrderItemGraphql.OrderItemClient.FindOrderItemByOrder(ctx, &pb.FindByIdOrderItemRequest{
+		res, err := r.OrderItemGraphql.OrderItemClient.FindOrderItemByOrder(ctx, &orderitempb.FindByIdOrderItemRequest{
 			Id: int32(id),
 		})
 		if err != nil {

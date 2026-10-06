@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	sharederrorhandler "github.com/MamangRust/microservice-point-of-sale-shared/errorhandler"
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors/transaction_errors"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	mencache "github.com/MamangRust/microservice-point-of-sale-transacton/cache"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"

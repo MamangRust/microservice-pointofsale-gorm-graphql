@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 func InvalidAccessToken() error {
 	return fmt.Errorf("invalid access token")
 }

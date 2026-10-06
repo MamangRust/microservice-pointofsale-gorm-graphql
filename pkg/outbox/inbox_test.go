@@ -31,8 +31,8 @@ func TestReserveValidatesKeys(t *testing.T) {
 		consumerName string
 		eventKey     string
 	}{
-		"nil executor": {tx: nil, consumerName: "email-service-group", eventKey: "topic:evt-1"},
-		"empty consumer": {tx: &gorm.DB{}, consumerName: "", eventKey: "topic:evt-1"},
+		"nil executor":    {tx: nil, consumerName: "email-service-group", eventKey: "topic:evt-1"},
+		"empty consumer":  {tx: &gorm.DB{}, consumerName: "", eventKey: "topic:evt-1"},
 		"empty event key": {tx: &gorm.DB{}, consumerName: "email-service-group", eventKey: ""},
 	} {
 		t.Run(name, func(t *testing.T) {

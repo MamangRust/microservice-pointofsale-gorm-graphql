@@ -8,9 +8,6 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 
-
-
-
 type CashierQueryService interface {
 	FindAll(ctx context.Context, req *requests.FindAllCashiers) ([]*repository.CashierResult, *int, error)
 	FindById(ctx context.Context, cashierID int) (*models.Cashier, error)

@@ -3,7 +3,7 @@ package productgraphqlmapper
 import (
 	graphqlmapper "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/mapper"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
+	productpb "github.com/MamangRust/microservice-point-of-sale-pb/product"
 )
 
 type productGraphqlMapper struct {
@@ -13,7 +13,7 @@ func NewProductGraphqlMapper() *productGraphqlMapper {
 	return &productGraphqlMapper{}
 }
 
-func (p *productGraphqlMapper) ToGraphqlResponseProduct(res *pb.ApiResponseProduct) *model.APIResponseProduct {
+func (p *productGraphqlMapper) ToGraphqlResponseProduct(res *productpb.ApiResponseProduct) *model.APIResponseProduct {
 	return &model.APIResponseProduct{
 		Status:  res.Status,
 		Message: res.Message,
@@ -21,7 +21,7 @@ func (p *productGraphqlMapper) ToGraphqlResponseProduct(res *pb.ApiResponseProdu
 	}
 }
 
-func (p *productGraphqlMapper) ToGraphqlResponsesProduct(res *pb.ApiResponsesProduct) *model.APIResponsesProduct {
+func (p *productGraphqlMapper) ToGraphqlResponsesProduct(res *productpb.ApiResponsesProduct) *model.APIResponsesProduct {
 	return &model.APIResponsesProduct{
 		Status:  res.Status,
 		Message: res.Message,
@@ -29,7 +29,7 @@ func (p *productGraphqlMapper) ToGraphqlResponsesProduct(res *pb.ApiResponsesPro
 	}
 }
 
-func (p *productGraphqlMapper) ToGraphqlResponseProductDeleteAt(res *pb.ApiResponseProductDeleteAt) *model.APIResponseProductDeleteAt {
+func (p *productGraphqlMapper) ToGraphqlResponseProductDeleteAt(res *productpb.ApiResponseProductDeleteAt) *model.APIResponseProductDeleteAt {
 	return &model.APIResponseProductDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -37,21 +37,21 @@ func (p *productGraphqlMapper) ToGraphqlResponseProductDeleteAt(res *pb.ApiRespo
 	}
 }
 
-func (p *productGraphqlMapper) ToGraphqlResponseProductDelete(res *pb.ApiResponseProductDelete) *model.APIResponseProductDelete {
+func (p *productGraphqlMapper) ToGraphqlResponseProductDelete(res *productpb.ApiResponseProductDelete) *model.APIResponseProductDelete {
 	return &model.APIResponseProductDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (p *productGraphqlMapper) ToGraphqlResponseProductAll(res *pb.ApiResponseProductAll) *model.APIResponseProductAll {
+func (p *productGraphqlMapper) ToGraphqlResponseProductAll(res *productpb.ApiResponseProductAll) *model.APIResponseProductAll {
 	return &model.APIResponseProductAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (p *productGraphqlMapper) ToGraphqlResponsePaginationProduct(res *pb.ApiResponsePaginationProduct) *model.APIResponsePaginationProduct {
+func (p *productGraphqlMapper) ToGraphqlResponsePaginationProduct(res *productpb.ApiResponsePaginationProduct) *model.APIResponsePaginationProduct {
 	return &model.APIResponsePaginationProduct{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -60,7 +60,7 @@ func (p *productGraphqlMapper) ToGraphqlResponsePaginationProduct(res *pb.ApiRes
 	}
 }
 
-func (p *productGraphqlMapper) ToGraphqlResponsePaginationProductDeleteAt(res *pb.ApiResponsePaginationProductDeleteAt) *model.APIResponsePaginationProductDeleteAt {
+func (p *productGraphqlMapper) ToGraphqlResponsePaginationProductDeleteAt(res *productpb.ApiResponsePaginationProductDeleteAt) *model.APIResponsePaginationProductDeleteAt {
 	return &model.APIResponsePaginationProductDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -69,7 +69,7 @@ func (p *productGraphqlMapper) ToGraphqlResponsePaginationProductDeleteAt(res *p
 	}
 }
 
-func (p *productGraphqlMapper) mapResponseProduct(product *pb.ProductResponse) *model.ProductResponse {
+func (p *productGraphqlMapper) mapResponseProduct(product *productpb.ProductResponse) *model.ProductResponse {
 	if product == nil {
 		return nil
 	}
@@ -93,7 +93,7 @@ func (p *productGraphqlMapper) mapResponseProduct(product *pb.ProductResponse) *
 	}
 }
 
-func (p *productGraphqlMapper) mapResponsesProduct(products []*pb.ProductResponse) []*model.ProductResponse {
+func (p *productGraphqlMapper) mapResponsesProduct(products []*productpb.ProductResponse) []*model.ProductResponse {
 	var responses []*model.ProductResponse
 	for _, product := range products {
 		responses = append(responses, p.mapResponseProduct(product))
@@ -101,7 +101,7 @@ func (p *productGraphqlMapper) mapResponsesProduct(products []*pb.ProductRespons
 	return responses
 }
 
-func (p *productGraphqlMapper) mapResponseProductDeleteAt(product *pb.ProductResponseDeleteAt) *model.ProductResponseDeleteAt {
+func (p *productGraphqlMapper) mapResponseProductDeleteAt(product *productpb.ProductResponseDeleteAt) *model.ProductResponseDeleteAt {
 	if product == nil {
 		return nil
 	}
@@ -131,7 +131,7 @@ func (p *productGraphqlMapper) mapResponseProductDeleteAt(product *pb.ProductRes
 	}
 }
 
-func (p *productGraphqlMapper) mapResponsesProductDeleteAt(products []*pb.ProductResponseDeleteAt) []*model.ProductResponseDeleteAt {
+func (p *productGraphqlMapper) mapResponsesProductDeleteAt(products []*productpb.ProductResponseDeleteAt) []*model.ProductResponseDeleteAt {
 	var responses []*model.ProductResponseDeleteAt
 	for _, product := range products {
 		responses = append(responses, p.mapResponseProductDeleteAt(product))

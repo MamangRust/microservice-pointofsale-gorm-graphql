@@ -65,9 +65,6 @@ type UserQueryRepository interface {
 	FindById(ctx context.Context, id int) (*models.User, error)
 }
 
-
-
-
 type CashierQueryRepository interface {
 	FindAllCashiers(ctx context.Context, req *requests.FindAllCashiers) ([]*CashierResult, *int, error)
 	FindById(ctx context.Context, cashier_id int) (*models.Cashier, error)

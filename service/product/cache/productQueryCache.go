@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
+	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
@@ -25,27 +25,27 @@ const (
 
 type productCacheResponse struct {
 	Data         []*repository.ProductResult `json:"data"`
-	TotalRecords *int                 `json:"total_records"`
+	TotalRecords *int                        `json:"total_records"`
 }
 
 type productCacheResponseMerchant struct {
 	Data         []*repository.ProductByMerchantResult `json:"data"`
-	TotalRecords *int                           `json:"total_records"`
+	TotalRecords *int                                  `json:"total_records"`
 }
 
 type productCacheResponseCategory struct {
 	Data         []*repository.ProductByCategoryResult `json:"data"`
-	TotalRecords *int                               `json:"total_records"`
+	TotalRecords *int                                  `json:"total_records"`
 }
 
 type productCacheResponseActive struct {
 	Data         []*repository.ProductResultDeleteAt `json:"data"`
-	TotalRecords *int                       `json:"total_records"`
+	TotalRecords *int                                `json:"total_records"`
 }
 
 type productCacheResponseTrashed struct {
 	Data         []*repository.ProductResultDeleteAt `json:"data"`
-	TotalRecords *int                        `json:"total_records"`
+	TotalRecords *int                                `json:"total_records"`
 }
 
 type productQueryCache struct {

@@ -3,8 +3,7 @@ package transactiongraphqlmapper
 import (
 	graphqlmapper "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/mapper"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
-	pbstats "github.com/MamangRust/microservice-pointofsale-grpc/pb/stats"
+	transactionpb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 )
 
 type transactionGraphqlMapper struct {
@@ -14,7 +13,7 @@ func NewTransactionGraphqlMapper() *transactionGraphqlMapper {
 	return &transactionGraphqlMapper{}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseTransaction(res *pb.ApiResponseTransaction) *model.APIResponseTransaction {
+func (t *transactionGraphqlMapper) ToGraphqlResponseTransaction(res *transactionpb.ApiResponseTransaction) *model.APIResponseTransaction {
 	return &model.APIResponseTransaction{
 		Status:  res.Status,
 		Message: res.Message,
@@ -22,7 +21,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponseTransaction(res *pb.ApiRespo
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponsesTransaction(res *pb.ApiResponsesTransaction) *model.APIResponsesTransaction {
+func (t *transactionGraphqlMapper) ToGraphqlResponsesTransaction(res *transactionpb.ApiResponsesTransaction) *model.APIResponsesTransaction {
 	return &model.APIResponsesTransaction{
 		Status:  res.Status,
 		Message: res.Message,
@@ -30,7 +29,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponsesTransaction(res *pb.ApiResp
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseTransactionDeleteAt(res *pb.ApiResponseTransactionDeleteAt) *model.APIResponseTransactionDeleteAt {
+func (t *transactionGraphqlMapper) ToGraphqlResponseTransactionDeleteAt(res *transactionpb.ApiResponseTransactionDeleteAt) *model.APIResponseTransactionDeleteAt {
 	return &model.APIResponseTransactionDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -38,21 +37,21 @@ func (t *transactionGraphqlMapper) ToGraphqlResponseTransactionDeleteAt(res *pb.
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseTransactionDelete(res *pb.ApiResponseTransactionDelete) *model.APIResponseTransactionDelete {
+func (t *transactionGraphqlMapper) ToGraphqlResponseTransactionDelete(res *transactionpb.ApiResponseTransactionDelete) *model.APIResponseTransactionDelete {
 	return &model.APIResponseTransactionDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseTransactionAll(res *pb.ApiResponseTransactionAll) *model.APIResponseTransactionAll {
+func (t *transactionGraphqlMapper) ToGraphqlResponseTransactionAll(res *transactionpb.ApiResponseTransactionAll) *model.APIResponseTransactionAll {
 	return &model.APIResponseTransactionAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponsePaginationTransaction(res *pb.ApiResponsePaginationTransaction) *model.APIResponsePaginationTransaction {
+func (t *transactionGraphqlMapper) ToGraphqlResponsePaginationTransaction(res *transactionpb.ApiResponsePaginationTransaction) *model.APIResponsePaginationTransaction {
 	return &model.APIResponsePaginationTransaction{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -61,7 +60,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponsePaginationTransaction(res *p
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponsePaginationTransactionDeleteAt(res *pb.ApiResponsePaginationTransactionDeleteAt) *model.APIResponsePaginationTransactionDeleteAt {
+func (t *transactionGraphqlMapper) ToGraphqlResponsePaginationTransactionDeleteAt(res *transactionpb.ApiResponsePaginationTransactionDeleteAt) *model.APIResponsePaginationTransactionDeleteAt {
 	return &model.APIResponsePaginationTransactionDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -70,7 +69,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponsePaginationTransactionDeleteA
 	}
 }
 
-func (t *transactionGraphqlMapper) mapResponseTransaction(transaction *pb.TransactionResponse) *model.TransactionResponse {
+func (t *transactionGraphqlMapper) mapResponseTransaction(transaction *transactionpb.TransactionResponse) *model.TransactionResponse {
 	if transaction == nil {
 		return nil
 	}
@@ -85,7 +84,7 @@ func (t *transactionGraphqlMapper) mapResponseTransaction(transaction *pb.Transa
 	}
 }
 
-func (t *transactionGraphqlMapper) mapResponsesTransaction(transactions []*pb.TransactionResponse) []*model.TransactionResponse {
+func (t *transactionGraphqlMapper) mapResponsesTransaction(transactions []*transactionpb.TransactionResponse) []*model.TransactionResponse {
 	var responses []*model.TransactionResponse
 	for _, transaction := range transactions {
 		responses = append(responses, t.mapResponseTransaction(transaction))
@@ -93,7 +92,7 @@ func (t *transactionGraphqlMapper) mapResponsesTransaction(transactions []*pb.Tr
 	return responses
 }
 
-func (t *transactionGraphqlMapper) mapResponseTransactionDeleteAt(transaction *pb.TransactionResponseDeleteAt) *model.TransactionResponseDeleteAt {
+func (t *transactionGraphqlMapper) mapResponseTransactionDeleteAt(transaction *transactionpb.TransactionResponseDeleteAt) *model.TransactionResponseDeleteAt {
 	if transaction == nil {
 		return nil
 	}
@@ -114,7 +113,7 @@ func (t *transactionGraphqlMapper) mapResponseTransactionDeleteAt(transaction *p
 	}
 }
 
-func (t *transactionGraphqlMapper) mapResponsesTransactionDeleteAt(transactions []*pb.TransactionResponseDeleteAt) []*model.TransactionResponseDeleteAt {
+func (t *transactionGraphqlMapper) mapResponsesTransactionDeleteAt(transactions []*transactionpb.TransactionResponseDeleteAt) []*model.TransactionResponseDeleteAt {
 	var responses []*model.TransactionResponseDeleteAt
 	for _, transaction := range transactions {
 		responses = append(responses, t.mapResponseTransactionDeleteAt(transaction))
@@ -122,7 +121,7 @@ func (t *transactionGraphqlMapper) mapResponsesTransactionDeleteAt(transactions 
 	return responses
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseMonthAmountSuccess(res *pbstats.ApiResponseTransactionMonthAmountSuccess) *model.APIResponseTransactionMonthAmountSuccess {
+func (t *transactionGraphqlMapper) ToGraphqlResponseMonthAmountSuccess(res *transactionpb.ApiResponseTransactionMonthAmountSuccess) *model.APIResponseTransactionMonthAmountSuccess {
 	var responses []*model.TransactionMonthlyAmountSuccess
 	for _, item := range res.Data {
 		if item == nil {
@@ -142,7 +141,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponseMonthAmountSuccess(res *pbst
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseYearAmountSuccess(res *pbstats.ApiResponseTransactionYearAmountSuccess) *model.APIResponseTransactionYearAmountSuccess {
+func (t *transactionGraphqlMapper) ToGraphqlResponseYearAmountSuccess(res *transactionpb.ApiResponseTransactionYearAmountSuccess) *model.APIResponseTransactionYearAmountSuccess {
 	var responses []*model.TransactionYearlyAmountSuccess
 	for _, item := range res.Data {
 		if item == nil {
@@ -161,7 +160,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponseYearAmountSuccess(res *pbsta
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseMonthAmountFailed(res *pbstats.ApiResponseTransactionMonthAmountFailed) *model.APIResponseTransactionMonthAmountFailed {
+func (t *transactionGraphqlMapper) ToGraphqlResponseMonthAmountFailed(res *transactionpb.ApiResponseTransactionMonthAmountFailed) *model.APIResponseTransactionMonthAmountFailed {
 	var responses []*model.TransactionMonthlyAmountFailed
 	for _, item := range res.Data {
 		if item == nil {
@@ -181,7 +180,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponseMonthAmountFailed(res *pbsta
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseYearAmountFailed(res *pbstats.ApiResponseTransactionYearAmountFailed) *model.APIResponseTransactionYearAmountFailed {
+func (t *transactionGraphqlMapper) ToGraphqlResponseYearAmountFailed(res *transactionpb.ApiResponseTransactionYearAmountFailed) *model.APIResponseTransactionYearAmountFailed {
 	var responses []*model.TransactionYearlyAmountFailed
 	for _, item := range res.Data {
 		if item == nil {
@@ -200,7 +199,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponseYearAmountFailed(res *pbstat
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseMonthMethod(res *pbstats.ApiResponseTransactionMonthPaymentMethod) *model.APIResponseTransactionMonthPaymentMethod {
+func (t *transactionGraphqlMapper) ToGraphqlResponseMonthMethod(res *transactionpb.ApiResponseTransactionMonthPaymentMethod) *model.APIResponseTransactionMonthPaymentMethod {
 	var responses []*model.TransactionMonthlyMethod
 	for _, item := range res.Data {
 		if item == nil {
@@ -220,7 +219,7 @@ func (t *transactionGraphqlMapper) ToGraphqlResponseMonthMethod(res *pbstats.Api
 	}
 }
 
-func (t *transactionGraphqlMapper) ToGraphqlResponseYearMethod(res *pbstats.ApiResponseTransactionYearPaymentmethod) *model.APIResponseTransactionYearPaymentMethod {
+func (t *transactionGraphqlMapper) ToGraphqlResponseYearMethod(res *transactionpb.ApiResponseTransactionYearPaymentmethod) *model.APIResponseTransactionYearPaymentMethod {
 	var responses []*model.TransactionYearlyMethod
 	for _, item := range res.Data {
 		if item == nil {

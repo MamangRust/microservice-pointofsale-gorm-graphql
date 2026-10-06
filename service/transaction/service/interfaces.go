@@ -4,16 +4,14 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
-	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
+	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 )
 
 // EmailEventPublisher publishes email notification events to Kafka topics.
 type EmailEventPublisher interface {
 	SendMessage(ctx context.Context, topic string, key string, value []byte) error
 }
-
-
 
 type TransactionQueryService interface {
 	FindAllTransactions(ctx context.Context, req *requests.FindAllTransaction) ([]*repository.TransactionResult, *int, error)

@@ -37,7 +37,7 @@ func (s *RoleServiceTestSuite) SetupSuite() {
 	roleQueries := s.ts.GormDB()
 	repos := repository.NewRepositories(roleQueries)
 
-	log, _ := logger.NewLogger("test")
+	log, _ := logger.NewLogger("test", nil)
 	cacheMetrics, _ := observability.NewCacheMetrics("test")
 	cacheStore := cache.NewCacheStore(redisClient, log, cacheMetrics)
 	mencache := role_cache.NewMencache(cacheStore)

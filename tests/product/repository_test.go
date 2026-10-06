@@ -25,7 +25,7 @@ func (s *ProductRepositoryTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 
 	productQueries := s.ts.GormDB()
-	s.repo = repository.NewRepositories(productQueries)
+	s.repo = repository.NewRepositories(productQueries, nil, nil)
 
 	// Seed a merchant and category for product tests
 	var userID, categoryID int

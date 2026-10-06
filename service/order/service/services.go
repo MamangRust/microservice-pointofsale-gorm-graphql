@@ -11,8 +11,8 @@ import (
 )
 
 type Service struct {
-	OrderQuery           OrderQueryService
-	OrderCommand         OrderCommandService
+	OrderQuery   OrderQueryService
+	OrderCommand OrderCommandService
 }
 
 type Deps struct {

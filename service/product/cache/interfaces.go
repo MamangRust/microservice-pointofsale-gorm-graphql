@@ -3,8 +3,8 @@ package mencache
 import (
 	"context"
 
-	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
+	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 

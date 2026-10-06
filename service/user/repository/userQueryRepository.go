@@ -55,6 +55,34 @@ func (r *userQueryRepository) FindByEmail(ctx context.Context, email string) (*m
 	return &user, nil
 }
 
+// FindByEmailAndVerify looks up a verified user by email. A missing row comes
+// back as (nil, nil) so the service can translate it to ErrUserNotFound.
+func (r *userQueryRepository) FindByEmailAndVerify(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	err := r.db.WithContext(ctx).Where("email = ? AND is_verified = ? AND deleted_at IS NULL", email, true).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindByVerificationCode looks up a user by its verification code. A missing
+// row comes back as (nil, nil) so the service can translate it.
+func (r *userQueryRepository) FindByVerificationCode(ctx context.Context, code string) (*models.User, error) {
+	var user models.User
+	err := r.db.WithContext(ctx).Where("verification_code = ? AND deleted_at IS NULL", code).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *userQueryRepository) FindByActive(ctx context.Context, req *requests.FindAllUsers) ([]*UserResult, error) {
 	offset := (req.Page - 1) * req.PageSize
 	var results []*UserResult

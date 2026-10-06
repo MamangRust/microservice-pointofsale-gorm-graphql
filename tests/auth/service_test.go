@@ -9,62 +9,58 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-auth/service"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/auth"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
 )
 
 type AuthServiceTestSuite struct {
-	suite.Suite
-	ts          *tests.TestSuite
+	tests.BaseTestSuite
 	authService *service.Service
 	email       string
 	password    string
 }
 
 func (s *AuthServiceTestSuite) SetupSuite() {
-	ts, err := tests.SetupTestSuite()
-	s.ts = ts
+	s.BaseTestSuite.SetupSuite()
 
-	s.Require().NoError(err)
-	
-	opts, err := redis.ParseURL(s.ts.RedisURL)
-	s.Require().NoError(err)
-	redisClient := redis.NewClient(opts)
+	// Register resolves ROLE_ADMIN and persists through the real user service.
+	s.SetupUserService()
 
-	authQueries := s.ts.GormDB()
-	repos := repository.NewRepositories(authQueries)
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
+	repos := repository.NewRepositories(s.GormDB(), userQueryClient, userCommandClient, roleClient, userRoleClient)
 
-	log, _ := logger.NewLogger("test")
 	hasher := hash.NewHashingPassword()
-	cacheMetrics, _ := observability.NewCacheMetrics("test")
-	cacheStore := cache.NewCacheStore(redisClient, log, cacheMetrics)
-	mencacheService := mencache.NewMencache(cacheStore)
+	mencacheService := mencache.NewMencache(s.GetCacheStore())
 
 	tokenManager, _ := auth.NewManager("mysecretkey")
 
-	obs, _ := observability.NewObservability("test", log)
 	s.authService = service.NewService(&service.Deps{
 		Repositories:  repos,
-		Logger:        log,
+		Logger:        s.Log,
 		Mencache:      mencacheService,
 		Token:         tokenManager,
 		Hash:          hasher,
 		Kafka:         nil,
-		Observability: obs,
+		Observability: s.Obs,
 	})
+
+	s.GormDB().WithContext(s.Ctx).Exec(
+		`INSERT INTO roles (role_name) VALUES ('ROLE_ADMIN') ON CONFLICT (role_name) DO NOTHING`)
 
 	s.email = "auth.service.test@example.com"
 	s.password = "password123"
 }
 
 func (s *AuthServiceTestSuite) TearDownSuite() {
-	s.ts.Teardown()
+	s.BaseTestSuite.TearDownSuite()
 }
 
 func (s *AuthServiceTestSuite) TestAuthLifecycle() {
@@ -86,7 +82,7 @@ func (s *AuthServiceTestSuite) TestAuthLifecycle() {
 
 	// 1b. Verify email (login hanya menerima user is_verified = true)
 	var verifyCode string
-	err = s.ts.GormDB().WithContext(ctx).Raw(
+	err = s.GormDB().WithContext(ctx).Raw(
 		"SELECT verification_code FROM users WHERE email = ?", s.email).Scan(&verifyCode).Error
 	s.Require().NoError(err)
 

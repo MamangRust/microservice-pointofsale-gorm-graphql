@@ -6,12 +6,11 @@ package graph
 
 import (
 	"context"
-
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	cashierpb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -29,7 +28,7 @@ func (r *mutationResolver) CreateCashier(ctx context.Context, input model.Create
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.CreateCashierRequest{
+		reqPb := &cashierpb.CreateCashierRequest{
 			Name:       req.Name,
 			MerchantId: int32(req.MerchantID),
 			UserId:     int32(req.UserID),
@@ -67,7 +66,7 @@ func (r *mutationResolver) UpdateCashier(ctx context.Context, input model.Update
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.UpdateCashierRequest{
+		reqPb := &cashierpb.UpdateCashierRequest{
 			CashierId: int32(id),
 			Name:      req.Name,
 		}
@@ -94,7 +93,7 @@ func (r *mutationResolver) TrashedCashier(ctx context.Context, input model.FindB
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdCashierRequest{
+		reqPb := &cashierpb.FindByIdCashierRequest{
 			Id: int32(id),
 		}
 
@@ -120,7 +119,7 @@ func (r *mutationResolver) RestoreCashier(ctx context.Context, input model.FindB
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdCashierRequest{
+		reqPb := &cashierpb.FindByIdCashierRequest{
 			Id: int32(id),
 		}
 
@@ -146,7 +145,7 @@ func (r *mutationResolver) DeleteCashierPermanent(ctx context.Context, input mod
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdCashierRequest{
+		reqPb := &cashierpb.FindByIdCashierRequest{
 			Id: int32(id),
 		}
 
@@ -191,6 +190,215 @@ func (r *mutationResolver) DeleteAllCashierPermanent(ctx context.Context) (*mode
 	})
 }
 
+// FindMonthlyTotalSales is the resolver for the findMonthlyTotalSales field.
+func (r *queryResolver) FindMonthlyTotalSales(ctx context.Context, input model.FindYearMonthTotalSales) (*model.APIResponseCashierMonthlyTotalSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalSales", ctx, func(ctx context.Context) (*model.APIResponseCashierMonthlyTotalSales, error) {
+		year := int(input.Year)
+		month := int(input.Month)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+
+		if month <= 0 || month > 12 {
+			return nil, errors.NewBadRequestError("month is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetMonthlyTotalSalesCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearMonthTotalSales{
+			Year:  int32(year),
+			Month: int32(month),
+		}
+		result, err := r.CashierGraphql.CashierClient.Stats.FindMonthlyTotalSales(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyTotalSales")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseMonthlyTotalSales(result)
+
+		r.CashierGraphql.Cache.SetMonthlyTotalSalesCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearlyTotalSales is the resolver for the findYearlyTotalSales field.
+func (r *queryResolver) FindYearlyTotalSales(ctx context.Context, input model.FindYearTotalSales) (*model.APIResponseCashierYearlyTotalSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalSales", ctx, func(ctx context.Context) (*model.APIResponseCashierYearlyTotalSales, error) {
+		year := int(input.Year)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetYearlyTotalSalesCache(ctx, year); found {
+			return cached, nil
+		}
+
+		result, err := r.CashierGraphql.CashierClient.Stats.FindYearlyTotalSales(ctx, &cashierpb.FindYearTotalSales{
+			Year: int32(year),
+		})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyTotalSales")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseYearlyTotalSales(result)
+
+		r.CashierGraphql.Cache.SetYearlyTotalSalesCache(ctx, year, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthlyTotalSalesByID is the resolver for the findMonthlyTotalSalesById field.
+func (r *queryResolver) FindMonthlyTotalSalesByID(ctx context.Context, input model.FindYearMonthTotalSalesByID) (*model.APIResponseCashierMonthlyTotalSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalSalesByID", ctx, func(ctx context.Context) (*model.APIResponseCashierMonthlyTotalSales, error) {
+		year := int(input.Year)
+		month := int(input.Month)
+		id := int(input.CashierID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if month <= 0 || month > 12 {
+			return nil, errors.NewBadRequestError("month is required")
+		}
+		if id <= 0 {
+			return nil, errors.NewBadRequestError("cashier id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetMonthlyTotalSalesByIdCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearMonthTotalSalesById{
+			Year:      int32(year),
+			Month:     int32(month),
+			CashierId: int32(id),
+		}
+		result, err := r.CashierGraphql.CashierClient.StatsById.FindMonthlyTotalSalesById(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyTotalSalesByID")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseMonthlyTotalSales(result)
+
+		r.CashierGraphql.Cache.SetMonthlyTotalSalesByIdCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearlyTotalSalesByID is the resolver for the findYearlyTotalSalesById field.
+func (r *queryResolver) FindYearlyTotalSalesByID(ctx context.Context, input model.FindYearTotalSalesByID) (*model.APIResponseCashierYearlyTotalSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalSalesByID", ctx, func(ctx context.Context) (*model.APIResponseCashierYearlyTotalSales, error) {
+		year := int(input.Year)
+		id := int(input.CashierID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if id <= 0 {
+			return nil, errors.NewBadRequestError("cashier id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetYearlyTotalSalesByIdCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearTotalSalesById{
+			Year:      int32(year),
+			CashierId: int32(id),
+		}
+		result, err := r.CashierGraphql.CashierClient.StatsById.FindYearlyTotalSalesById(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyTotalSalesByID")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseYearlyTotalSales(result)
+
+		r.CashierGraphql.Cache.SetYearlyTotalSalesByIdCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthlyTotalSalesByMerchant is the resolver for the findMonthlyTotalSalesByMerchant field.
+func (r *queryResolver) FindMonthlyTotalSalesByMerchant(ctx context.Context, input model.FindYearMonthTotalSalesByMerchant) (*model.APIResponseCashierMonthlyTotalSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalSalesByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCashierMonthlyTotalSales, error) {
+		year := int(input.Year)
+		month := int(input.Month)
+		merchantId := int(input.MerchantID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if month <= 0 || month > 12 {
+			return nil, errors.NewBadRequestError("month is required")
+		}
+		if merchantId <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetMonthlyTotalSalesByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearMonthTotalSalesByMerchant{
+			Year:       int32(year),
+			Month:      int32(month),
+			MerchantId: int32(merchantId),
+		}
+		result, err := r.CashierGraphql.CashierClient.StatsByMerchant.FindMonthlyTotalSalesByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyTotalSalesByMerchant")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseMonthlyTotalSales(result)
+
+		r.CashierGraphql.Cache.SetMonthlyTotalSalesByMerchantCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearlyTotalSalesByMerchant is the resolver for the findYearlyTotalSalesByMerchant field.
+func (r *queryResolver) FindYearlyTotalSalesByMerchant(ctx context.Context, input model.FindYearTotalSalesByMerchant) (*model.APIResponseCashierYearlyTotalSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalSalesByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCashierYearlyTotalSales, error) {
+		year := int(input.Year)
+		merchantId := int(input.MerchantID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if merchantId <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetYearlyTotalSalesByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearTotalSalesByMerchant{
+			Year:       int32(year),
+			MerchantId: int32(merchantId),
+		}
+		result, err := r.CashierGraphql.CashierClient.StatsByMerchant.FindYearlyTotalSalesByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyTotalSalesByMerchant")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseYearlyTotalSales(result)
+
+		r.CashierGraphql.Cache.SetYearlyTotalSalesByMerchantCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
 // FindAllCashier is the resolver for the findAllCashier field.
 func (r *queryResolver) FindAllCashier(ctx context.Context, input *model.FindAllCashierRequest) (*model.APIResponsePaginationCashier, error) {
 	return ResolverHandle(r.ResolverHandle, "FindAllCashier", ctx, func(ctx context.Context) (*model.APIResponsePaginationCashier, error) {
@@ -212,7 +420,7 @@ func (r *queryResolver) FindAllCashier(ctx context.Context, input *model.FindAll
 			return cached, nil
 		}
 
-		req := &pb.FindAllCashierRequest{
+		req := &cashierpb.FindAllCashierRequest{
 			Search:   safeString(input.Search),
 			Page:     int32(page),
 			PageSize: int32(pageSize),
@@ -243,7 +451,7 @@ func (r *queryResolver) FindByIDCashier(ctx context.Context, input model.FindByI
 			return cached, nil
 		}
 
-		res, err := r.CashierGraphql.CashierClient.FindById(ctx, &pb.FindByIdCashierRequest{
+		res, err := r.CashierGraphql.CashierClient.FindById(ctx, &cashierpb.FindByIdCashierRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -253,6 +461,184 @@ func (r *queryResolver) FindByIDCashier(ctx context.Context, input model.FindByI
 		so := r.CashierGraphql.Mapping.ToGraphqlResponseCashier(res)
 
 		r.CashierGraphql.Cache.SetCachedCashier(ctx, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthSales is the resolver for the findMonthSales field.
+func (r *queryResolver) FindMonthSales(ctx context.Context, input model.FindYearCashier) (*model.APIResponseCashierMonthSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthSales", ctx, func(ctx context.Context) (*model.APIResponseCashierMonthSales, error) {
+		year := int(input.Year)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetMonthlySalesCache(ctx, year); found {
+			return cached, nil
+		}
+
+		methods, err := r.CashierGraphql.CashierClient.Stats.FindMonthSales(ctx, &cashierpb.FindYearCashier{
+			Year: int32(year),
+		})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthSales")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseMonthlySales(methods)
+
+		r.CashierGraphql.Cache.SetMonthlySalesCache(ctx, year, so)
+
+		return so, nil
+	})
+}
+
+// FindYearSales is the resolver for the findYearSales field.
+func (r *queryResolver) FindYearSales(ctx context.Context, input model.FindYearCashier) (*model.APIResponseCashierYearSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearSales", ctx, func(ctx context.Context) (*model.APIResponseCashierYearSales, error) {
+		year := int(input.Year)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetYearlySalesCache(ctx, year); found {
+			return cached, nil
+		}
+
+		methods, err := r.CashierGraphql.CashierClient.Stats.FindYearSales(ctx, &cashierpb.FindYearCashier{Year: int32(year)})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearSales")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseYearlySales(methods)
+
+		r.CashierGraphql.Cache.SetYearlySalesCache(ctx, year, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthSalesByMerchant is the resolver for the findMonthSalesByMerchant field.
+func (r *queryResolver) FindMonthSalesByMerchant(ctx context.Context, input model.FindYearCashierByMerchant) (*model.APIResponseCashierMonthSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthSalesByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCashierMonthSales, error) {
+		if input.Year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if input.MerchantID <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetMonthlyCashierByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearCashierByMerchant{
+			Year:       int32(input.Year),
+			MerchantId: int32(input.MerchantID),
+		}
+		methods, err := r.CashierGraphql.CashierClient.StatsByMerchant.FindMonthSalesByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthSalesByMerchant")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseMonthlySales(methods)
+
+		r.CashierGraphql.Cache.SetMonthlyCashierByMerchantCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearSalesByMerchant is the resolver for the findYearSalesByMerchant field.
+func (r *queryResolver) FindYearSalesByMerchant(ctx context.Context, input model.FindYearCashierByMerchant) (*model.APIResponseCashierYearSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearSalesByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCashierYearSales, error) {
+		if input.Year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if input.MerchantID <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetYearlyCashierByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearCashierByMerchant{
+			Year:       int32(input.Year),
+			MerchantId: int32(input.MerchantID),
+		}
+		methods, err := r.CashierGraphql.CashierClient.StatsByMerchant.FindYearSalesByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearSalesByMerchant")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseYearlySales(methods)
+
+		r.CashierGraphql.Cache.SetYearlyCashierByMerchantCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthSalesByID is the resolver for the findMonthSalesById field.
+func (r *queryResolver) FindMonthSalesByID(ctx context.Context, input model.FindYearCashierByID) (*model.APIResponseCashierMonthSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthSalesByID", ctx, func(ctx context.Context) (*model.APIResponseCashierMonthSales, error) {
+		if input.Year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if input.CashierID <= 0 {
+			return nil, errors.NewBadRequestError("cashier id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetMonthlyCashierByIdCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearCashierById{
+			Year:      int32(input.Year),
+			CashierId: int32(input.CashierID),
+		}
+		methods, err := r.CashierGraphql.CashierClient.StatsById.FindMonthSalesById(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthSalesByID")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseMonthlySales(methods)
+
+		r.CashierGraphql.Cache.SetMonthlyCashierByIdCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearSalesByID is the resolver for the findYearSalesById field.
+func (r *queryResolver) FindYearSalesByID(ctx context.Context, input model.FindYearCashierByID) (*model.APIResponseCashierYearSales, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearSalesByID", ctx, func(ctx context.Context) (*model.APIResponseCashierYearSales, error) {
+		if input.Year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if input.CashierID <= 0 {
+			return nil, errors.NewBadRequestError("cashier id is required")
+		}
+
+		if cached, found := r.CashierGraphql.Cache.GetYearlyCashierByIdCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &cashierpb.FindYearCashierById{
+			Year:      int32(input.Year),
+			CashierId: int32(input.CashierID),
+		}
+		methods, err := r.CashierGraphql.CashierClient.StatsById.FindYearSalesById(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearSalesByID")
+		}
+
+		so := r.CashierGraphql.Mapping.ToGraphqlResponseYearlySales(methods)
+
+		r.CashierGraphql.Cache.SetYearlyCashierByIdCache(ctx, &input, so)
 
 		return so, nil
 	})
@@ -281,7 +667,7 @@ func (r *queryResolver) FindByActiveCashier(ctx context.Context, input *model.Fi
 			return cached, nil
 		}
 
-		req := &pb.FindAllCashierRequest{
+		req := &cashierpb.FindAllCashierRequest{
 			Search:   safeString(input.Search),
 			Page:     int32(page),
 			PageSize: int32(pageSize),
@@ -310,6 +696,7 @@ func (r *queryResolver) FindByTrashedCashier(ctx context.Context, input *model.F
 		if pageSize <= 0 {
 			pageSize = 10
 		}
+
 		normalizedInput := &model.FindAllCashierRequest{
 			Page:     &page,
 			PageSize: &pageSize,
@@ -320,7 +707,7 @@ func (r *queryResolver) FindByTrashedCashier(ctx context.Context, input *model.F
 			return cached, nil
 		}
 
-		req := &pb.FindAllCashierRequest{
+		req := &cashierpb.FindAllCashierRequest{
 			Search:   safeString(input.Search),
 			Page:     int32(page),
 			PageSize: int32(pageSize),
@@ -361,7 +748,7 @@ func (r *queryResolver) FindByMerchantCashier(ctx context.Context, input *model.
 			return cached, nil
 		}
 
-		req := &pb.FindByMerchantCashierRequest{
+		req := &cashierpb.FindByMerchantCashierRequest{
 			Search:     safeString(input.Search),
 			Page:       int32(page),
 			MerchantId: int32(input.MerchantID),

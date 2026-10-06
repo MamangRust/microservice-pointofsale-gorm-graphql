@@ -3,8 +3,8 @@ package mencache
 import (
 	"context"
 
-	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-category/repository"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 
@@ -26,6 +26,3 @@ type CategoryCommandCache interface {
 	DeleteCachedCategoryCache(ctx context.Context, id int)
 	DeleteCachedCategoryAllCache(ctx context.Context)
 }
-
-
-

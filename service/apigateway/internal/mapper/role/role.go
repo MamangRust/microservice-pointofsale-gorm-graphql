@@ -3,7 +3,7 @@ package rolegraphqlmapper
 import (
 	graphqlmapper "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/mapper"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
+	rolepb "github.com/MamangRust/microservice-point-of-sale-pb/role"
 )
 
 type roleGraphqlMapper struct {
@@ -13,21 +13,21 @@ func NewRoleGraphqlMapper() *roleGraphqlMapper {
 	return &roleGraphqlMapper{}
 }
 
-func (s *roleGraphqlMapper) ToGraphqlResponseAll(res *pb.ApiResponseRoleAll) *model.APIResponseRoleAll {
+func (s *roleGraphqlMapper) ToGraphqlResponseAll(res *rolepb.ApiResponseRoleAll) *model.APIResponseRoleAll {
 	return &model.APIResponseRoleAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *roleGraphqlMapper) ToGraphqlResponseDelete(res *pb.ApiResponseRoleDelete) *model.APIResponseRoleDelete {
+func (s *roleGraphqlMapper) ToGraphqlResponseDelete(res *rolepb.ApiResponseRoleDelete) *model.APIResponseRoleDelete {
 	return &model.APIResponseRoleDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *roleGraphqlMapper) ToGraphqlResponseRole(res *pb.ApiResponseRole) *model.APIResponseRole {
+func (s *roleGraphqlMapper) ToGraphqlResponseRole(res *rolepb.ApiResponseRole) *model.APIResponseRole {
 	return &model.APIResponseRole{
 		Status:  res.Status,
 		Message: res.Message,
@@ -35,7 +35,7 @@ func (s *roleGraphqlMapper) ToGraphqlResponseRole(res *pb.ApiResponseRole) *mode
 	}
 }
 
-func (s *roleGraphqlMapper) ToGraphqlResponseRoleDeleteAt(res *pb.ApiResponseRole) *model.APIResponseRoleDeleteAt {
+func (s *roleGraphqlMapper) ToGraphqlResponseRoleDeleteAt(res *rolepb.ApiResponseRole) *model.APIResponseRoleDeleteAt {
 	return &model.APIResponseRoleDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -43,7 +43,7 @@ func (s *roleGraphqlMapper) ToGraphqlResponseRoleDeleteAt(res *pb.ApiResponseRol
 	}
 }
 
-func (s *roleGraphqlMapper) mapResponseRoleToDeletedAt(role *pb.RoleResponse) *model.RoleResponseDeleteAt {
+func (s *roleGraphqlMapper) mapResponseRoleToDeletedAt(role *rolepb.RoleResponse) *model.RoleResponseDeleteAt {
 	if role == nil {
 		return nil
 	}
@@ -56,7 +56,7 @@ func (s *roleGraphqlMapper) mapResponseRoleToDeletedAt(role *pb.RoleResponse) *m
 	}
 }
 
-func (s *roleGraphqlMapper) ToGraphqlResponsesRole(res *pb.ApiResponsesRole) *model.APIResponsesRole {
+func (s *roleGraphqlMapper) ToGraphqlResponsesRole(res *rolepb.ApiResponsesRole) *model.APIResponsesRole {
 	return &model.APIResponsesRole{
 		Status:  res.Status,
 		Message: res.Message,
@@ -64,7 +64,7 @@ func (s *roleGraphqlMapper) ToGraphqlResponsesRole(res *pb.ApiResponsesRole) *mo
 	}
 }
 
-func (s *roleGraphqlMapper) ToGraphqlResponsePaginationRole(res *pb.ApiResponsePaginationRole) *model.APIResponsePaginationRole {
+func (s *roleGraphqlMapper) ToGraphqlResponsePaginationRole(res *rolepb.ApiResponsePaginationRole) *model.APIResponsePaginationRole {
 	return &model.APIResponsePaginationRole{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -73,7 +73,7 @@ func (s *roleGraphqlMapper) ToGraphqlResponsePaginationRole(res *pb.ApiResponseP
 	}
 }
 
-func (s *roleGraphqlMapper) ToGraphqlResponsePaginationRoleDeleteAt(res *pb.ApiResponsePaginationRoleDeleteAt) *model.APIResponsePaginationRoleDeleteAt {
+func (s *roleGraphqlMapper) ToGraphqlResponsePaginationRoleDeleteAt(res *rolepb.ApiResponsePaginationRoleDeleteAt) *model.APIResponsePaginationRoleDeleteAt {
 	return &model.APIResponsePaginationRoleDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -82,7 +82,7 @@ func (s *roleGraphqlMapper) ToGraphqlResponsePaginationRoleDeleteAt(res *pb.ApiR
 	}
 }
 
-func (s *roleGraphqlMapper) mapResponseRole(role *pb.RoleResponse) *model.RoleResponse {
+func (s *roleGraphqlMapper) mapResponseRole(role *rolepb.RoleResponse) *model.RoleResponse {
 	return &model.RoleResponse{
 		ID:        int32(role.Id),
 		Name:      role.Name,
@@ -91,7 +91,7 @@ func (s *roleGraphqlMapper) mapResponseRole(role *pb.RoleResponse) *model.RoleRe
 	}
 }
 
-func (s *roleGraphqlMapper) mapResponsesRole(roles []*pb.RoleResponse) []*model.RoleResponse {
+func (s *roleGraphqlMapper) mapResponsesRole(roles []*rolepb.RoleResponse) []*model.RoleResponse {
 	var responseRoles []*model.RoleResponse
 
 	for _, role := range roles {
@@ -101,7 +101,7 @@ func (s *roleGraphqlMapper) mapResponsesRole(roles []*pb.RoleResponse) []*model.
 	return responseRoles
 }
 
-func (s *roleGraphqlMapper) mapResponseRoleDeleteAt(role *pb.RoleResponseDeleteAt) *model.RoleResponseDeleteAt {
+func (s *roleGraphqlMapper) mapResponseRoleDeleteAt(role *rolepb.RoleResponseDeleteAt) *model.RoleResponseDeleteAt {
 	var deletedAt *string
 	if role.DeletedAt != "" {
 		deletedAt = &role.DeletedAt
@@ -116,7 +116,7 @@ func (s *roleGraphqlMapper) mapResponseRoleDeleteAt(role *pb.RoleResponseDeleteA
 	}
 }
 
-func (s *roleGraphqlMapper) mapResponsesRoleDeleteAt(roles []*pb.RoleResponseDeleteAt) []*model.RoleResponseDeleteAt {
+func (s *roleGraphqlMapper) mapResponsesRoleDeleteAt(roles []*rolepb.RoleResponseDeleteAt) []*model.RoleResponseDeleteAt {
 	var responseRoles []*model.RoleResponseDeleteAt
 
 	for _, role := range roles {

@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/MamangRust/microservice-point-of-sale-auth/repository"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
@@ -13,26 +16,28 @@ import (
 )
 
 type AuthRepositoryTestSuite struct {
-	suite.Suite
-	ts     *tests.TestSuite
+	tests.BaseTestSuite
 	repo   *repository.Repositories
 	userID int
 	email  string
 }
 
 func (s *AuthRepositoryTestSuite) SetupSuite() {
-	ts, err := tests.SetupTestSuite()
-	s.ts = ts
+	s.BaseTestSuite.SetupSuite()
 
-	s.Require().NoError(err)
+	// The auth repository's User adapter talks to the real user service.
+	s.SetupUserService()
 
-	authQueries := s.ts.GormDB()
-	s.repo = repository.NewRepositories(authQueries)
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
+	s.repo = repository.NewRepositories(s.GormDB(), userQueryClient, userCommandClient, roleClient, userRoleClient)
 	s.email = "auth.repo.test@example.com"
 }
 
 func (s *AuthRepositoryTestSuite) TearDownSuite() {
-	s.ts.Teardown()
+	s.BaseTestSuite.TearDownSuite()
 }
 
 func (s *AuthRepositoryTestSuite) Test1_CreateUser() {
@@ -92,7 +97,16 @@ func (s *AuthRepositoryTestSuite) Test5_UpdatePassword() {
 	updated, err := s.repo.User.UpdateUserPassword(ctx, s.userID, "newpassword123")
 	s.NoError(err)
 	s.NotNil(updated)
-	s.Equal("newpassword123", updated.Password)
+	s.Equal(int32(s.userID), updated.UserID)
+
+	// The gRPC response no longer carries the password, so verify the value was
+	// actually persisted by reading it back from the database.
+	var stored string
+	err = s.GormDB().WithContext(ctx).Raw(
+		"SELECT password FROM users WHERE user_id = ?", s.userID,
+	).Scan(&stored).Error
+	s.NoError(err)
+	s.Equal("newpassword123", stored)
 }
 
 func (s *AuthRepositoryTestSuite) Test6_FindByVerificationCode() {

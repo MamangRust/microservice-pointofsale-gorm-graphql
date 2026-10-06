@@ -2,14 +2,14 @@ package transaction_test
 
 import (
 	"context"
-		"testing"
+	"testing"
 
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 	trans_cache "github.com/MamangRust/microservice-point-of-sale-transacton/cache"
 	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 	"github.com/MamangRust/microservice-point-of-sale-transacton/service"
@@ -34,10 +34,11 @@ func (s *TransactionServiceTestSuite) SetupSuite() {
 	mencache := trans_cache.NewMencache(s.GetCacheStore())
 	repos := repository.NewRepositories(
 		gormDB,
-		pbcashier.NewCashierServiceClient(s.Conns["cashier"]),
-		pbmerchant.NewMerchantServiceClient(s.Conns["merchant"]),
-		pborder.NewOrderServiceClient(s.Conns["order"]),
-		pborderitem.NewOrderItemServiceClient(s.Conns["order-item"]),
+		pbcashier.NewCashierQueryServiceClient(s.Conns["cashier"]),
+		pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pborder.NewOrderQueryServiceClient(s.Conns["order"]),
+		pborderitem.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		pborderitem.NewOrderItemCommandServiceClient(s.Conns["order-item"]),
 	)
 
 	s.svc = service.NewService(&service.Deps{

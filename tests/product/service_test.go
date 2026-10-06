@@ -4,69 +4,60 @@ import (
 	"context"
 	"testing"
 
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
+	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
 	prod_cache "github.com/MamangRust/microservice-point-of-sale-product/cache"
 	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-product/service"
-	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
 )
 
 type ProductServiceTestSuite struct {
-	suite.Suite
-	ts        *tests.TestSuite
+	tests.BaseTestSuite
 	svc       *service.Service
 	productID int
 }
 
 func (s *ProductServiceTestSuite) SetupSuite() {
-	ts, err := tests.SetupTestSuite()
-	s.ts = ts
+	s.BaseTestSuite.SetupSuite()
 
-	s.Require().NoError(err)
+	// CreateProduct validates category + merchant through the real services.
+	s.SetupCategoryService()
+	s.SetupMerchantService()
 
-	opts, err := redis.ParseURL(s.ts.RedisURL)
-	s.Require().NoError(err)
-	redisClient := redis.NewClient(opts)
+	productQueries := s.GormDB()
 
-	productQueries := s.ts.GormDB()
+	categoryClient := pbcategory.NewCategoryQueryServiceClient(s.Conns["category"])
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+	mencache := prod_cache.NewMencache(s.GetCacheStore())
 
-	log, _ := logger.NewLogger("test")
-	cacheMetrics, _ := observability.NewCacheMetrics("test")
-	cacheStore := cache.NewCacheStore(redisClient, log, cacheMetrics)
-	mencache := prod_cache.NewMencache(cacheStore)
-
-	obs, _ := observability.NewObservability("test", log)
-
-	repos := repository.NewRepositories(productQueries)
+	repos := repository.NewRepositories(productQueries, categoryClient, merchantClient)
 
 	s.svc = service.NewService(&service.Deps{
 		Repositories:  repos,
-		Logger:        log,
+		Logger:        s.Log,
 		Mencache:      mencache,
-		Observability: obs,
+		Observability: s.Obs,
 	})
 
 	// Seed a merchant and category for product tests
 	var userID, merchantID, categoryID int
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
+	err := s.GormDB().WithContext(s.Ctx).Raw(
 		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
 		"Prod", "Svc", "prod.svc@example.com", "password123",
 	).Scan(&userID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
+	err = s.GormDB().WithContext(s.Ctx).Raw(
 		`INSERT INTO categories (name, description) VALUES (?, ?) RETURNING category_id`,
 		"Svc Category", "Category for service tests",
 	).Scan(&categoryID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
+	err = s.GormDB().WithContext(s.Ctx).Raw(
 		`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING merchant_id`,
 		userID, "Svc Merchant", "Desc", "Addr", "ps@example.com", "123", "active",
 	).Scan(&merchantID).Error
@@ -74,7 +65,7 @@ func (s *ProductServiceTestSuite) SetupSuite() {
 }
 
 func (s *ProductServiceTestSuite) TearDownSuite() {
-	s.ts.Teardown()
+	s.BaseTestSuite.TearDownSuite()
 }
 
 func (s *ProductServiceTestSuite) TestProductLifecycle() {

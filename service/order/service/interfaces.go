@@ -8,8 +8,6 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 
-
-
 type OrderQueryService interface {
 	FindAll(ctx context.Context, req *requests.FindAllOrders) ([]*repository.OrderResult, *int, error)
 	FindById(ctx context.Context, orderID int) (*models.Order, error)

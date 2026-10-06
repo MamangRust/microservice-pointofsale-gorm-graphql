@@ -6,12 +6,11 @@ package graph
 
 import (
 	"context"
+	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 
-	errors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
-
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	merchantdocumentpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -29,7 +28,7 @@ func (r *mutationResolver) CreateMerchantDocument(ctx context.Context, input mod
 			return nil, errors.NewValidationError(validations)
 		}
 
-		req := &pb.CreateMerchantDocumentRequest{
+		req := &merchantdocumentpb.CreateMerchantDocumentRequest{
 			MerchantId:   int32(input.MerchantID),
 			DocumentType: input.DocumentType,
 			DocumentUrl:  input.DocumentURL,
@@ -68,7 +67,7 @@ func (r *mutationResolver) UpdateMerchantDocument(ctx context.Context, input mod
 			return nil, errors.NewValidationError(validations)
 		}
 
-		req := &pb.UpdateMerchantDocumentRequest{
+		req := &merchantdocumentpb.UpdateMerchantDocumentRequest{
 			DocumentId:   int32(input.DocumentID),
 			MerchantId:   int32(input.MerchantID),
 			DocumentType: input.DocumentType,
@@ -111,7 +110,7 @@ func (r *mutationResolver) UpdateMerchantDocumentStatus(ctx context.Context, inp
 			return nil, errors.NewValidationError(validations)
 		}
 
-		req := &pb.UpdateMerchantDocumentStatusRequest{
+		req := &merchantdocumentpb.UpdateMerchantDocumentStatusRequest{
 			DocumentId: int32(input.DocumentID),
 			MerchantId: int32(input.MerchantID),
 			Note:       *input.Note,
@@ -139,7 +138,7 @@ func (r *mutationResolver) TrashedMerchantDocument(ctx context.Context, input mo
 			return nil, errors.NewBadRequestError("invalid request: document ID cannot be zero")
 		}
 
-		req := &pb.TrashedMerchantDocumentRequest{
+		req := &merchantdocumentpb.TrashedMerchantDocumentRequest{
 			DocumentId: int32(docId),
 		}
 
@@ -164,7 +163,7 @@ func (r *mutationResolver) RestoreMerchantDocument(ctx context.Context, input mo
 			return nil, errors.NewBadRequestError("invalid request: document ID cannot be zero")
 		}
 
-		req := &pb.RestoreMerchantDocumentRequest{
+		req := &merchantdocumentpb.RestoreMerchantDocumentRequest{
 			DocumentId: int32(docId),
 		}
 
@@ -189,7 +188,7 @@ func (r *mutationResolver) DeleteMerchantDocumentPermanent(ctx context.Context, 
 			return nil, errors.NewBadRequestError("invalid request: document ID cannot be zero")
 		}
 
-		req := &pb.DeleteMerchantDocumentPermanentRequest{
+		req := &merchantdocumentpb.DeleteMerchantDocumentPermanentRequest{
 			DocumentId: int32(docId),
 		}
 
@@ -267,7 +266,7 @@ func (r *queryResolver) FindAllMerchantDocuments(ctx context.Context, input mode
 			return cachedData, nil
 		}
 
-		req := &pb.FindAllMerchantDocumentsRequest{
+		req := &merchantdocumentpb.FindAllMerchantDocumentsRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -321,7 +320,7 @@ func (r *queryResolver) FindAllActiveMerchantDocuments(ctx context.Context, inpu
 			return cachedData, nil
 		}
 
-		req := &pb.FindAllMerchantDocumentsRequest{
+		req := &merchantdocumentpb.FindAllMerchantDocumentsRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -375,7 +374,7 @@ func (r *queryResolver) FindAllTrashedMerchantDocuments(ctx context.Context, inp
 			return cachedData, nil
 		}
 
-		req := &pb.FindAllMerchantDocumentsRequest{
+		req := &merchantdocumentpb.FindAllMerchantDocumentsRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -407,7 +406,7 @@ func (r *queryResolver) FindMerchantDocumentByID(ctx context.Context, input mode
 			return cachedData, nil
 		}
 
-		req := &pb.FindMerchantDocumentByIdRequest{
+		req := &merchantdocumentpb.FindMerchantDocumentByIdRequest{
 			DocumentId: int32(docId),
 		}
 

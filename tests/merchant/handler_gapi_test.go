@@ -8,19 +8,24 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-merchant/handler"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/service"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type merchantGapiClient struct {
+	pb.MerchantQueryServiceClient
+	pb.MerchantCommandServiceClient
+}
+
 type MerchantGapiTestSuite struct {
 	tests.BaseTestSuite
-	client     pb.MerchantServiceClient
+	client     merchantGapiClient
 	userID     int
 	merchantID int
 }
@@ -29,7 +34,9 @@ func (s *MerchantGapiTestSuite) SetupSuite() {
 	s.BaseTestSuite.SetupSuite()
 	s.SetupUserService()
 	merchantQueries := s.GormDB()
-	repos := repository.NewRepositories(merchantQueries, pbuser.NewUserServiceClient(s.Conns["user"]))
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
+	repos := repository.NewRepositories(merchantQueries, userQueryClient, userCommandClient)
 
 	cacheMetrics, _ := observability.NewCacheMetrics("test")
 	cacheStore := cache.NewCacheStore(s.RedisClient(), s.Log, cacheMetrics)
@@ -43,17 +50,18 @@ func (s *MerchantGapiTestSuite) SetupSuite() {
 		Observability: s.Obs,
 	})
 
-	merchantHandler := handler.NewHandler(&handler.Deps{
-		Service: svc,
-		Logger:  s.Log,
-	})
+	merchantHandler, _ := handler.NewHandler(svc)
 	server := grpc.NewServer()
-	pb.RegisterMerchantServiceServer(server, merchantHandler.Merchant)
+	pb.RegisterMerchantQueryServiceServer(server, merchantHandler)
+	pb.RegisterMerchantCommandServiceServer(server, merchantHandler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewMerchantServiceClient(conn)
+	s.client = merchantGapiClient{
+		MerchantQueryServiceClient:   pb.NewMerchantQueryServiceClient(conn),
+		MerchantCommandServiceClient: pb.NewMerchantCommandServiceClient(conn),
+	}
 
 	// 1. Seed dependencies
 	s.userID = s.SeedUser(context.Background())

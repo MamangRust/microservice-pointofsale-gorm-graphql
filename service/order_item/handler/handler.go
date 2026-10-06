@@ -3,23 +3,20 @@ package handler
 import (
 	"github.com/MamangRust/microservice-point-of-sale-order-item/service"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 )
 
-type Deps struct {
-	Service *service.Service
-	Logger  logger.LoggerInterface
+// Handler groups all order_item gRPC handlers.
+type Handler interface {
+	OrderItemQueryHandleGrpc
 }
 
-type Handler struct {
-	OrderItem pb.OrderItemServiceServer
+type handler struct {
+	OrderItemQueryHandleGrpc
 }
 
-func NewHandler(deps *Deps) *Handler {
-	return &Handler{
-		OrderItem: NewOrderItemHandleGrpc(
-			deps.Service.OrderItemQuery,
-			deps.Logger,
-		),
+// NewHandler initializes order_item gRPC handlers.
+func NewHandler(svc *service.Service, logger logger.LoggerInterface) Handler {
+	return &handler{
+		OrderItemQueryHandleGrpc: NewOrderItemQueryHandleGrpc(svc.OrderItemQuery, svc.OrderItemCommand, logger),
 	}
 }

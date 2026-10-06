@@ -14,14 +14,15 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	graph "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/handler"
+	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/middlewares"
+	mencache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/auth"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/dotenv"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/kafka"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	otel_pkg "github.com/MamangRust/microservice-point-of-sale-pkg/otel"
-	graph "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/handler"
-	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/middlewares"
-	mencache "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/redis"
+	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -31,17 +32,17 @@ import (
 )
 
 type ServiceAddresses struct {
-	Auth         string
-	Role         string
-	User         string
-	Category     string
-	Cashier      string
-	Merchant     string
-	Order        string
-	OrderItem    string
-	Product      string
-	StatsReader  string
-	Transaction  string
+	Auth        string
+	Role        string
+	User        string
+	Category    string
+	Cashier     string
+	Merchant    string
+	Order       string
+	OrderItem   string
+	Product     string
+	StatsReader string
+	Transaction string
 }
 
 func loadServiceAddresses() *ServiceAddresses {
@@ -55,8 +56,8 @@ func loadServiceAddresses() *ServiceAddresses {
 		OrderItem:   getEnvOrDefault("GRPC_ORDER_ITEM_ADDR", "localhost:50057"),
 		Order:       getEnvOrDefault("GRPC_ORDER_ADDR", "localhost:50058"),
 		Product:     getEnvOrDefault("GRPC_PRODUCT_ADDR", "localhost:50059"),
-		StatsReader:  getEnvOrDefault("GRPC_STATS_READER_ADDR", "localhost:50061"),
-		Transaction:  getEnvOrDefault("GRPC_TRANSACTION_ADDR", "localhost:50060"),
+		StatsReader: getEnvOrDefault("GRPC_STATS_READER_ADDR", "localhost:50061"),
+		Transaction: getEnvOrDefault("GRPC_TRANSACTION_ADDR", "localhost:50060"),
 	}
 }
 
@@ -74,7 +75,7 @@ func createServiceConnections(addresses *ServiceAddresses, logger logger.LoggerI
 		"Order":       &addresses.Order,
 		"Product":     &addresses.Product,
 		"StatsReader": &addresses.StatsReader,
-		"Transaction":  &addresses.Transaction,
+		"Transaction": &addresses.Transaction,
 	}
 
 	for name, addr := range conns {
@@ -134,7 +135,7 @@ func closeConnections(conns *graph.ServiceConnections, log logger.LoggerInterfac
 		"Order":       conns.OrderClient,
 		"Product":     conns.ProductClient,
 		"StatsReader": conns.StatsReaderClient,
-		"Transaction":  conns.TransactionClient,
+		"Transaction": conns.TransactionClient,
 	} {
 		if conn != nil {
 			if err := conn.Close(); err != nil {
@@ -154,6 +155,7 @@ func getEnvOrDefault(key, defaultValue string) string {
 
 type Client struct {
 	Logger logger.LoggerInterface
+	Server *http.Server
 }
 
 func RunClient() (*Client, func(), error) {
@@ -167,12 +169,19 @@ func RunClient() (*Client, func(), error) {
 
 	ctx := context.Background()
 
-	shutdownTracer, err := otel_pkg.InitTracerProvider("apigateway", ctx)
-	if err != nil {
-		fmt.Printf("Warning: Failed to initialize tracer provider: %v\n", err)
+	telemetry := otel_pkg.NewTelemetry(otel_pkg.Config{
+		ServiceName:    "apigateway",
+		ServiceVersion: "1.0.0",
+		Environment:    getEnvOrDefault("APP_ENV", "development"),
+		Endpoint:       viper.GetString("OTEL_ENDPOINT"),
+		Insecure:       true,
+		Disabled:       os.Getenv("OTEL_ENABLED") == "false",
+	})
+	if err := telemetry.Init(ctx); err != nil {
+		fmt.Printf("Warning: Failed to initialize telemetry: %v\n", err)
 	}
 
-	log, err := logger.NewLogger("apigateway")
+	log, err := logger.NewLogger("apigateway", telemetry.GetLogger())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create logger: %w", err)
 	}
@@ -217,26 +226,27 @@ func RunClient() (*Client, func(), error) {
 		Mencache: mencache,
 	})
 
-	port := getEnvOrDefault("CLIENT_PORT", "5000")
+	srv := setupGraphql(tokenManager, resolver, log)
 
 	go func() {
-		log.Info(fmt.Sprintf("🚀 Starting GraphQL server on :%s", port))
-		if err := setupGraphql(tokenManager, resolver, log); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Info(fmt.Sprintf("🚀 Starting GraphQL server on %s", srv.Addr))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("GraphQL server error", zap.Error(err))
 		}
 	}()
 
 	shutdown := func() {
-		_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		log.Info("Shutting down GraphQL API Gateway...")
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Error("HTTP server shutdown error", zap.Error(err))
+		}
 		closeConnections(conns, log)
 
-		if shutdownTracer != nil {
-			if err := shutdownTracer(context.Background()); err != nil {
-				log.Error("Telemetry shutdown failed", zap.Error(err))
-			}
+		if err := telemetry.Shutdown(context.Background()); err != nil {
+			log.Error("Telemetry shutdown failed", zap.Error(err))
 		}
 
 		log.Info("Shutdown complete ✅")
@@ -244,16 +254,22 @@ func RunClient() (*Client, func(), error) {
 
 	return &Client{
 		Logger: log,
+		Server: srv,
 	}, shutdown, nil
 }
 
-func setupGraphql(token auth.TokenManager, resolver *graph.Resolver, logger logger.LoggerInterface) error {
+func setupGraphql(token auth.TokenManager, resolver *graph.Resolver, logger logger.LoggerInterface) *http.Server {
 	port := getEnvOrDefault("CLIENT_PORT", "5000")
 
 	logger.Debug("Starting GraphQL server", zap.String("port", getEnvOrDefault("CLIENT_PORT", "5000")))
 
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
 		Resolvers: resolver,
+		// RBAC is enforced per operation by the @hasRole directive, because
+		// every GraphQL operation shares the single POST /query endpoint.
+		Directives: graph.DirectiveRoot{
+			HasRole: middlewares.HasRole(resolver.RoleGraphql.Permission),
+		},
 	}))
 
 	srv.AddTransport(transport.Options{})
@@ -268,13 +284,19 @@ func setupGraphql(token auth.TokenManager, resolver *graph.Resolver, logger logg
 		Cache: lru.New[string](100),
 	})
 
-	http.Handle("/", playground.Handler("GraphQL Playground", "/query"))
-	http.Handle("/query", middlewares.AuthMiddleware(token, logger)(srv))
+	r := chi.NewRouter()
+
+	r.Get("/", playground.Handler("GraphQL Playground", "/query"))
+	r.Handle("/query", middlewares.AuthMiddleware(token, logger)(srv))
 
 	logger.Info("GraphQL Playground running",
 		zap.String("url", "http://localhost:"+port),
 		zap.String("endpoint", "/query"),
 	)
 
-	return http.ListenAndServe(":"+port, nil)
+	return &http.Server{
+		Addr:              ":" + port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 }

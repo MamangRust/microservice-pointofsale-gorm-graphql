@@ -26,7 +26,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
-	logger, err := logger.NewLogger("email-service")
+	logger, err := logger.NewLogger("email-service", nil)
 	if err != nil {
 		log.Fatalf("Error creating logger: %v", err)
 	}
@@ -53,14 +53,17 @@ func main() {
 
 	// Initialize tracing so consumed events continue the distributed trace
 	// (span per consumed message, exported via the OTel collector).
-	shutdownTracer, err := otel_pkg.InitTracerProvider("email-service", context.Background())
-	if err != nil {
-		logger.Fatal("Failed to initialize tracer provider", zap.Error(err))
+	telemetry := otel_pkg.NewTelemetry(otel_pkg.Config{
+		ServiceName:    "email-service",
+		ServiceVersion: "1.0.0",
+		Environment:    "production",
+		Insecure:       true,
+	})
+	if err := telemetry.Init(ctx); err != nil {
+		logger.Fatal("Failed to initialize telemetry", zap.Error(err))
 	}
 	defer func() {
-		if shutdownTracer != nil {
-			_ = shutdownTracer(context.Background())
-		}
+		_ = telemetry.Shutdown(context.Background())
 	}()
 
 	// Register OTel metric instruments after the SDK is initialized so they
@@ -75,17 +78,17 @@ func main() {
 		Password: cfg.SMTPPass,
 	}
 
-	gormDB, err := database.NewGormClient(logger)
+	gormDB, err := database.NewGormClientWithPrefix(logger, "DB_EMAIL")
 	if err != nil {
 		logger.Fatal("Failed to connect to database for consumer inbox", zap.Error(err))
 	}
 	defer func() {
-		if sqlDB, dbErr := gormDB.DB(); dbErr == nil && sqlDB != nil {
-			_ = sqlDB.Close()
+		if sqlDB, err := gormDB.DB(); err == nil {
+			sqlDB.Close()
 		}
 	}()
 
-	inbox, err := outbox.NewInbox(gormDB)
+	inbox, err := outbox.NewPostgresInbox(gormDB)
 	if err != nil {
 		logger.Fatal("Failed to initialize consumer inbox", zap.Error(err))
 	}

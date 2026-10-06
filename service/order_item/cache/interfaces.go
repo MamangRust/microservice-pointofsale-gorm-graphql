@@ -21,3 +21,8 @@ type OrderItemQueryCache interface {
 	GetCachedOrderItems(ctx context.Context, orderID int) ([]*models.OrderItem, bool)
 	SetCachedOrderItems(ctx context.Context, data []*models.OrderItem)
 }
+
+type OrderItemCommandCache interface {
+	DeleteCachedOrderItems(ctx context.Context, orderID int)
+	DeleteCachedOrderItemsAllCache(ctx context.Context)
+}

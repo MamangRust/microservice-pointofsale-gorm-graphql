@@ -2,7 +2,7 @@ package transaction_test
 
 import (
 	"context"
-		"testing"
+	"testing"
 
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
@@ -28,7 +28,7 @@ func (s *TransactionRepositoryTestSuite) SetupSuite() {
 	s.SetupOrderService()
 
 	gormDB := s.GormDB()
-	s.repo = repository.NewRepositories(gormDB, nil, nil, nil, nil)
+	s.repo = repository.NewRepositories(gormDB, nil, nil, nil, nil, nil)
 }
 
 func (s *TransactionRepositoryTestSuite) TearDownSuite() {

@@ -1,9 +1,9 @@
 package protomapper
 
 import (
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 )
 
 type authProtoMapper struct {

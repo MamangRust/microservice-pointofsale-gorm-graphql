@@ -7,9 +7,9 @@ import (
 	merchant_cache "github.com/MamangRust/microservice-point-of-sale-merchant/cache"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/service"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -36,8 +36,9 @@ func (s *MerchantServiceTestSuite) SetupSuite() {
 	).Scan(&s.userID)
 
 	mencache := merchant_cache.NewMencache(s.GetCacheStore())
-	userClient := pb.NewUserServiceClient(s.Conns["user"])
-	repos := repository.NewRepositories(merchantQueries, userClient)
+	userQueryClient := pb.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pb.NewUserCommandServiceClient(s.Conns["user"])
+	repos := repository.NewRepositories(merchantQueries, userQueryClient, userCommandClient)
 
 	s.merchantService = service.NewService(&service.Deps{
 		Repositories:  repos,

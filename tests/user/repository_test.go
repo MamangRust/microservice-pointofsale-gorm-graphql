@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 	"github.com/MamangRust/microservice-point-of-sale-user/repository"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -26,8 +27,9 @@ func (s *UserRepositoryTestSuite) SetupSuite() {
 
 	userQueries := s.GormDB()
 	s.SetupRoleService()
-	pb.NewRoleServiceClient(s.Conns["role"])
-	s.repo = repository.NewRepositories(userQueries)
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
+	s.repo = repository.NewRepositories(userQueries, roleClient, userRoleClient)
 }
 
 func (s *UserRepositoryTestSuite) TearDownSuite() {

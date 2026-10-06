@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/MamangRust/microservice-point-of-sale-stats-writer/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/events"
+	"github.com/MamangRust/microservice-point-of-sale-stats-writer/repository"
 )
 
 // UseCase bridges the Kafka consumer and the ClickHouse repository. It also
@@ -15,6 +15,7 @@ type UseCase interface {
 	SaveOrderEvent(ctx context.Context, eventID string, event events.OrderEvent) error
 	SaveOrderItemEvent(ctx context.Context, eventID string, event events.OrderItemEvent) error
 	SaveTransactionEvent(ctx context.Context, eventID string, event events.TransactionEvent) error
+	SaveCashierEvent(ctx context.Context, eventID string, event events.CashierEvent) error
 
 	Close() error
 }
@@ -37,6 +38,10 @@ func (u *statsUseCase) SaveOrderItemEvent(ctx context.Context, eventID string, e
 
 func (u *statsUseCase) SaveTransactionEvent(ctx context.Context, eventID string, event events.TransactionEvent) error {
 	return u.repo.InsertTransactionEvent(ctx, eventID, eventVersion(event.EventTime), event)
+}
+
+func (u *statsUseCase) SaveCashierEvent(ctx context.Context, eventID string, event events.CashierEvent) error {
+	return u.repo.InsertCashierEvent(ctx, eventID, eventVersion(event.EventTime), event)
 }
 
 func (u *statsUseCase) Close() error {

@@ -3,11 +3,16 @@ package handler
 import (
 	"context"
 
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
+	pbauth "github.com/MamangRust/microservice-point-of-sale-pb/auth"
 )
 
 type AuthHandleGrpc interface {
-	pb.AuthServiceServer
-	LoginUser(ctx context.Context, req *pb.LoginRequest) (*pb.ApiResponseLogin, error)
-	RegisterUser(ctx context.Context, req *pb.RegisterRequest) (*pb.ApiResponseRegister, error)
+	pbauth.AuthServiceServer
+	VerifyCode(ctx context.Context, req *pbauth.VerifyCodeRequest) (*pbauth.ApiResponseVerifyCode, error)
+	ForgotPassword(ctx context.Context, req *pbauth.ForgotPasswordRequest) (*pbauth.ApiResponseForgotPassword, error)
+	ResetPassword(ctx context.Context, req *pbauth.ResetPasswordRequest) (*pbauth.ApiResponseResetPassword, error)
+	LoginUser(ctx context.Context, req *pbauth.LoginRequest) (*pbauth.ApiResponseLogin, error)
+	RefreshToken(ctx context.Context, req *pbauth.RefreshTokenRequest) (*pbauth.ApiResponseRefreshToken, error)
+	GetMe(ctx context.Context, req *pbauth.GetMeRequest) (*pbauth.ApiResponseGetMe, error)
+	RegisterUser(ctx context.Context, req *pbauth.RegisterRequest) (*pbauth.ApiResponseRegister, error)
 }

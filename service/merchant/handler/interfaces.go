@@ -1,13 +1,15 @@
 package handler
 
 import (
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbmerchantdoc "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
 )
 
-type MerchantDocumentHandleGrpc interface {
-	pb.MerchantDocumentServiceServer
+type MerchantQueryHandleGrpc interface {
+	pb.MerchantQueryServiceServer
+	pb.MerchantCommandServiceServer
 }
 
-type MerchantHandleGrpc interface {
-	pb.MerchantServiceServer
+type MerchantDocumentQueryHandleGrpc interface {
+	pbmerchantdoc.MerchantDocumentServiceServer
 }

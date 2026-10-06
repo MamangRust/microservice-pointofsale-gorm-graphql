@@ -10,8 +10,8 @@ import (
 )
 
 type Service struct {
-	CashierQuery           CashierQueryService
-	CashierCommand         CashierCommandService
+	CashierQuery   CashierQueryService
+	CashierCommand CashierCommandService
 }
 
 type Deps struct {

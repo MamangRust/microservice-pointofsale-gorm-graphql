@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/MamangRust/microservice-point-of-sale-order/repository"
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
-	pbproduct "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
 
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -46,10 +46,12 @@ func (s *OrderRepositoryTestSuite) SetupSuite() {
 
 	s.repo = repository.NewRepositories(
 		s.ts.GormDB(),
-		pbcashier.NewCashierServiceClient(cashierConn),
-		pbmerchant.NewMerchantServiceClient(merchantConn),
-		pbproduct.NewProductServiceClient(productConn),
-		pborderitem.NewOrderItemServiceClient(orderItemConn),
+		pbcashier.NewCashierQueryServiceClient(cashierConn),
+		pbmerchant.NewMerchantQueryServiceClient(merchantConn),
+		pbproduct.NewProductQueryServiceClient(productConn),
+		pbproduct.NewProductCommandServiceClient(productConn),
+		pborderitem.NewOrderItemQueryServiceClient(orderItemConn),
+		pborderitem.NewOrderItemCommandServiceClient(orderItemConn),
 	)
 
 	// Seed a merchant and cashier directly for order tests

@@ -2,16 +2,16 @@ package transaction_test
 
 import (
 	"context"
-		"testing"
+	"testing"
 
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/transaction"
-	pbcashier "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
-	pbmerchant "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pborder "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
-	pborderitem "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 	trans_cache "github.com/MamangRust/microservice-point-of-sale-transacton/cache"
 	trans_handler "github.com/MamangRust/microservice-point-of-sale-transacton/handler"
 	trans_repo "github.com/MamangRust/microservice-point-of-sale-transacton/repository"
@@ -21,9 +21,14 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type transactionGapiClient struct {
+	pb.TransactionQueryServiceClient
+	pb.TransactionCommandServiceClient
+}
+
 type TransactionGapiTestSuite struct {
 	tests.BaseTestSuite
-	client pb.TransactionServiceClient
+	client transactionGapiClient
 }
 
 func (s *TransactionGapiTestSuite) SetupSuite() {
@@ -43,14 +48,15 @@ func (s *TransactionGapiTestSuite) SetupSuite() {
 	cacheStore := cache.NewCacheStore(s.RedisClient(), s.Log, cacheMetrics)
 	gormDB := s.GormDB()
 
-	cashierClient := pbcashier.NewCashierServiceClient(s.Conns["cashier"])
-	merchantClient := pbmerchant.NewMerchantServiceClient(s.Conns["merchant"])
-	orderClient := pborder.NewOrderServiceClient(s.Conns["order"])
-	orderItemClient := pborderitem.NewOrderItemServiceClient(s.Conns["order-item"])
+	cashierClient := pbcashier.NewCashierQueryServiceClient(s.Conns["cashier"])
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+	orderClient := pborder.NewOrderQueryServiceClient(s.Conns["order"])
+	orderItemQueryClient := pborderitem.NewOrderItemQueryServiceClient(s.Conns["order-item"])
+	orderItemCommandClient := pborderitem.NewOrderItemCommandServiceClient(s.Conns["order-item"])
 
 	// Transaction dependencies
 	mencache := trans_cache.NewMencache(cacheStore)
-	repos := trans_repo.NewRepositories(gormDB, cashierClient, merchantClient, orderClient, orderItemClient)
+	repos := trans_repo.NewRepositories(gormDB, cashierClient, merchantClient, orderClient, orderItemQueryClient, orderItemCommandClient)
 	svc := trans_service.NewService(&trans_service.Deps{
 		Kafka:         nil,
 		Mencache:      mencache,
@@ -60,19 +66,20 @@ func (s *TransactionGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := trans_handler.NewHandler(&trans_handler.Deps{
-		Service: svc,
-		Logger:  s.Log,
-	})
+	handler := trans_handler.NewHandler(svc, s.Log)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterTransactionServiceServer(server, handler.Transaction)
+	pb.RegisterTransactionQueryServiceServer(server, handler)
+	pb.RegisterTransactionCommandServiceServer(server, handler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewTransactionServiceClient(conn)
+	s.client = transactionGapiClient{
+		TransactionQueryServiceClient:   pb.NewTransactionQueryServiceClient(conn),
+		TransactionCommandServiceClient: pb.NewTransactionCommandServiceClient(conn),
+	}
 }
 
 func (s *TransactionGapiTestSuite) TestTransactionGapiLifecycle() {

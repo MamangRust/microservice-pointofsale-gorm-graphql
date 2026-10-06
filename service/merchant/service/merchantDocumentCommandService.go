@@ -19,7 +19,7 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors/merchant_errors"
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors/user_errors"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	
+
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )

@@ -1,17 +1,16 @@
 package apps
 
 import (
-	
 	"context"
 
-	"github.com/MamangRust/microservice-point-of-sale-order-item/handler"
 	mencache "github.com/MamangRust/microservice-point-of-sale-order-item/cache"
+	"github.com/MamangRust/microservice-point-of-sale-order-item/handler"
 	"github.com/MamangRust/microservice-point-of-sale-order-item/repository"
 	"github.com/MamangRust/microservice-point-of-sale-order-item/service"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/server"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order_item"
 	"google.golang.org/grpc"
 )
 
@@ -40,13 +39,11 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: traceLoggerObservability,
 	})
 
-	handlers := handler.NewHandler(&handler.Deps{
-		Service: services,
-		Logger:  srv.Logger,
-	})
+	handlers := handler.NewHandler(services, srv.Logger)
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterOrderItemServiceServer(gs, handlers.OrderItem)
+		pborderitem.RegisterOrderItemQueryServiceServer(gs, handlers)
+		pborderitem.RegisterOrderItemCommandServiceServer(gs, handlers)
 	}
 
 	return srv, nil

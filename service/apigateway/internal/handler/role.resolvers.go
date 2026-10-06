@@ -6,12 +6,12 @@ package graph
 
 import (
 	"context"
+	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 
-	errors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
-
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	rolepb "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	userrolepb "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -27,7 +27,7 @@ func (r *mutationResolver) CreateRole(ctx context.Context, input model.CreateRol
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.CreateRoleRequest{
+		reqPb := &rolepb.CreateRoleRequest{
 			Name: req.Name,
 		}
 
@@ -60,7 +60,7 @@ func (r *mutationResolver) UpdateRole(ctx context.Context, input model.UpdateRol
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.UpdateRoleRequest{
+		reqPb := &rolepb.UpdateRoleRequest{
 			Id:   int32(*req.ID),
 			Name: req.Name,
 		}
@@ -87,7 +87,7 @@ func (r *mutationResolver) TrashedRole(ctx context.Context, input model.FindByID
 			return nil, errors.NewBadRequestError("invalid request: role ID cannot be zero")
 		}
 
-		role, err := r.RoleGraphql.RoleClient.TrashedRole(ctx, &pb.FindByIdRoleRequest{
+		role, err := r.RoleGraphql.RoleClient.TrashedRole(ctx, &rolepb.FindByIdRoleRequest{
 			RoleId: roleID,
 		})
 		if err != nil {
@@ -110,7 +110,7 @@ func (r *mutationResolver) RestoreRole(ctx context.Context, input model.FindByID
 			return nil, errors.NewBadRequestError("invalid request: role ID cannot be zero")
 		}
 
-		role, err := r.RoleGraphql.RoleClient.RestoreRole(ctx, &pb.FindByIdRoleRequest{
+		role, err := r.RoleGraphql.RoleClient.RestoreRole(ctx, &rolepb.FindByIdRoleRequest{
 			RoleId: roleID,
 		})
 		if err != nil {
@@ -134,7 +134,7 @@ func (r *mutationResolver) DeleteRolePermanent(ctx context.Context, input model.
 			return nil, errors.NewBadRequestError("invalid request: role ID cannot be zero")
 		}
 
-		role, err := r.RoleGraphql.RoleClient.DeleteRolePermanent(ctx, &pb.FindByIdRoleRequest{
+		role, err := r.RoleGraphql.RoleClient.DeleteRolePermanent(ctx, &rolepb.FindByIdRoleRequest{
 			RoleId: roleID,
 		})
 		if err != nil {
@@ -214,7 +214,7 @@ func (r *queryResolver) FindAllRole(ctx context.Context, input *model.FindAllRol
 			return cachedData, nil
 		}
 
-		reqService := &pb.FindAllRoleRequest{
+		reqService := &rolepb.FindAllRoleRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -246,7 +246,7 @@ func (r *queryResolver) FindByIDRole(ctx context.Context, input model.FindByIDRo
 			return cachedData, nil
 		}
 
-		role, err := r.RoleGraphql.RoleClient.FindByIdRole(ctx, &pb.FindByIdRoleRequest{RoleId: int32(id)})
+		role, err := r.RoleGraphql.RoleClient.FindByIdRole(ctx, &rolepb.FindByIdRoleRequest{RoleId: int32(id)})
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "FindByIDRole")
 		}
@@ -298,7 +298,7 @@ func (r *queryResolver) FindByActiveRole(ctx context.Context, input *model.FindA
 			return cachedData, nil
 		}
 
-		reqService := &pb.FindAllRoleRequest{
+		reqService := &rolepb.FindAllRoleRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -354,7 +354,7 @@ func (r *queryResolver) FindByTrashedRole(ctx context.Context, input *model.Find
 			return cachedData, nil
 		}
 
-		reqService := &pb.FindAllRoleRequest{
+		reqService := &rolepb.FindAllRoleRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -386,7 +386,7 @@ func (r *queryResolver) FindByUserIDRole(ctx context.Context, input model.FindBy
 			return cachedData, nil
 		}
 
-		role, err := r.RoleGraphql.RoleClient.FindByUserId(ctx, &pb.FindByIdUserRoleRequest{UserId: int32(userId)})
+		role, err := r.RoleGraphql.RoleClient.UserRole.FindByUserId(ctx, &userrolepb.FindByIdUserRoleRequest{UserId: int32(userId)})
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "FindByUserIDRole")
 		}

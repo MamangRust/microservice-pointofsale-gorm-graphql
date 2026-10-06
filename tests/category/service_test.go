@@ -37,7 +37,7 @@ func (s *CategoryServiceTestSuite) SetupSuite() {
 	categoryQueries := s.ts.GormDB()
 	repos := repository.NewRepositories(categoryQueries)
 
-	log, _ := logger.NewLogger("test")
+	log, _ := logger.NewLogger("test", nil)
 	cacheMetrics, _ := observability.NewCacheMetrics("test")
 	cacheStore := cache.NewCacheStore(redisClient, log, cacheMetrics)
 	mencache := cat_cache.NewMencache(cacheStore)

@@ -10,29 +10,33 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	sharederrorhandler "github.com/MamangRust/microservice-point-of-sale-shared/errorhandler"
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors/role_errors"
+	userrole_errors "github.com/MamangRust/microservice-point-of-sale-shared/errors/user_role_errors"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
 type roleCommandService struct {
-	mencache      mencache.RoleCommandCache
-	roleCommand   repository.RoleCommandRepository
-	logger        logger.LoggerInterface
-	observability observability.TraceLoggerObservability
+	mencache           mencache.RoleCommandCache
+	roleCommand        repository.RoleCommandRepository
+	userRoleRepository repository.UserRoleRepository
+	logger             logger.LoggerInterface
+	observability      observability.TraceLoggerObservability
 }
 
 func NewRoleCommandService(
 	mencache mencache.RoleCommandCache,
 	roleCommand repository.RoleCommandRepository,
+	userRoleRepository repository.UserRoleRepository,
 	logger logger.LoggerInterface,
 	obs observability.TraceLoggerObservability,
 ) *roleCommandService {
 	return &roleCommandService{
-		mencache:      mencache,
-		roleCommand:   roleCommand,
-		logger:        logger,
-		observability: obs,
+		mencache:           mencache,
+		roleCommand:        roleCommand,
+		userRoleRepository: userRoleRepository,
+		logger:             logger,
+		observability:      obs,
 	}
 }
 
@@ -145,4 +149,38 @@ func (s *roleCommandService) DeleteAllRolePermanent(ctx context.Context) (bool, 
 	s.mencache.DeleteCachedRoleAllCache(ctx)
 	logSuccess("Successfully deleted all roles permanently", zap.Bool("success", success))
 	return success, nil
+}
+
+func (s *roleCommandService) AssignRoleToUser(ctx context.Context, request *requests.CreateUserRoleRequest) (*models.UserRole, error) {
+	const method = "AssignRoleToUser"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
+		attribute.Int("user.id", request.UserId), attribute.Int("role.id", request.RoleId))
+	defer func() { end(status) }()
+
+	res, err := s.userRoleRepository.AssignRoleToUser(ctx, request)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.UserRole](
+			s.logger, userrole_errors.ErrFailedAssignRoleToUser.WithInternal(err), method, span, zap.Error(err))
+	}
+
+	logSuccess("Successfully assigned role to user", zap.Int("user.id", request.UserId), zap.Int("role.id", request.RoleId))
+	return res, nil
+}
+
+func (s *roleCommandService) RemoveRoleFromUser(ctx context.Context, request *requests.RemoveUserRoleRequest) error {
+	const method = "RemoveRoleFromUser"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
+		attribute.Int("user.id", request.UserId), attribute.Int("role.id", request.RoleId))
+	defer func() { end(status) }()
+
+	if err := s.userRoleRepository.RemoveRoleFromUser(ctx, request); err != nil {
+		status = "error"
+		_, appErr := sharederrorhandler.HandleError[any](
+			s.logger, userrole_errors.ErrFailedRemoveRole.WithInternal(err), method, span, zap.Error(err))
+		return appErr
+	}
+
+	logSuccess("Successfully removed role from user", zap.Int("user.id", request.UserId), zap.Int("role.id", request.RoleId))
+	return nil
 }

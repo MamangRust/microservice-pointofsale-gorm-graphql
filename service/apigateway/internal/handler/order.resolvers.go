@@ -6,12 +6,11 @@ package graph
 
 import (
 	"context"
-
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/order"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	orderpb "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -35,13 +34,13 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.CreateOr
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.CreateOrderRequest{
+		reqPb := &orderpb.CreateOrderRequest{
 			MerchantId: int32(req.MerchantID),
 			CashierId:  int32(req.CashierID),
 		}
 
 		for _, item := range req.Items {
-			reqPb.Items = append(reqPb.Items, &pb.CreateOrderItemRequest{
+			reqPb.Items = append(reqPb.Items, &orderpb.CreateOrderItemRequest{
 				ProductId: int32(item.ProductID),
 				Quantity:  int32(item.Quantity),
 			})
@@ -86,12 +85,12 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, input model.UpdateOr
 			return nil, errors.NewValidationError(validations)
 		}
 
-		reqPb := &pb.UpdateOrderRequest{
+		reqPb := &orderpb.UpdateOrderRequest{
 			OrderId: int32(id),
 		}
 
 		for _, item := range req.Items {
-			reqPb.Items = append(reqPb.Items, &pb.UpdateOrderItemRequest{
+			reqPb.Items = append(reqPb.Items, &orderpb.UpdateOrderItemRequest{
 				OrderItemId: int32(item.OrderItemID),
 				ProductId:   int32(item.ProductID),
 				Quantity:    int32(item.Quantity),
@@ -120,7 +119,7 @@ func (r *mutationResolver) TrashedOrder(ctx context.Context, input model.FindByI
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdOrderRequest{
+		reqPb := &orderpb.FindByIdOrderRequest{
 			Id: int32(id),
 		}
 
@@ -146,7 +145,7 @@ func (r *mutationResolver) RestoreOrder(ctx context.Context, input model.FindByI
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdOrderRequest{
+		reqPb := &orderpb.FindByIdOrderRequest{
 			Id: int32(id),
 		}
 
@@ -172,7 +171,7 @@ func (r *mutationResolver) DeleteOrderPermanent(ctx context.Context, input model
 			return nil, errors.NewBadRequestError("id is required")
 		}
 
-		reqPb := &pb.FindByIdOrderRequest{Id: int32(id)}
+		reqPb := &orderpb.FindByIdOrderRequest{Id: int32(id)}
 		res, err := r.OrderGraphql.OrderClient.DeleteOrderPermanent(ctx, reqPb)
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "DeleteOrderPermanent")
@@ -214,6 +213,202 @@ func (r *mutationResolver) DeleteAllOrderPermanent(ctx context.Context) (*model.
 	})
 }
 
+// FindMonthlyTotalRevenue is the resolver for the findMonthlyTotalRevenue field.
+func (r *queryResolver) FindMonthlyTotalRevenue(ctx context.Context, input model.FindYearMonthTotalRevenueInput) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
+		year := int(input.Year)
+		month := int(input.Month)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if month <= 0 || month > 12 {
+			return nil, errors.NewBadRequestError("month is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetMonthlyTotalRevenueCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &orderpb.FindYearMonthTotalRevenue{
+			Year:  int32(year),
+			Month: int32(month),
+		}
+		methods, err := r.OrderGraphql.OrderClient.Stats.FindMonthlyTotalRevenue(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyTotalRevenue")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseMonthlyTotalRevenue(methods)
+
+		r.OrderGraphql.Cache.SetMonthlyTotalRevenueCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearlyTotalRevenue is the resolver for the findYearlyTotalRevenue field.
+func (r *queryResolver) FindYearlyTotalRevenue(ctx context.Context, input model.FindYearTotalRevenueInput) (*model.APIResponseOrderYearlyTotalRevenue, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderYearlyTotalRevenue, error) {
+		year := int(input.Year)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetYearlyTotalRevenueCache(ctx, year); found {
+			return cached, nil
+		}
+
+		methods, err := r.OrderGraphql.OrderClient.Stats.FindYearlyTotalRevenue(ctx, &orderpb.FindYearTotalRevenue{Year: int32(year)})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyTotalRevenue")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseYearlyTotalRevenue(methods)
+
+		r.OrderGraphql.Cache.SetYearlyTotalRevenueCache(ctx, year, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthlyTotalRevenueByID is the resolver for the findMonthlyTotalRevenueById field.
+func (r *queryResolver) FindMonthlyTotalRevenueByID(ctx context.Context, input model.FindYearMonthTotalRevenueByIDInput) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalRevenueByID", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
+		orderID := int(input.OrderID)
+		year := int(input.Year)
+		month := int(input.Month)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if month <= 0 || month > 12 {
+			return nil, errors.NewBadRequestError("month is required")
+		}
+		if orderID <= 0 {
+			return nil, errors.NewBadRequestError("order id is required")
+		}
+
+		// NOTE: OrderStatsByIdCache interface was not provided in the prompt.
+		// Calling service directly without caching for this specific method.
+		req := &orderpb.FindYearMonthTotalRevenueById{
+			OrderId: int32(orderID),
+			Month:   int32(month),
+			Year:    int32(year),
+		}
+		methods, err := r.OrderGraphql.OrderClient.StatsById.FindMonthlyTotalRevenueById(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyTotalRevenueByID")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseMonthlyTotalRevenue(methods)
+		return so, nil
+	})
+}
+
+// FindYearlyTotalRevenueByID is the resolver for the findYearlyTotalRevenueById field.
+func (r *queryResolver) FindYearlyTotalRevenueByID(ctx context.Context, input model.FindYearTotalRevenueByIDInput) (*model.APIResponseOrderYearlyTotalRevenue, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalRevenueByID", ctx, func(ctx context.Context) (*model.APIResponseOrderYearlyTotalRevenue, error) {
+		orderID := int(input.OrderID)
+		year := int(input.Year)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if orderID <= 0 {
+			return nil, errors.NewBadRequestError("order id is required")
+		}
+
+		// NOTE: OrderStatsByIdCache interface was not provided in the prompt.
+		// Calling service directly without caching for this specific method.
+		req := &orderpb.FindYearTotalRevenueById{
+			OrderId: int32(orderID),
+			Year:    int32(year),
+		}
+		methods, err := r.OrderGraphql.OrderClient.StatsById.FindYearlyTotalRevenueById(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyTotalRevenueByID")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseYearlyTotalRevenue(methods)
+		return so, nil
+	})
+}
+
+// FindMonthlyTotalRevenueByMerchant is the resolver for the findMonthlyTotalRevenueByMerchant field.
+func (r *queryResolver) FindMonthlyTotalRevenueByMerchant(ctx context.Context, input model.FindYearMonthTotalRevenueByMerchantInput) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
+		year := int(input.Year)
+		month := int(input.Month)
+		merchantID := int(input.MerchantID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if month <= 0 || month > 12 {
+			return nil, errors.NewBadRequestError("month is required")
+		}
+		if merchantID <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetMonthlyTotalRevenueByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &orderpb.FindYearMonthTotalRevenueByMerchant{
+			Year:       int32(year),
+			Month:      int32(month),
+			MerchantId: int32(merchantID),
+		}
+		methods, err := r.OrderGraphql.OrderClient.StatsByMerchant.FindMonthlyTotalRevenueByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyTotalRevenueByMerchant")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseMonthlyTotalRevenue(methods)
+
+		r.OrderGraphql.Cache.SetMonthlyTotalRevenueByMerchantCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearlyTotalRevenueByMerchant is the resolver for the findYearlyTotalRevenueByMerchant field.
+func (r *queryResolver) FindYearlyTotalRevenueByMerchant(ctx context.Context, input model.FindYearTotalRevenueByMerchantInput) (*model.APIResponseOrderYearlyTotalRevenue, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderYearlyTotalRevenue, error) {
+		year := int(input.Year)
+		merchantID := int(input.MerchantID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if merchantID <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetYearlyTotalRevenueByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &orderpb.FindYearTotalRevenueByMerchant{
+			Year:       int32(year),
+			MerchantId: int32(merchantID),
+		}
+		methods, err := r.OrderGraphql.OrderClient.StatsByMerchant.FindYearlyTotalRevenueByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyTotalRevenueByMerchant")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseYearlyTotalRevenue(methods)
+
+		r.OrderGraphql.Cache.SetYearlyTotalRevenueByMerchantCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
 // FindAllOrder is the resolver for the findAllOrder field.
 func (r *queryResolver) FindAllOrder(ctx context.Context, input model.FindAllOrderInput) (*model.APIResponsePaginationOrder, error) {
 	return ResolverHandle(r.ResolverHandle, "FindAllOrder", ctx, func(ctx context.Context) (*model.APIResponsePaginationOrder, error) {
@@ -237,7 +432,7 @@ func (r *queryResolver) FindAllOrder(ctx context.Context, input model.FindAllOrd
 			return cached, nil
 		}
 
-		reqService := &pb.FindAllOrderRequest{
+		reqService := &orderpb.FindAllOrderRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -278,7 +473,7 @@ func (r *queryResolver) FindByMerchantOrder(ctx context.Context, input model.Fin
 			return cached, nil
 		}
 
-		reqService := &pb.FindAllOrderMerchantRequest{
+		reqService := &orderpb.FindAllOrderMerchantRequest{
 			Page:       int32(page),
 			PageSize:   int32(pageSize),
 			Search:     safeString(input.Search),
@@ -310,7 +505,7 @@ func (r *queryResolver) FindByIDOrder(ctx context.Context, input model.FindByIDO
 			return cached, nil
 		}
 
-		res, err := r.OrderGraphql.OrderClient.FindById(ctx, &pb.FindByIdOrderRequest{
+		res, err := r.OrderGraphql.OrderClient.FindById(ctx, &orderpb.FindByIdOrderRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -348,7 +543,7 @@ func (r *queryResolver) FindByActiveOrder(ctx context.Context, input model.FindA
 			return cached, nil
 		}
 
-		reqService := &pb.FindAllOrderRequest{
+		reqService := &orderpb.FindAllOrderRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -389,7 +584,7 @@ func (r *queryResolver) FindByTrashedOrder(ctx context.Context, input model.Find
 			return cached, nil
 		}
 
-		reqService := &pb.FindAllOrderRequest{
+		reqService := &orderpb.FindAllOrderRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 			Search:   safeString(input.Search),
@@ -402,6 +597,128 @@ func (r *queryResolver) FindByTrashedOrder(ctx context.Context, input model.Find
 		so := r.OrderGraphql.Mapping.ToGraphqlResponsePaginationOrderDeleteAt(orders)
 
 		r.OrderGraphql.Cache.SetOrderTrashedCache(ctx, normalizedInput, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthlyRevenue is the resolver for the findMonthlyRevenue field.
+func (r *queryResolver) FindMonthlyRevenue(ctx context.Context, input model.FindYearOrderInput) (*model.APIResponseOrderMonthly, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthly, error) {
+		year := int(input.Year)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetMonthlyOrderCache(ctx, year); found {
+			return cached, nil
+		}
+
+		res, err := r.OrderGraphql.OrderClient.Stats.FindMonthlyRevenue(ctx, &orderpb.FindYearOrder{
+			Year: int32(year),
+		})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyRevenue")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseMonthlyRevenue(res)
+
+		r.OrderGraphql.Cache.SetMonthlyOrderCache(ctx, year, so)
+
+		return so, nil
+	})
+}
+
+// FindYearlyRevenue is the resolver for the findYearlyRevenue field.
+func (r *queryResolver) FindYearlyRevenue(ctx context.Context, input model.FindYearOrderInput) (*model.APIResponseOrderYearly, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderYearly, error) {
+		year := int(input.Year)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetYearlyOrderCache(ctx, year); found {
+			return cached, nil
+		}
+
+		res, err := r.OrderGraphql.OrderClient.Stats.FindYearlyRevenue(ctx, &orderpb.FindYearOrder{Year: int32(year)})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyRevenue")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseYearlyRevenue(res)
+
+		r.OrderGraphql.Cache.SetYearlyOrderCache(ctx, year, so)
+
+		return so, nil
+	})
+}
+
+// FindMonthlyRevenueByMerchant is the resolver for the findMonthlyRevenueByMerchant field.
+func (r *queryResolver) FindMonthlyRevenueByMerchant(ctx context.Context, input model.FindYearOrderByMerchantInput) (*model.APIResponseOrderMonthly, error) {
+	return ResolverHandle(r.ResolverHandle, "FindMonthlyRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthly, error) {
+		year := int(input.Year)
+		merchantID := int(input.MerchantID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if merchantID <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetMonthlyOrderByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &orderpb.FindYearOrderByMerchant{
+			Year:       int32(year),
+			MerchantId: int32(merchantID),
+		}
+		res, err := r.OrderGraphql.OrderClient.StatsByMerchant.FindMonthlyRevenueByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindMonthlyRevenueByMerchant")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseMonthlyRevenue(res)
+
+		r.OrderGraphql.Cache.SetMonthlyOrderByMerchantCache(ctx, &input, so)
+
+		return so, nil
+	})
+}
+
+// FindYearlyRevenueByMerchant is the resolver for the findYearlyRevenueByMerchant field.
+func (r *queryResolver) FindYearlyRevenueByMerchant(ctx context.Context, input model.FindYearOrderByMerchantInput) (*model.APIResponseOrderYearly, error) {
+	return ResolverHandle(r.ResolverHandle, "FindYearlyRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderYearly, error) {
+		year := int(input.Year)
+		merchantID := int(input.MerchantID)
+
+		if year <= 0 {
+			return nil, errors.NewBadRequestError("year is required")
+		}
+		if merchantID <= 0 {
+			return nil, errors.NewBadRequestError("merchant id is required")
+		}
+
+		if cached, found := r.OrderGraphql.Cache.GetYearlyOrderByMerchantCache(ctx, &input); found {
+			return cached, nil
+		}
+
+		req := &orderpb.FindYearOrderByMerchant{
+			Year:       int32(year),
+			MerchantId: int32(merchantID),
+		}
+		res, err := r.OrderGraphql.OrderClient.StatsByMerchant.FindYearlyRevenueByMerchant(ctx, req)
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "FindYearlyRevenueByMerchant")
+		}
+
+		so := r.OrderGraphql.Mapping.ToGraphqlResponseYearlyRevenue(res)
+
+		r.OrderGraphql.Cache.SetYearlyOrderByMerchantCache(ctx, &input, so)
 
 		return so, nil
 	})

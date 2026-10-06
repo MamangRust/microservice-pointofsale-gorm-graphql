@@ -2,24 +2,20 @@ package handler
 
 import (
 	"github.com/MamangRust/microservice-point-of-sale-cashier/service"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/cashier"
 )
 
-type Deps struct {
-	Service *service.Service
-	Logger  logger.LoggerInterface
+// Handler groups all cashier gRPC handlers.
+type Handler interface {
+	CashierQueryHandleGrpc
 }
 
-type Handler struct {
-	Cashier pb.CashierServiceServer
+type handler struct {
+	CashierQueryHandleGrpc
 }
 
-func NewHandler(deps *Deps) *Handler {
-	return &Handler{
-		Cashier: NewCashierHandleGrpc(
-			deps.Service,
-			deps.Logger,
-		),
+// NewHandler initializes cashier gRPC handlers.
+func NewHandler(svc *service.Service) Handler {
+	return &handler{
+		CashierQueryHandleGrpc: NewCashierHandleGrpc(svc.CashierQuery, svc.CashierCommand),
 	}
 }

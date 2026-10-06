@@ -1,11 +1,11 @@
 package protomapper
 
 import (
+	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
-	pbcommon "github.com/MamangRust/microservice-pointofsale-grpc/pb/common"
 
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/product"
 )
 
 type productProtoMapper struct{}

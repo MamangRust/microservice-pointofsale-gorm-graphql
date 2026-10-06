@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	userAllCacheKey      = "user:all:page:%d:pageSize:%d:search:%s"
-	userByIdCacheKey     = "user:id:%d"
-	userActiveCacheKey   = "user:active:page:%d:pageSize:%d:search:%s"
-	userTrashedCacheKey  = "user:trashed:page:%d:pageSize:%d:search:%s"
-	userTTL              = 5 * time.Minute
+	userAllCacheKey     = "user:all:page:%d:pageSize:%d:search:%s"
+	userByIdCacheKey    = "user:id:%d"
+	userActiveCacheKey  = "user:active:page:%d:pageSize:%d:search:%s"
+	userTrashedCacheKey = "user:trashed:page:%d:pageSize:%d:search:%s"
+	userTTL             = 5 * time.Minute
 )
 
 type userCachedResponse struct {

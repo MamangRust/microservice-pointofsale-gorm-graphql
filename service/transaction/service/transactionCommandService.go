@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/email"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/event"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
@@ -18,7 +19,6 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors/transaction_errors"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	mencache "github.com/MamangRust/microservice-point-of-sale-transacton/cache"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-transacton/repository"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"

@@ -1,16 +1,16 @@
 package merchantdocumentgraphqlmapper
 
 import (
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
+	merchantdocumentpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
 )
 
 type MerchantDocumentGraphqlMapper interface {
-	ToGraphqlResponseMerchantDocument(res *pb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocument
-	ToGraphqlResponseMerchantDocumentDeleteAt(res *pb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocumentDeleteAt
-	ToGraphqlResponseDelete(res *pb.ApiResponseMerchantDocumentDelete) *model.APIResponseMerchantDocumentDelete
-	ToGraphqlResponseAll(res *pb.ApiResponseMerchantDocumentAll) *model.APIResponseMerchantDocumentAll
-	ToGraphqlResponsePaginationMerchantDocument(res *pb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocument
-	ToGraphqlResponsePaginationMerchantDocumentDeleteAt(res *pb.ApiResponsePaginationMerchantDocumentAt) *model.APIResponsePaginationMerchantDocumentAt
-	ToGraphqlResponsePaginationMerchantDocumentActive(res *pb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocumentAt
+	ToGraphqlResponseMerchantDocument(res *merchantdocumentpb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocument
+	ToGraphqlResponseMerchantDocumentDeleteAt(res *merchantdocumentpb.ApiResponseMerchantDocument) *model.APIResponseMerchantDocumentDeleteAt
+	ToGraphqlResponseDelete(res *merchantdocumentpb.ApiResponseMerchantDocumentDelete) *model.APIResponseMerchantDocumentDelete
+	ToGraphqlResponseAll(res *merchantdocumentpb.ApiResponseMerchantDocumentAll) *model.APIResponseMerchantDocumentAll
+	ToGraphqlResponsePaginationMerchantDocument(res *merchantdocumentpb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocument
+	ToGraphqlResponsePaginationMerchantDocumentDeleteAt(res *merchantdocumentpb.ApiResponsePaginationMerchantDocumentAt) *model.APIResponsePaginationMerchantDocumentAt
+	ToGraphqlResponsePaginationMerchantDocumentActive(res *merchantdocumentpb.ApiResponsePaginationMerchantDocument) *model.APIResponsePaginationMerchantDocumentAt
 }

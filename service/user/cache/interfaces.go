@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
-	"github.com/MamangRust/microservice-point-of-sale-user/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
+	"github.com/MamangRust/microservice-point-of-sale-user/repository"
 )
 
 type UserQueryCache interface {

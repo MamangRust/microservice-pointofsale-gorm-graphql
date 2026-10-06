@@ -88,6 +88,28 @@ func (s *roleQueryService) FindById(ctx context.Context, id int) (*models.Role, 
 	return res, nil
 }
 
+func (s *roleQueryService) FindByName(ctx context.Context, name string) (*models.Role, error) {
+	const method = "FindByName"
+	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method, attribute.String("role.name", name))
+	defer func() { end(status) }()
+
+	if data, found := s.mencache.GetCachedRoleByName(ctx, name); found {
+		logSuccess("Data found in cache", zap.String("role.name", name))
+		return data, nil
+	}
+
+	res, err := s.roleQuery.FindByName(ctx, name)
+	if err != nil {
+		status = "error"
+		return sharederrorhandler.HandleError[*models.Role](
+			s.logger, role_errors.ErrRoleNotFoundRes.WithInternal(err), method, span, zap.Error(err))
+	}
+
+	s.mencache.SetCachedRoleByName(ctx, name, res)
+	logSuccess("Successfully fetched role by name", zap.String("role.name", name), zap.Bool("success", true))
+	return res, nil
+}
+
 func (s *roleQueryService) FindByUserId(ctx context.Context, id int) ([]*models.Role, error) {
 	const method = "FindByUserId"
 	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method, attribute.Int("user.id", id))
@@ -171,7 +193,11 @@ func (s *roleQueryService) FindByTrashedRole(ctx context.Context, req *requests.
 }
 
 func (s *roleQueryService) normalizePagination(page, pageSize int) (int, int) {
-	if page <= 0 { page = 1 }
-	if pageSize <= 0 { pageSize = 10 }
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
 	return page, pageSize
 }

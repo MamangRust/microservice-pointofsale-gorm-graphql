@@ -1,20 +1,23 @@
 package apps
 
 import (
-	
 	"context"
 	"os"
+	"time"
 
 	mencache "github.com/MamangRust/microservice-point-of-sale-merchant/cache"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/handler"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/service"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbmerchantdoc "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/adapter"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/kafka"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/outbox"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/resilience"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/server"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/merchant"
-	pbuser "github.com/MamangRust/microservice-pointofsale-grpc/pb/user"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -42,11 +45,14 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		userConn.Close()
 	}()
 
-	userClient := pbuser.NewUserServiceClient(userConn)
+	userQueryClient := pbuser.NewUserQueryServiceClient(userConn)
+	userCommandClient := pbuser.NewUserCommandServiceClient(userConn)
 
-	repos := repository.NewRepositories(srv.GormDB, userClient)
-	// Kafka bersifat opsional: tanpa KAFKA_BROKERS (mis. E2E lokal tanpa kafka)
-	// service tetap jalan dan event email di-skip (guard s.kafka != nil).
+	guardUser := resilience.NewDependencyGuard("user", 5, 30, 100, 3*time.Second, srv.Logger)
+
+	repos := repository.NewRepositories(srv.GormDB, userQueryClient, userCommandClient,
+		repository.GuardOptions{User: []adapter.GuardOption{adapter.WithDependencyGuard(guardUser)}},
+	)
 	var myKafka *kafka.Kafka
 	if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {
 		myKafka = kafka.NewKafka(srv.Logger, []string{brokers})
@@ -67,18 +73,14 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: traceLoggerObservability,
 	})
 
-	handlers := handler.NewHandler(&handler.Deps{
-		Service: services,
-		Logger:  srv.Logger,
-	})
+	merchantHandler, merchantDocHandler := handler.NewHandler(services)
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterMerchantServiceServer(gs, handlers.Merchant)
-		pb.RegisterMerchantDocumentServiceServer(gs, handlers.MerchantDocument)
+		pbmerchant.RegisterMerchantQueryServiceServer(gs, merchantHandler)
+		pbmerchant.RegisterMerchantCommandServiceServer(gs, merchantHandler)
+		pbmerchantdoc.RegisterMerchantDocumentServiceServer(gs, merchantDocHandler)
 	}
 
-	// Start the outbox relay so events committed with the business writes are
-	// published to Kafka with durable retry and dead-letter semantics.
 	go outboxService.Start(srv.Ctx, outbox.OutboxRelayInterval, outbox.OutboxRelayBatchSize)
 
 	return srv, nil

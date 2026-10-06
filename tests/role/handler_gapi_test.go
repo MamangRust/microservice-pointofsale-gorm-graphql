@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/role"
 	role_cache "github.com/MamangRust/microservice-point-of-sale-role/cache"
 	role_handler "github.com/MamangRust/microservice-point-of-sale-role/handler"
 	"github.com/MamangRust/microservice-point-of-sale-role/repository"
@@ -11,16 +12,20 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
 
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type roleGapiClient struct {
+	pb.RoleQueryServiceClient
+	pb.RoleCommandServiceClient
+}
+
 type RoleGapiTestSuite struct {
 	tests.BaseTestSuite
-	client pb.RoleServiceClient
+	client roleGapiClient
 }
 
 func (s *RoleGapiTestSuite) SetupSuite() {
@@ -42,19 +47,20 @@ func (s *RoleGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := role_handler.NewHandler(&role_handler.Deps{
-		Service: svc,
-		Logger:  s.Log,
-	})
+	handler := role_handler.NewHandler(svc)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterRoleServiceServer(server, handler.Role)
+	pb.RegisterRoleQueryServiceServer(server, handler)
+	pb.RegisterRoleCommandServiceServer(server, handler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewRoleServiceClient(conn)
+	s.client = roleGapiClient{
+		RoleQueryServiceClient:   pb.NewRoleQueryServiceClient(conn),
+		RoleCommandServiceClient: pb.NewRoleCommandServiceClient(conn),
+	}
 }
 
 func (s *RoleGapiTestSuite) TestRoleGapiLifecycle() {

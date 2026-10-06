@@ -8,12 +8,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
-	sharedErrors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb"
 	mycontext "github.com/MamangRust/microservice-point-of-sale-apigateway/internal/context"
 	"github.com/MamangRust/microservice-point-of-sale-apigateway/internal/model"
-
+	authpb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
+	sharedErrors "github.com/MamangRust/microservice-point-of-sale-shared/errors"
 )
 
 // VerifyCode is the resolver for the verifyCode field.
@@ -47,7 +46,7 @@ func (r *mutationResolver) RegisterUser(ctx context.Context, input model.Registe
 			return nil, sharedErrors.NewValidationError(validations)
 		}
 
-		req := &pb.RegisterRequest{
+		req := &authpb.RegisterRequest{
 			Firstname:       request.FirstName,
 			Lastname:        request.LastName,
 			Email:           request.Email,
@@ -85,7 +84,7 @@ func (r *mutationResolver) LoginUser(ctx context.Context, input model.LoginInput
 			return cachedResponse, nil
 		}
 
-		req := &pb.LoginRequest{
+		req := &authpb.LoginRequest{
 			Email:    request.Email,
 			Password: request.Password,
 		}
@@ -112,7 +111,7 @@ func (r *mutationResolver) RefreshToken(ctx context.Context, input model.Refresh
 			return cachedResponse, nil
 		}
 
-		res, err := r.AuthGraphql.AuthClient.RefreshToken(ctx, &pb.RefreshTokenRequest{
+		res, err := r.AuthGraphql.AuthClient.RefreshToken(ctx, &authpb.RefreshTokenRequest{
 			RefreshToken: input.RefreshToken,
 		})
 
@@ -147,7 +146,7 @@ func (r *queryResolver) GetMe(ctx context.Context, input model.GetMeInput) (*mod
 			return cachedResponse, nil
 		}
 
-		res, err := r.AuthGraphql.AuthClient.GetMe(ctx, &pb.GetMeRequest{AccessToken: token})
+		res, err := r.AuthGraphql.AuthClient.GetMe(ctx, &authpb.GetMeRequest{AccessToken: token})
 
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "GetMe")

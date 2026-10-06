@@ -8,18 +8,23 @@ import (
 	cat_handler "github.com/MamangRust/microservice-point-of-sale-category/handler"
 	cat_repo "github.com/MamangRust/microservice-point-of-sale-category/repository"
 	cat_service "github.com/MamangRust/microservice-point-of-sale-category/service"
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/category"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/category"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type categoryGapiClient struct {
+	pb.CategoryQueryServiceClient
+	pb.CategoryCommandServiceClient
+}
+
 type CategoryGapiTestSuite struct {
 	tests.BaseTestSuite
-	client pb.CategoryServiceClient
+	client categoryGapiClient
 }
 
 func (s *CategoryGapiTestSuite) SetupSuite() {
@@ -42,19 +47,20 @@ func (s *CategoryGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := cat_handler.NewHandler(&cat_handler.Deps{
-		Service: svc,
-		Logger:  s.Log,
-	})
+	handler := cat_handler.NewHandler(svc)
 
 	// GRPC Server
 	server := grpc.NewServer()
-	pb.RegisterCategoryServiceServer(server, handler.Category)
+	pb.RegisterCategoryQueryServiceServer(server, handler)
+	pb.RegisterCategoryCommandServiceServer(server, handler)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewCategoryServiceClient(conn)
+	s.client = categoryGapiClient{
+		CategoryQueryServiceClient:   pb.NewCategoryQueryServiceClient(conn),
+		CategoryCommandServiceClient: pb.NewCategoryCommandServiceClient(conn),
+	}
 }
 
 func (s *CategoryGapiTestSuite) TestCategoryGapiLifecycle() {

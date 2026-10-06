@@ -6,6 +6,8 @@ import (
 
 	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 	user_cache "github.com/MamangRust/microservice-point-of-sale-user/cache"
@@ -35,9 +37,11 @@ func (s *UserServiceTestSuite) SetupSuite() {
 		 VALUES ('Admin Access 1', current_timestamp, current_timestamp)
 		 ON CONFLICT (role_name) DO NOTHING`)
 
-	repos := repository.NewRepositories(userQueries)
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
+	repos := repository.NewRepositories(userQueries, roleClient, userRoleClient)
 
-	log, _ := logger.NewLogger("test")
+	log, _ := logger.NewLogger("test", nil)
 	hasher := hash.NewHashingPassword()
 	cacheStore := s.GetCacheStore()
 	mencache := user_cache.NewMencache(cacheStore)

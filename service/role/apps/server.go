@@ -1,14 +1,15 @@
 package apps
 
 import (
+	pb "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/server"
-	"github.com/MamangRust/microservice-point-of-sale-role/handler"
 	mencache "github.com/MamangRust/microservice-point-of-sale-role/cache"
+	"github.com/MamangRust/microservice-point-of-sale-role/handler"
 	"github.com/MamangRust/microservice-point-of-sale-role/repository"
 	"github.com/MamangRust/microservice-point-of-sale-role/service"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-	pb "github.com/MamangRust/microservice-pointofsale-grpc/pb/role"
 	"google.golang.org/grpc"
 )
 
@@ -36,13 +37,12 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: traceLoggerObservability,
 	})
 
-	handlers := handler.NewHandler(&handler.Deps{
-		Service: services,
-		Logger:  srv.Logger,
-	})
+	handlers := handler.NewHandler(services)
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterRoleServiceServer(gs, handlers.Role)
+		pb.RegisterRoleQueryServiceServer(gs, handlers)
+		pb.RegisterRoleCommandServiceServer(gs, handlers)
+		pbuserrole.RegisterUserRoleServiceServer(gs, handlers)
 	}
 
 	return srv, nil

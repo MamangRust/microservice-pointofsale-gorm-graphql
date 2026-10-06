@@ -8,10 +8,11 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 )
 
-
 type CategoryQueryService interface {
 	FindAll(ctx context.Context, req *requests.FindAllCategory) ([]*repository.CategoryResult, *int, error)
 	FindById(ctx context.Context, category_id int) (*models.Category, error)
+	FindByName(ctx context.Context, name string) (*models.Category, error)
+	FindByIds(ctx context.Context, ids []int) ([]*models.Category, error)
 	FindByActive(ctx context.Context, req *requests.FindAllCategory) ([]*repository.CategoryResultDeleteAt, *int, error)
 	FindByTrashed(ctx context.Context, req *requests.FindAllCategory) ([]*repository.CategoryResultDeleteAt, *int, error)
 }

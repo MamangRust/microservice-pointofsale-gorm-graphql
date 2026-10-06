@@ -9,29 +9,33 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	sharederrorhandler "github.com/MamangRust/microservice-point-of-sale-shared/errorhandler"
+	"github.com/MamangRust/microservice-point-of-sale-shared/errors/product_errors"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
 type productQueryService struct {
-	mencache               mencache.ProductQueryCache
-	productQueryRepository repository.ProductQueryRepository
-	logger                 logger.LoggerInterface
-	observability          observability.TraceLoggerObservability
+	mencache                mencache.ProductQueryCache
+	categoryQueryRepository repository.CategoryQueryRepository
+	productQueryRepository  repository.ProductQueryRepository
+	logger                  logger.LoggerInterface
+	observability           observability.TraceLoggerObservability
 }
 
 func NewProductQueryService(
 	mencache mencache.ProductQueryCache,
+	categoryQueryRepository repository.CategoryQueryRepository,
 	productQueryRepository repository.ProductQueryRepository,
 	logger logger.LoggerInterface,
 	obs observability.TraceLoggerObservability,
 ) *productQueryService {
 	return &productQueryService{
-		mencache:               mencache,
-		productQueryRepository: productQueryRepository,
-		logger:                 logger,
-		observability:          obs,
+		mencache:                mencache,
+		categoryQueryRepository: categoryQueryRepository,
+		productQueryRepository:  productQueryRepository,
+		logger:                  logger,
+		observability:           obs,
 	}
 }
 
@@ -91,6 +95,12 @@ func (s *productQueryService) FindByMerchant(ctx context.Context, req *requests.
 		return nil, nil, err
 	}
 
+	if err := s.fillCategoryNames(ctx, products); err != nil {
+		status = "error"
+		_, err = sharederrorhandler.HandleError[any](s.logger, err, method, span, zap.Error(err))
+		return nil, nil, err
+	}
+
 	s.mencache.SetCachedProductsByMerchant(ctx, req, products, totalRecords)
 
 	logSuccess("Successfully fetched all products by merchant", zap.Int("page", page), zap.Int("pageSize", pageSize), zap.String("search", search), zap.Int("merchant.id", merchantID))
@@ -116,7 +126,14 @@ func (s *productQueryService) FindByCategory(ctx context.Context, req *requests.
 		return data, total, nil
 	}
 
-	products, totalRecords, err := s.productQueryRepository.FindByCategory(ctx, req)
+	category, err := s.categoryQueryRepository.FindByName(ctx, categoryName)
+	if err != nil || category == nil {
+		status = "error"
+		_, mappedErr := sharederrorhandler.HandleError[any](s.logger, product_errors.ErrFindByCategory, method, span, zap.Error(err))
+		return nil, nil, mappedErr
+	}
+
+	products, totalRecords, err := s.productQueryRepository.FindByCategoryID(ctx, category.CategoryID, req)
 	if err != nil {
 		status = "error"
 		_, err = sharederrorhandler.HandleError[any](s.logger, err, method, span, zap.Error(err))
@@ -227,4 +244,48 @@ func (s *productQueryService) normalizePagination(page, pageSize int) (int, int)
 		pageSize = 10
 	}
 	return page, pageSize
+}
+
+// fillCategoryNames resolves the category name for every product in one batch
+// gRPC call. Categories are owned by the category service, so the repository
+// only returns CategoryID and the name is filled here.
+func (s *productQueryService) fillCategoryNames(ctx context.Context, products []*repository.ProductByMerchantResult) error {
+	ids := make([]int, 0, len(products))
+	seen := make(map[int32]struct{}, len(products))
+	for _, p := range products {
+		if p == nil || p.CategoryID == 0 {
+			continue
+		}
+		if _, ok := seen[p.CategoryID]; ok {
+			continue
+		}
+		seen[p.CategoryID] = struct{}{}
+		ids = append(ids, int(p.CategoryID))
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	categories, err := s.categoryQueryRepository.FindByIds(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	nameByID := make(map[int32]string, len(categories))
+	for _, c := range categories {
+		if c == nil {
+			continue
+		}
+		nameByID[c.CategoryID] = c.Name
+	}
+
+	for _, p := range products {
+		if p == nil {
+			continue
+		}
+		p.CategoryName = nameByID[p.CategoryID]
+	}
+
+	return nil
 }

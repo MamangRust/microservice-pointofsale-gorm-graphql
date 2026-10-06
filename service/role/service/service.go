@@ -15,16 +15,16 @@ type Service struct {
 }
 
 type Deps struct {
-	Ctx          context.Context
-	Mencache     mencache.Mencache
-	Repositories *repository.Repositories
-	Logger       logger.LoggerInterface
+	Ctx           context.Context
+	Mencache      mencache.Mencache
+	Repositories  *repository.Repositories
+	Logger        logger.LoggerInterface
 	Observability observability.TraceLoggerObservability
 }
 
 func NewService(deps *Deps) *Service {
 	return &Service{
 		RoleQuery:   NewRoleQueryService(deps.Mencache, deps.Repositories.RoleQuery, deps.Logger, deps.Observability),
-		RoleCommand: NewRoleCommandService(deps.Mencache, deps.Repositories.RoleCommand, deps.Logger, deps.Observability),
+		RoleCommand: NewRoleCommandService(deps.Mencache, deps.Repositories.RoleCommand, deps.Repositories.UserRole, deps.Logger, deps.Observability),
 	}
 }

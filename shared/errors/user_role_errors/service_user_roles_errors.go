@@ -4,8 +4,7 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/errors"
 )
 
-
 var (
 	ErrFailedAssignRoleToUser = errors.ErrInternal.WithMessage("Failed to assign role to user")
-	ErrFailedRemoveRole = errors.ErrInternal.WithMessage("Failed to remove role from user")
+	ErrFailedRemoveRole       = errors.ErrInternal.WithMessage("Failed to remove role from user")
 )
