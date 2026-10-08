@@ -61,38 +61,32 @@ func (s *OrderItemServiceTestSuite) TestOrderItemLifecycle() {
 
 	// Seed data directly (FK-valid: user → merchant → cashier → category → product → order)
 	var userID, merchantID, categoryID, productID, orderID int
-	err := s.ts.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
+	err := s.ts.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'test-verify', true) RETURNING user_id`,
 		"OItem", "Svc", "oitem.svc@example.com", "password123",
 	).Scan(&userID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status)
-		 VALUES (?, 'OI Merchant', 'Desc', 'Addr', 'oi@example.com', '123', 'active') RETURNING merchant_id`,
-		userID,
+	err = s.ts.GormDB().Raw(`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status)
+		 VALUES (?, 'OI Merchant', 'Desc', 'Addr', ?, '123', 'active') RETURNING merchant_id`,
+		userID, "oi@example.com",
 	).Scan(&merchantID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(ctx).Exec(
-		`INSERT INTO cashiers (merchant_id, user_id, name) VALUES (?, ?, 'OI Cashier')`,
-		merchantID, userID).Error
+	s.ts.GormDB().Exec(`INSERT INTO cashiers (merchant_id, user_id, name) VALUES ($1, $2, 'OI Cashier')`,
+		merchantID, userID)
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO categories (name, description) VALUES (?, ?) RETURNING category_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING category_id`,
 		"Category", "Desc",
 	).Scan(&categoryID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO products (merchant_id, category_id, name, description, price, count_in_stock, brand, weight, image_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING product_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO products (merchant_id, category_id, name, description, price, count_in_stock, brand, weight, image_product) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING product_id`,
 		merchantID, categoryID, "Product", "Desc", 1000, 10, "Brand", 1, "img.jpg",
 	).Scan(&productID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO orders (merchant_id, cashier_id, total_price) VALUES (?, ?, ?) RETURNING order_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO orders (merchant_id, cashier_id, total_price) VALUES ($1, $2, $3) RETURNING order_id`,
 		merchantID, 1, 5000,
 	).Scan(&orderID).Error
 	s.Require().NoError(err)
@@ -103,8 +97,7 @@ func (s *OrderItemServiceTestSuite) TestOrderItemLifecycle() {
 
 	// Create an order item directly for query testing
 	var oItemID int
-	err = s.ts.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?) RETURNING order_item_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ($1, $2, $3, $4) RETURNING order_item_id`,
 		orderID, productID, 2, 5000,
 	).Scan(&oItemID).Error
 	s.Require().NoError(err)
@@ -125,8 +118,7 @@ func (s *OrderItemServiceTestSuite) TestOrderItemLifecycle() {
 	s.NotEmpty(active)
 
 	// 5. Trash the order item directly
-	err = s.ts.GormDB().WithContext(ctx).Exec(`UPDATE order_items SET deleted_at = NOW() WHERE order_item_id = ?`, oItemID).Error
-	s.Require().NoError(err)
+	s.Require().NoError(s.ts.GormDB().Exec(`UPDATE order_items SET deleted_at = NOW() WHERE order_item_id = $1`, oItemID).Error)
 
 	// 6. FindByTrashed
 	_, totalTrashed, err := s.svc.OrderItemQuery.FindByTrashed(ctx, &requests.FindAllOrderItems{Search: "", Page: 1, PageSize: 10})

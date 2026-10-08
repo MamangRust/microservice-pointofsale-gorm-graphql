@@ -152,6 +152,18 @@ func WithUser(next http.Handler, userID int) http.Handler {
 	})
 }
 
+// WithUserAndToken injects both the user id and the access token into the
+// request context, emulating what AuthMiddleware does for authenticated
+// traffic. Use it to exercise resolvers (e.g. getMe) that read the caller from
+// the request context instead of from their input.
+func WithUserAndToken(next http.Handler, userID int, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := mycontext.WithUserID(r.Context(), userID)
+		ctx = mycontext.WithToken(ctx, token)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // SeedMerchantCache writes a merchant ID-to-API-key mapping into Redis
 func SeedMerchantCache(redisClient *redis.Client, merchantID string, apiKey string) error {
 	key := "merchant_api_key:" + merchantID

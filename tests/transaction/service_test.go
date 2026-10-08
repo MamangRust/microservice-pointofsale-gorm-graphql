@@ -24,13 +24,11 @@ type TransactionServiceTestSuite struct {
 func (s *TransactionServiceTestSuite) SetupSuite() {
 	s.BaseTestSuite.SetupSuite()
 
-	// gRPC service nyata: cashier(→user/merchant), merchant, order(→product/order-item), category.
 	s.SetupTransactionService()
 	s.SetupCategoryService()
 
 	gormDB := s.GormDB()
 
-	// Transaction repositories with real gRPC clients
 	mencache := trans_cache.NewMencache(s.GetCacheStore())
 	repos := repository.NewRepositories(
 		gormDB,
@@ -64,14 +62,11 @@ func (s *TransactionServiceTestSuite) TestTransactionLifecycle() {
 	orderID := s.SeedOrder(ctx, userID, merchantID, productID)
 	s.SeedOrderItem(ctx, orderID, productID)
 
-	// cashier_id as seeded by SeedOrder (cashiers table)
 	var cashierID int
-	err := s.GormDB().WithContext(ctx).Raw(
-		`SELECT cashier_id FROM cashiers WHERE user_id = ? AND merchant_id = ? AND deleted_at IS NULL LIMIT 1`,
+	err := s.GormDB().Raw(`SELECT cashier_id FROM cashiers WHERE user_id = $1 AND merchant_id = $2 AND deleted_at IS NULL LIMIT 1`,
 		userID, merchantID,
 	).Scan(&cashierID).Error
 
-	// 2. Create Transaction
 	req := &requests.CreateTransactionRequest{
 		OrderID:       orderID,
 		CashierID:     cashierID,
@@ -84,13 +79,11 @@ func (s *TransactionServiceTestSuite) TestTransactionLifecycle() {
 	s.Require().NotNil(created)
 	transactionID := int(created.TransactionID)
 
-	// 3. FindByID
 	found, err := s.svc.TransactionQuery.FindById(ctx, transactionID)
 	s.Require().NoError(err)
 	s.Require().NotNil(found.PaymentStatus)
 	s.Equal("success", *found.PaymentStatus)
 
-	// 4. Update
 	newPaymentMethod := "GOPAY"
 	updateReq := &requests.UpdateTransactionRequest{
 		TransactionID: &transactionID,
@@ -103,39 +96,32 @@ func (s *TransactionServiceTestSuite) TestTransactionLifecycle() {
 	s.Require().NoError(err)
 	s.Equal(newPaymentMethod, updated.PaymentMethod)
 
-	// 5. FindAll
 	_, total, err := s.svc.TransactionQuery.FindAllTransactions(ctx, &requests.FindAllTransaction{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.GreaterOrEqual(*total, 1)
 
-	// 6. Trash
 	_, err = s.svc.TransactionCommand.TrashedTransaction(ctx, transactionID)
 	s.Require().NoError(err)
 
-	// 7. FindTrashed
 	_, totalTrashed, err := s.svc.TransactionQuery.FindByTrashed(ctx, &requests.FindAllTransaction{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.GreaterOrEqual(*totalTrashed, 1)
 
-	// 8. FindActive
 	active, _, err := s.svc.TransactionQuery.FindByActive(ctx, &requests.FindAllTransaction{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	for _, tx := range active {
 		s.NotEqual(transactionID, int(tx.TransactionID))
 	}
 
-	// 9. Restore
 	_, err = s.svc.TransactionCommand.RestoreTransaction(ctx, transactionID)
 	s.Require().NoError(err)
 
-	// 10. DeletePermanent
 	_, err = s.svc.TransactionCommand.TrashedTransaction(ctx, transactionID)
 	s.Require().NoError(err)
 	success, err := s.svc.TransactionCommand.DeleteTransactionPermanently(ctx, transactionID)
 	s.Require().NoError(err)
 	s.True(success)
 
-	// 11. RestoreAll & DeleteAll
 	o1 := s.SeedOrder(ctx, userID, merchantID, productID)
 	s.SeedOrderItem(ctx, o1, productID)
 

@@ -4,12 +4,52 @@ import (
 	"context"
 	"testing"
 
+	"github.com/MamangRust/microservice-point-of-sale-pkg/database/models"
 	"github.com/MamangRust/microservice-point-of-sale-product/repository"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
 	"github.com/stretchr/testify/suite"
+	"gorm.io/gorm"
 )
+
+// fakeCategoryQueryRepository stands in for the category gRPC adapter. These
+// repository/service suites exercise the local product repositories, so the
+// cross-service dependencies never leave the process.
+type fakeCategoryQueryRepository struct{}
+
+func (fakeCategoryQueryRepository) FindById(_ context.Context, categoryID int) (*models.Category, error) {
+	return &models.Category{CategoryID: int32(categoryID), Name: "Test Category"}, nil
+}
+
+func (fakeCategoryQueryRepository) FindByIds(_ context.Context, ids []int) ([]*models.Category, error) {
+	categories := make([]*models.Category, 0, len(ids))
+	for _, id := range ids {
+		categories = append(categories, &models.Category{CategoryID: int32(id), Name: "Test Category"})
+	}
+	return categories, nil
+}
+
+func (fakeCategoryQueryRepository) FindByName(_ context.Context, name string) (*models.Category, error) {
+	return &models.Category{CategoryID: 1, Name: name}, nil
+}
+
+type fakeMerchantQueryRepository struct{}
+
+func (fakeMerchantQueryRepository) FindById(_ context.Context, merchantID int) (*models.Merchant, error) {
+	return &models.Merchant{MerchantID: int32(merchantID), Name: "Test Merchant"}, nil
+}
+
+// newLocalRepositories wires the local product repositories with the fake
+// cross-service dependencies used by these suites.
+func newLocalRepositories(db *gorm.DB) *repository.Repositories {
+	return &repository.Repositories{
+		ProductQuery:   repository.NewProductQueryRepository(db),
+		ProductCommand: repository.NewProductCommandRepository(db),
+		CategoryQuery:  fakeCategoryQueryRepository{},
+		MerchantQuery:  fakeMerchantQueryRepository{},
+	}
+}
 
 type ProductRepositoryTestSuite struct {
 	suite.Suite
@@ -25,24 +65,21 @@ func (s *ProductRepositoryTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 
 	productQueries := s.ts.GormDB()
-	s.repo = repository.NewRepositories(productQueries, nil, nil)
+	s.repo = newLocalRepositories(productQueries)
 
 	// Seed a merchant and category for product tests
 	var userID, categoryID int
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'test-verify', true) RETURNING user_id`,
 		"Prod", "Repo", "prod.repo@example.com", "password123",
 	).Scan(&userID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO categories (name, description) VALUES (?, ?) RETURNING category_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING category_id`,
 		"Test Category", "Category for product tests",
 	).Scan(&categoryID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING merchant_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING merchant_id`,
 		userID, "Test Merchant", "Desc", "Addr", "pm@example.com", "123", "active",
 	).Scan(&userID).Error
 	s.Require().NoError(err)

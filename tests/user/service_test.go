@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
 	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 	user_cache "github.com/MamangRust/microservice-point-of-sale-user/cache"
@@ -32,14 +32,11 @@ func (s *UserServiceTestSuite) SetupSuite() {
 	s.SetupRoleService()
 
 	// Seed default role required by user service CreateUser
-	s.GormDB().WithContext(s.Ctx).Exec(
-		`INSERT INTO roles (role_name, created_at, updated_at)
+	s.GormDB().Exec(`INSERT INTO roles (role_name, created_at, updated_at)
 		 VALUES ('Admin Access 1', current_timestamp, current_timestamp)
 		 ON CONFLICT (role_name) DO NOTHING`)
 
-	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
-	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
-	repos := repository.NewRepositories(userQueries, roleClient, userRoleClient)
+	repos := repository.NewRepositories(userQueries, pbrole.NewRoleQueryServiceClient(s.Conns["role"]), pbuserrole.NewUserRoleServiceClient(s.Conns["role"]))
 
 	log, _ := logger.NewLogger("test", nil)
 	hasher := hash.NewHashingPassword()

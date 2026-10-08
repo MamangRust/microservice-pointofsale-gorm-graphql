@@ -4,9 +4,14 @@ kind: Kustomization
 namespace: point-of-sale
 
 resources:
-  - ../../base
-  - dns-egress.yaml
-  - email-smtp-egress.yaml
+  - ../../core
+  - ../../security
+  - ../../database
+  - ../../messaging
+  - ../../cache
+  - ../../observability
+  - ../../networking
+  - ../../services
 
 images:
   - name: ghcr.io/__GHCR_OWNER__/vertx-point-of-sale/apigateway
@@ -31,6 +36,10 @@ images:
     newTag: c5cc38c7e4e0f230684e94cce1d351ddf6f6225e
   - name: ghcr.io/__GHCR_OWNER__/vertx-point-of-sale/role
     newTag: c5cc38c7e4e0f230684e94cce1d351ddf6f6225e
+  - name: ghcr.io/__GHCR_OWNER__/vertx-point-of-sale/stats_reader
+    newTag: c5cc38c7e4e0f230684e94cce1d351ddf6f6225e
+  - name: ghcr.io/__GHCR_OWNER__/vertx-point-of-sale/stats_writer
+    newTag: c5cc38c7e4e0f230684e94cce1d351ddf6f6225e
   - name: ghcr.io/__GHCR_OWNER__/vertx-point-of-sale/transaction
     newTag: c5cc38c7e4e0f230684e94cce1d351ddf6f6225e
   - name: ghcr.io/__GHCR_OWNER__/vertx-point-of-sale/user
@@ -53,7 +62,7 @@ replacements:
     targets:
       - select:
           kind: Deployment
-          name: "^(apigateway|auth|cashier|category|email|merchant|order|order-item|product|role|transaction|user)$"
+          name: "^(apigateway|auth|cashier|category|email|merchant|order|order-item|product|role|stats-reader|stats-writer|transaction|user)$"
         fieldPaths:
           - spec.template.spec.containers.0.image
         options:
@@ -61,12 +70,15 @@ replacements:
           index: 1
       - select:
           kind: Job
-          name: migrate
+          name: "^(migrate|stats-backfill)$"
         fieldPaths:
           - spec.template.spec.containers.0.image
         options:
           delimiter: "/"
           index: 1
+
+components:
+  - ../../components/image-pull-secret
 
 patches:
   - path: migration-hook.yaml
@@ -80,4 +92,16 @@ patches:
       group: apps
       version: v1
       kind: Deployment
-      name: "^(apigateway|auth|cashier|category|email|merchant|order|order-item|product|role|transaction|user)$"
+      name: "^(apigateway|auth|cashier|category|email|merchant|order|order-item|product|role|stats-reader|stats-writer|transaction|user)$"
+  - path: postgres-wave.yaml
+    target:
+      group: apps
+      version: v1
+      kind: StatefulSet
+      name: "^(postgres-identity|postgres-catalog|postgres-sales|postgres-merchant|postgres-email)$"
+  - path: pgbouncer-wave.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: "^(pgbouncer-identity|pgbouncer-catalog|pgbouncer-sales|pgbouncer-merchant|pgbouncer-email)$"

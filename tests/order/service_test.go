@@ -20,7 +20,7 @@ import (
 type OrderServiceTestSuite struct {
 	tests.BaseTestSuite
 	svc       *service.Service
-	orderID   int // merchant id
+	orderID   int
 	cashierID int
 	productID int
 }
@@ -30,37 +30,29 @@ func (s *OrderServiceTestSuite) SetupSuite() {
 
 	queries := s.GormDB()
 
-	// gRPC service nyata: cashier(→user/merchant), merchant, product, order-item.
 	s.SetupOrderService()
 
-	// Seed user + merchant + cashier (id 1) + category (id 1) + product (id 1)
 	var userID int
-	err := s.GormDB().WithContext(s.Ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
+	err := s.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'test-verify', true) RETURNING user_id`,
 		"Order", "Svc", "order.svc@example.com", "password123",
 	).Scan(&userID).Error
 
-	err = s.GormDB().WithContext(s.Ctx).Raw(
-		`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING merchant_id`,
+	err = s.GormDB().Raw(`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING merchant_id`,
 		userID, "Order Svc Merchant", "Desc", "Addr", "os@example.com", "123", "active",
 	).Scan(&s.orderID).Error
 	s.Require().NoError(err)
 
-	err = s.GormDB().WithContext(s.Ctx).Raw(
-		`INSERT INTO cashiers (merchant_id, user_id, name) VALUES (?, ?, 'Order Cashier') RETURNING cashier_id`,
+	err = s.GormDB().Raw(`INSERT INTO cashiers (merchant_id, user_id, name) VALUES ($1, $2, 'Order Cashier') RETURNING cashier_id`,
 		s.orderID, userID,
 	).Scan(&s.cashierID).Error
 	s.Require().NoError(err)
 
 	var categoryID int
-	err = s.GormDB().WithContext(s.Ctx).Raw(
-		`INSERT INTO categories (name, description) VALUES ('Order Category', 'Desc') RETURNING category_id`,
-	).Scan(&categoryID).Error
+	err = s.GormDB().Raw(`INSERT INTO categories (name, description) VALUES ('Order Category', 'Desc') RETURNING category_id`).Scan(&categoryID).Error
 	s.Require().NoError(err)
 
-	err = s.GormDB().WithContext(s.Ctx).Raw(
-		`INSERT INTO products (merchant_id, category_id, name, description, price, count_in_stock, brand, weight, image_product)
-		 VALUES (?, ?, 'Order Product', 'Desc', 10000, 100, 'Brand', 100, 'img') RETURNING product_id`,
+	err = s.GormDB().Raw(`INSERT INTO products (merchant_id, category_id, name, description, price, count_in_stock, brand, weight, image_product)
+		 VALUES ($1, $2, 'Order Product', 'Desc', 10000, 100, 'Brand', 100, 'img') RETURNING product_id`,
 		s.orderID, categoryID,
 	).Scan(&s.productID).Error
 	s.Require().NoError(err)
@@ -91,7 +83,6 @@ func (s *OrderServiceTestSuite) TearDownSuite() {
 func (s *OrderServiceTestSuite) TestOrderLifecycle() {
 	ctx := context.Background()
 
-	// 1. Create
 	req := &requests.CreateOrderRequest{
 		MerchantID: s.orderID,
 		CashierID:  s.cashierID,
@@ -105,17 +96,13 @@ func (s *OrderServiceTestSuite) TestOrderLifecycle() {
 	orderID := int(created.OrderID)
 
 	var orderItemID int
-	err = s.GormDB().WithContext(s.Ctx).Raw(
-		`SELECT order_item_id FROM order_items WHERE order_id = ? LIMIT 1`, orderID,
-	).Scan(&orderItemID).Error
+	err = s.GormDB().Raw(`SELECT order_item_id FROM order_items WHERE order_id = $1 LIMIT 1`, orderID).Scan(&orderItemID).Error
 	s.Require().NoError(err)
 
-	// 2. FindByID
 	found, err := s.svc.OrderQuery.FindById(ctx, orderID)
 	s.Require().NoError(err)
 	s.NotNil(found)
 
-	// 3. Update
 	updateReq := &requests.UpdateOrderRequest{
 		OrderID: &orderID,
 		Items: []requests.UpdateOrderItemRequest{
@@ -126,52 +113,39 @@ func (s *OrderServiceTestSuite) TestOrderLifecycle() {
 	s.Require().NoError(err)
 	s.NotNil(updated)
 
-	// 4. FindAll
 	_, total, err := s.svc.OrderQuery.FindAll(ctx, &requests.FindAllOrders{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.GreaterOrEqual(*total, 1)
 
-	// 5. Trash
 	_, err = s.svc.OrderCommand.TrashedOrder(ctx, orderID)
 	s.Require().NoError(err)
 
-	// 6. FindTrashed
 	_, totalTrashed, err := s.svc.OrderQuery.FindByTrashed(ctx, &requests.FindAllOrders{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.GreaterOrEqual(*totalTrashed, 1)
 
-	// 7. FindActive
 	active, _, err := s.svc.OrderQuery.FindByActive(ctx, &requests.FindAllOrders{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	for _, o := range active {
 		s.NotEqual(orderID, int(o.OrderID))
 	}
 
-	// 8. Restore
 	_, err = s.svc.OrderCommand.RestoreOrder(ctx, orderID)
 	s.Require().NoError(err)
 
-	// 9. DeletePermanent
 	_, err = s.svc.OrderCommand.TrashedOrder(ctx, orderID)
 	s.Require().NoError(err)
 	success, err := s.svc.OrderCommand.DeleteOrderPermanent(ctx, orderID)
 	s.Require().NoError(err)
 	s.True(success)
 
-	// 10. RestoreAll & DeleteAll
 	o1, _ := s.svc.OrderCommand.CreateOrder(ctx, &requests.CreateOrderRequest{
-		MerchantID: s.orderID,
-		CashierID:  s.cashierID,
-		Items: []requests.CreateOrderItemRequest{
-			{ProductID: s.productID, Quantity: 1},
-		},
+		MerchantID: s.orderID, CashierID: s.cashierID,
+		Items: []requests.CreateOrderItemRequest{{ProductID: s.productID, Quantity: 1}},
 	})
 	o2, _ := s.svc.OrderCommand.CreateOrder(ctx, &requests.CreateOrderRequest{
-		MerchantID: s.orderID,
-		CashierID:  s.cashierID,
-		Items: []requests.CreateOrderItemRequest{
-			{ProductID: s.productID, Quantity: 2},
-		},
+		MerchantID: s.orderID, CashierID: s.cashierID,
+		Items: []requests.CreateOrderItemRequest{{ProductID: s.productID, Quantity: 2}},
 	})
 
 	s.svc.OrderCommand.TrashedOrder(ctx, int(o1.OrderID))

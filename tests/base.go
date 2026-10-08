@@ -2,7 +2,10 @@ package tests
 
 import (
 	"context"
+	"database/sql"
 	"reflect"
+
+	"github.com/testcontainers/testcontainers-go"
 
 	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
 	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
@@ -20,13 +23,14 @@ import (
 
 type BaseTestSuite struct {
 	suite.Suite
-	ts      *TestSuite
-	Log     logger.LoggerInterface
-	Obs     observability.TraceLoggerObservability
-	Conns   map[string]*grpc.ClientConn
-	Servers []*grpc.Server
-	Ctx     context.Context
-	Cancel  context.CancelFunc
+	ts          *TestSuite
+	Log         logger.LoggerInterface
+	Obs         observability.TraceLoggerObservability
+	Conns       map[string]*grpc.ClientConn
+	Servers     []*grpc.Server
+	Ctx         context.Context
+	Cancel      context.CancelFunc
+	CHContainer testcontainers.Container
 }
 
 func (s *BaseTestSuite) SetupSuite() {
@@ -55,6 +59,11 @@ func (s *BaseTestSuite) TearDownSuite() {
 	for _, server := range s.Servers {
 		server.GracefulStop()
 	}
+	if s.CHContainer != nil {
+		if err := s.CHContainer.Terminate(s.Ctx); err != nil {
+			s.Log.Error("failed to terminate ClickHouse container", zap.Error(err))
+		}
+	}
 	if s.ts != nil {
 		s.ts.Teardown()
 	}
@@ -65,6 +74,15 @@ func (s *BaseTestSuite) TearDownSuite() {
 
 func (s *BaseTestSuite) GormDB() *gorm.DB {
 	return s.ts.GormDB()
+}
+
+// SQLxDB returns a *sql.DB (database/sql) for raw SQL fixtures that need
+// QueryRowContext/ExecContext rather than the GORM wrapper. The lib/pq driver
+// is registered by the test_setup package, so the "postgres" driver is valid.
+func (s *BaseTestSuite) SQLxDB() *sql.DB {
+	db, err := sql.Open("postgres", s.ts.DBURL)
+	s.Require().NoError(err)
+	return db
 }
 
 func (s *BaseTestSuite) RedisClient() *goredis.Client {
@@ -85,7 +103,7 @@ func (s *BaseTestSuite) GetConnection(addr string) *grpc.ClientConn {
 }
 
 func (s *BaseTestSuite) SeedUser(ctx context.Context) int {
-	err := s.GormDB().WithContext(ctx).Exec(`
+	err := s.GormDB().Exec(`
 		INSERT INTO roles (role_name, created_at, updated_at) 
 		VALUES ('Admin Access 1', current_timestamp, current_timestamp),
 		       ('ROLE_ADMIN', current_timestamp, current_timestamp)
@@ -145,14 +163,14 @@ func (s *BaseTestSuite) SeedProduct(ctx context.Context, merchantID int, categor
 
 func (s *BaseTestSuite) SeedOrder(ctx context.Context, userID int, merchID int, prodID int) int {
 	var cashierID int
-	db := s.GormDB().WithContext(ctx)
-	err := db.Raw(`
-		SELECT cashier_id FROM cashiers WHERE user_id = ? AND merchant_id = ? AND deleted_at IS NULL LIMIT 1
-	`, userID, merchID).Scan(&cashierID).Error
-	if err != nil || cashierID == 0 {
-		err = db.Raw(`
+	lookup := s.GormDB().Raw(`
+		SELECT cashier_id FROM cashiers WHERE user_id = $1 AND merchant_id = $2 AND deleted_at IS NULL LIMIT 1
+	`, userID, merchID).Scan(&cashierID)
+	s.Require().NoError(lookup.Error)
+	if lookup.RowsAffected == 0 {
+		err := s.GormDB().Raw(`
 			INSERT INTO cashiers (merchant_id, user_id, name, created_at, updated_at)
-			VALUES (?, ?, 'Seed Cashier', current_timestamp, current_timestamp)
+			VALUES ($1, $2, 'Seed Cashier', current_timestamp, current_timestamp)
 			RETURNING cashier_id
 		`, merchID, userID).Scan(&cashierID).Error
 		s.Require().NoError(err)
@@ -174,8 +192,7 @@ func (s *BaseTestSuite) SeedOrder(ctx context.Context, userID int, merchID int, 
 
 func (s *BaseTestSuite) SeedOrderItem(ctx context.Context, orderID int, productID int) int {
 	var id int
-	err := s.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO "order_items" (order_id, product_id, quantity, price) VALUES (?, ?, 1, 1000) RETURNING order_item_id`,
+	err := s.GormDB().Raw(`INSERT INTO "order_items" (order_id, product_id, quantity, price) VALUES ($1, $2, 1, 1000) RETURNING order_item_id`,
 		orderID, productID,
 	).Scan(&id).Error
 	s.Require().NoError(err)

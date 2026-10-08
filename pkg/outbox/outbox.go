@@ -58,7 +58,8 @@ const (
 	OutboxRetentionEveryTicks = 60
 )
 
-// OutboxEvent mirrors a row in the shared outbox_events table.
+// OutboxEvent mirrors a row in the shared outbox_events table. Field names map
+// to snake_case columns via GORM's default naming strategy (outbox_id, ...).
 type OutboxEvent struct {
 	OutboxID      int64
 	Topic         string
@@ -96,16 +97,14 @@ func NewOutboxService(db *gorm.DB, publisher OutboxPublisher, log logger.LoggerI
 
 const insertOutboxEventSQL = `
 INSERT INTO outbox_events (topic, event_key, payload, status, next_attempt_at)
-VALUES (?, ?, ?, 'pending', CURRENT_TIMESTAMP)
-RETURNING outbox_id, topic, event_key, payload, status, attempts, next_attempt_at, created_at, updated_at
+VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP)
 `
 
-// EnqueueInTx persists a pending event inside the given database transaction so
+// EnqueueInTx persists a pending event inside the given GORM transaction so
 // the caller can commit the business write and the event atomically. This is the
 // production path: the event survives the commit and is published by the relay.
 func (s *OutboxService) EnqueueInTx(ctx context.Context, tx *gorm.DB, topic, key string, payload []byte) error {
-	var e OutboxEvent
-	if err := tx.WithContext(ctx).Raw(insertOutboxEventSQL, topic, key, payload).Scan(&e).Error; err != nil {
+	if err := tx.WithContext(ctx).Exec(insertOutboxEventSQL, topic, key, payload).Error; err != nil {
 		return err
 	}
 	s.logger.Info("outbox event enqueued", zap.String("topic", topic), zap.String("key", key))
@@ -121,8 +120,7 @@ func (s *OutboxService) Enqueue(ctx context.Context, topic, key string, payload 
 	if s.db == nil {
 		return nil
 	}
-	var e OutboxEvent
-	if err := s.db.WithContext(ctx).Raw(insertOutboxEventSQL, topic, key, payload).Scan(&e).Error; err != nil {
+	if err := s.db.WithContext(ctx).Exec(insertOutboxEventSQL, topic, key, payload).Error; err != nil {
 		return err
 	}
 	s.logger.Info("outbox event enqueued", zap.String("topic", topic), zap.String("key", key))
@@ -131,13 +129,13 @@ func (s *OutboxService) Enqueue(ctx context.Context, topic, key string, payload 
 
 const claimPendingOutboxEventsSQL = `
 UPDATE outbox_events
-SET next_attempt_at = ?, updated_at = CURRENT_TIMESTAMP
+SET next_attempt_at = $2, updated_at = CURRENT_TIMESTAMP
 WHERE outbox_id IN (
     SELECT outbox_id
     FROM outbox_events
     WHERE status = 'pending' AND next_attempt_at <= CURRENT_TIMESTAMP
     ORDER BY outbox_id
-    LIMIT ?
+    LIMIT $1
     FOR UPDATE SKIP LOCKED
 )
 RETURNING outbox_id, topic, event_key, payload, status, attempts, next_attempt_at, created_at, updated_at
@@ -151,14 +149,16 @@ func (s *OutboxService) PublishPending(ctx context.Context, limit int) (int, err
 	if s.db == nil || s.publisher == nil {
 		return 0, nil
 	}
-	var events []*OutboxEvent
-	if err := s.db.WithContext(ctx).Raw(claimPendingOutboxEventsSQL, time.Now().Add(OutboxClaimLease), limit).
+	var events []OutboxEvent
+	if err := s.db.WithContext(ctx).
+		Raw(claimPendingOutboxEventsSQL, int32(limit), time.Now().Add(OutboxClaimLease)).
 		Scan(&events).Error; err != nil {
 		return 0, err
 	}
 
 	delivered := 0
-	for _, event := range events {
+	for i := range events {
+		event := &events[i]
 		if err := s.publisher.SendMessage(ctx, event.Topic, event.EventKey, event.Payload); err != nil {
 			s.logger.Error("failed to publish outbox event, scheduling retry",
 				zap.Error(err),
@@ -192,27 +192,27 @@ func (s *OutboxService) PublishPending(ctx context.Context, limit int) (int, err
 const markOutboxEventDeliveredSQL = `
 UPDATE outbox_events
 SET status = 'delivered', updated_at = CURRENT_TIMESTAMP
-WHERE outbox_id = ? AND status = 'pending'
+WHERE outbox_id = $1 AND status = 'pending'
 `
 
 const markOutboxEventDeadSQL = `
 UPDATE outbox_events
 SET status = 'dead', updated_at = CURRENT_TIMESTAMP
-WHERE outbox_id = ? AND status = 'pending'
+WHERE outbox_id = $1 AND status = 'pending'
 `
 
 const markOutboxEventFailedSQL = `
 UPDATE outbox_events
 SET attempts = attempts + 1,
-    next_attempt_at = ?,
+    next_attempt_at = $2,
     updated_at = CURRENT_TIMESTAMP
-WHERE outbox_id = ? AND status = 'pending'
+WHERE outbox_id = $1 AND status = 'pending'
 `
 
 const deleteOldOutboxEventsSQL = `
 DELETE FROM outbox_events
 WHERE status IN ('delivered', 'dead')
-  AND updated_at < ?
+  AND updated_at < $1
 `
 
 const countPendingOutboxEventsSQL = `
@@ -250,10 +250,10 @@ func (s *OutboxService) Start(ctx context.Context, interval time.Duration, limit
 			// outbox table on every relay cycle; it purges delivered/dead events
 			// whose terminal state is older than the retention window.
 			if tickCount%OutboxRetentionEveryTicks == 0 {
-				result := s.db.WithContext(ctx).Exec(deleteOldOutboxEventsSQL, time.Now().Add(-OutboxRetention))
-				if err := result.Error; err != nil {
+				res := s.db.WithContext(ctx).Exec(deleteOldOutboxEventsSQL, time.Now().Add(-OutboxRetention))
+				if err := res.Error; err != nil {
 					s.logger.Error("outbox retention cleanup failed", zap.Error(err))
-				} else if removed := result.RowsAffected; removed > 0 {
+				} else if removed := res.RowsAffected; removed > 0 {
 					s.logger.Info("outbox retention cleanup", zap.Int64("removed", removed))
 				}
 			}

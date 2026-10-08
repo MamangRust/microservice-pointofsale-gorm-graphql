@@ -1,7 +1,7 @@
 package response_api
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	userpb "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -12,7 +12,7 @@ func NewUserResponseMapper() *userResponseMapper {
 	return &userResponseMapper{}
 }
 
-func (u *userResponseMapper) ToResponseUser(user *pb.UserResponse) *response.UserResponse {
+func (u *userResponseMapper) ToResponseUser(user *userpb.UserResponse) *response.UserResponse {
 	return &response.UserResponse{
 		ID:        int(user.Id),
 		FirstName: user.Firstname,
@@ -23,7 +23,7 @@ func (u *userResponseMapper) ToResponseUser(user *pb.UserResponse) *response.Use
 	}
 }
 
-func (u *userResponseMapper) ToResponsesUser(users []*pb.UserResponse) []*response.UserResponse {
+func (u *userResponseMapper) ToResponsesUser(users []*userpb.UserResponse) []*response.UserResponse {
 	var mappedUsers []*response.UserResponse
 
 	for _, user := range users {
@@ -33,7 +33,7 @@ func (u *userResponseMapper) ToResponsesUser(users []*pb.UserResponse) []*respon
 	return mappedUsers
 }
 
-func (u *userResponseMapper) ToResponseUserDeleteAt(user *pb.UserResponseDeleteAt) *response.UserResponseDeleteAt {
+func (u *userResponseMapper) ToResponseUserDeleteAt(user *userpb.UserResponseDeleteAt) *response.UserResponseDeleteAt {
 	var deletedAt string
 	if user.DeletedAt != nil {
 		deletedAt = user.DeletedAt.Value
@@ -50,7 +50,7 @@ func (u *userResponseMapper) ToResponseUserDeleteAt(user *pb.UserResponseDeleteA
 	}
 }
 
-func (u *userResponseMapper) ToResponsesUserDeleteAt(users []*pb.UserResponseDeleteAt) []*response.UserResponseDeleteAt {
+func (u *userResponseMapper) ToResponsesUserDeleteAt(users []*userpb.UserResponseDeleteAt) []*response.UserResponseDeleteAt {
 	var mappedUsers []*response.UserResponseDeleteAt
 
 	for _, user := range users {
@@ -60,7 +60,7 @@ func (u *userResponseMapper) ToResponsesUserDeleteAt(users []*pb.UserResponseDel
 	return mappedUsers
 }
 
-func (u *userResponseMapper) ToApiResponseUser(pbResponse *pb.ApiResponseUser) *response.ApiResponseUser {
+func (u *userResponseMapper) ToApiResponseUser(pbResponse *userpb.ApiResponseUser) *response.ApiResponseUser {
 	return &response.ApiResponseUser{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -68,7 +68,7 @@ func (u *userResponseMapper) ToApiResponseUser(pbResponse *pb.ApiResponseUser) *
 	}
 }
 
-func (u *userResponseMapper) ToApiResponseUserDeleteAt(pbResponse *pb.ApiResponseUserDeleteAt) *response.ApiResponseUserDeleteAt {
+func (u *userResponseMapper) ToApiResponseUserDeleteAt(pbResponse *userpb.ApiResponseUserDeleteAt) *response.ApiResponseUserDeleteAt {
 	return &response.ApiResponseUserDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -76,7 +76,7 @@ func (u *userResponseMapper) ToApiResponseUserDeleteAt(pbResponse *pb.ApiRespons
 	}
 }
 
-func (u *userResponseMapper) ToApiResponsesUser(pbResponse *pb.ApiResponsesUser) *response.ApiResponsesUser {
+func (u *userResponseMapper) ToApiResponsesUser(pbResponse *userpb.ApiResponsesUser) *response.ApiResponsesUser {
 	return &response.ApiResponsesUser{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -84,21 +84,21 @@ func (u *userResponseMapper) ToApiResponsesUser(pbResponse *pb.ApiResponsesUser)
 	}
 }
 
-func (u *userResponseMapper) ToApiResponseUserDelete(pbResponse *pb.ApiResponseUserDelete) *response.ApiResponseUserDelete {
+func (u *userResponseMapper) ToApiResponseUserDelete(pbResponse *userpb.ApiResponseUserDelete) *response.ApiResponseUserDelete {
 	return &response.ApiResponseUserDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (u *userResponseMapper) ToApiResponseUserAll(pbResponse *pb.ApiResponseUserAll) *response.ApiResponseUserAll {
+func (u *userResponseMapper) ToApiResponseUserAll(pbResponse *userpb.ApiResponseUserAll) *response.ApiResponseUserAll {
 	return &response.ApiResponseUserAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (u *userResponseMapper) ToApiResponsePaginationUserDeleteAt(pbResponse *pb.ApiResponsePaginationUserDeleteAt) *response.ApiResponsePaginationUserDeleteAt {
+func (u *userResponseMapper) ToApiResponsePaginationUserDeleteAt(pbResponse *userpb.ApiResponsePaginationUserDeleteAt) *response.ApiResponsePaginationUserDeleteAt {
 	return &response.ApiResponsePaginationUserDeleteAt{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -107,7 +107,7 @@ func (u *userResponseMapper) ToApiResponsePaginationUserDeleteAt(pbResponse *pb.
 	}
 }
 
-func (u *userResponseMapper) ToApiResponsePaginationUser(pbResponse *pb.ApiResponsePaginationUser) *response.ApiResponsePaginationUser {
+func (u *userResponseMapper) ToApiResponsePaginationUser(pbResponse *userpb.ApiResponsePaginationUser) *response.ApiResponsePaginationUser {
 	return &response.ApiResponsePaginationUser{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

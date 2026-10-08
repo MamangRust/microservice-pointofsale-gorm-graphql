@@ -1,10 +1,10 @@
 package protomapper
 
 import (
-	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	cashierpb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	commonpb "github.com/MamangRust/microservice-point-of-sale-pb/common"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -15,46 +15,46 @@ func NewCashierProtoMapper() *cashierProtoMapper {
 	return &cashierProtoMapper{}
 }
 
-func (c *cashierProtoMapper) ToProtoResponseCashier(status string, message string, pbResponse *response.CashierResponse) *pb.ApiResponseCashier {
-	return &pb.ApiResponseCashier{
+func (c *cashierProtoMapper) ToProtoResponseCashier(status string, message string, pbResponse *response.CashierResponse) *cashierpb.ApiResponseCashier {
+	return &cashierpb.ApiResponseCashier{
 		Status:  status,
 		Message: message,
 		Data:    c.mapResponseCashier(pbResponse),
 	}
 }
 
-func (c *cashierProtoMapper) ToProtoResponsesCashier(status string, message string, pbResponse []*response.CashierResponse) *pb.ApiResponsesCashier {
-	return &pb.ApiResponsesCashier{
+func (c *cashierProtoMapper) ToProtoResponsesCashier(status string, message string, pbResponse []*response.CashierResponse) *cashierpb.ApiResponsesCashier {
+	return &cashierpb.ApiResponsesCashier{
 		Status:  status,
 		Message: message,
 		Data:    c.mapResponsesCashier(pbResponse),
 	}
 }
 
-func (c *cashierProtoMapper) ToProtoResponseCashierDeleteAt(status string, message string, pbResponse *response.CashierResponseDeleteAt) *pb.ApiResponseCashierDeleteAt {
-	return &pb.ApiResponseCashierDeleteAt{
+func (c *cashierProtoMapper) ToProtoResponseCashierDeleteAt(status string, message string, pbResponse *response.CashierResponseDeleteAt) *cashierpb.ApiResponseCashierDeleteAt {
+	return &cashierpb.ApiResponseCashierDeleteAt{
 		Status:  status,
 		Message: message,
 		Data:    c.mapResponseCashierDeleteAt(pbResponse),
 	}
 }
 
-func (c *cashierProtoMapper) ToProtoResponseCashierDelete(status string, message string) *pb.ApiResponseCashierDelete {
-	return &pb.ApiResponseCashierDelete{
+func (c *cashierProtoMapper) ToProtoResponseCashierDelete(status string, message string) *cashierpb.ApiResponseCashierDelete {
+	return &cashierpb.ApiResponseCashierDelete{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (u *cashierProtoMapper) ToProtoResponseCashierAll(status string, message string) *pb.ApiResponseCashierAll {
-	return &pb.ApiResponseCashierAll{
+func (u *cashierProtoMapper) ToProtoResponseCashierAll(status string, message string) *cashierpb.ApiResponseCashierAll {
+	return &cashierpb.ApiResponseCashierAll{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (u *cashierProtoMapper) ToProtoResponsePaginationCashierDeleteAt(pagination *pbcommon.PaginationMeta, status string, message string, users []*response.CashierResponseDeleteAt) *pb.ApiResponsePaginationCashierDeleteAt {
-	return &pb.ApiResponsePaginationCashierDeleteAt{
+func (u *cashierProtoMapper) ToProtoResponsePaginationCashierDeleteAt(pagination *commonpb.PaginationMeta, status string, message string, users []*response.CashierResponseDeleteAt) *cashierpb.ApiResponsePaginationCashierDeleteAt {
+	return &cashierpb.ApiResponsePaginationCashierDeleteAt{
 		Status:     status,
 		Message:    message,
 		Data:       u.mapResponsesCashierDeleteAt(users),
@@ -62,8 +62,8 @@ func (u *cashierProtoMapper) ToProtoResponsePaginationCashierDeleteAt(pagination
 	}
 }
 
-func (u *cashierProtoMapper) ToProtoResponsePaginationCashier(pagination *pbcommon.PaginationMeta, status string, message string, users []*response.CashierResponse) *pb.ApiResponsePaginationCashier {
-	return &pb.ApiResponsePaginationCashier{
+func (u *cashierProtoMapper) ToProtoResponsePaginationCashier(pagination *commonpb.PaginationMeta, status string, message string, users []*response.CashierResponse) *cashierpb.ApiResponsePaginationCashier {
+	return &cashierpb.ApiResponsePaginationCashier{
 		Status:     status,
 		Message:    message,
 		Data:       u.mapResponsesCashier(users),
@@ -71,8 +71,8 @@ func (u *cashierProtoMapper) ToProtoResponsePaginationCashier(pagination *pbcomm
 	}
 }
 
-func (c *cashierProtoMapper) mapResponseCashier(cashier *response.CashierResponse) *pb.CashierResponse {
-	return &pb.CashierResponse{
+func (c *cashierProtoMapper) mapResponseCashier(cashier *response.CashierResponse) *cashierpb.CashierResponse {
+	return &cashierpb.CashierResponse{
 		Id:         int32(cashier.ID),
 		MerchantId: int32(cashier.MerchantID),
 		Name:       cashier.Name,
@@ -81,8 +81,8 @@ func (c *cashierProtoMapper) mapResponseCashier(cashier *response.CashierRespons
 	}
 }
 
-func (c *cashierProtoMapper) mapResponsesCashier(cashiers []*response.CashierResponse) []*pb.CashierResponse {
-	var mappedCashiers []*pb.CashierResponse
+func (c *cashierProtoMapper) mapResponsesCashier(cashiers []*response.CashierResponse) []*cashierpb.CashierResponse {
+	var mappedCashiers []*cashierpb.CashierResponse
 
 	for _, cashier := range cashiers {
 		mappedCashiers = append(mappedCashiers, c.mapResponseCashier(cashier))
@@ -91,13 +91,13 @@ func (c *cashierProtoMapper) mapResponsesCashier(cashiers []*response.CashierRes
 	return mappedCashiers
 }
 
-func (c *cashierProtoMapper) mapResponseCashierDeleteAt(cashier *response.CashierResponseDeleteAt) *pb.CashierResponseDeleteAt {
+func (c *cashierProtoMapper) mapResponseCashierDeleteAt(cashier *response.CashierResponseDeleteAt) *cashierpb.CashierResponseDeleteAt {
 	var deletedAt *wrapperspb.StringValue
 	if cashier.DeletedAt != nil {
 		deletedAt = wrapperspb.String(*cashier.DeletedAt)
 	}
 
-	return &pb.CashierResponseDeleteAt{
+	return &cashierpb.CashierResponseDeleteAt{
 		Id:         int32(cashier.ID),
 		MerchantId: int32(cashier.MerchantID),
 		Name:       cashier.Name,
@@ -107,8 +107,8 @@ func (c *cashierProtoMapper) mapResponseCashierDeleteAt(cashier *response.Cashie
 	}
 }
 
-func (c *cashierProtoMapper) mapResponsesCashierDeleteAt(cashiers []*response.CashierResponseDeleteAt) []*pb.CashierResponseDeleteAt {
-	var mappedCashiers []*pb.CashierResponseDeleteAt
+func (c *cashierProtoMapper) mapResponsesCashierDeleteAt(cashiers []*response.CashierResponseDeleteAt) []*cashierpb.CashierResponseDeleteAt {
+	var mappedCashiers []*cashierpb.CashierResponseDeleteAt
 
 	for _, cashier := range cashiers {
 		mappedCashiers = append(mappedCashiers, c.mapResponseCashierDeleteAt(cashier))

@@ -1,10 +1,10 @@
 package protomapper
 
 import (
-	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	commonpb "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	orderitempb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -14,38 +14,38 @@ func NewOrderItemProtoMapper() *orderItemProtoMapper {
 	return &orderItemProtoMapper{}
 }
 
-func (o *orderItemProtoMapper) ToProtoResponseOrderItem(status string, message string, pbResponse *response.OrderItemResponse) *pb.ApiResponseOrderItem {
-	return &pb.ApiResponseOrderItem{
+func (o *orderItemProtoMapper) ToProtoResponseOrderItem(status string, message string, pbResponse *response.OrderItemResponse) *orderitempb.ApiResponseOrderItem {
+	return &orderitempb.ApiResponseOrderItem{
 		Status:  status,
 		Message: message,
 		Data:    o.mapResponseOrderItem(pbResponse),
 	}
 }
 
-func (o *orderItemProtoMapper) ToProtoResponsesOrderItem(status string, message string, pbResponse []*response.OrderItemResponse) *pb.ApiResponsesOrderItem {
-	return &pb.ApiResponsesOrderItem{
+func (o *orderItemProtoMapper) ToProtoResponsesOrderItem(status string, message string, pbResponse []*response.OrderItemResponse) *orderitempb.ApiResponsesOrderItem {
+	return &orderitempb.ApiResponsesOrderItem{
 		Status:  status,
 		Message: message,
 		Data:    o.mapResponsesOrderItem(pbResponse),
 	}
 }
 
-func (o *orderItemProtoMapper) ToProtoResponseOrderItemDelete(status string, message string) *pb.ApiResponseOrderItemDelete {
-	return &pb.ApiResponseOrderItemDelete{
+func (o *orderItemProtoMapper) ToProtoResponseOrderItemDelete(status string, message string) *orderitempb.ApiResponseOrderItemDelete {
+	return &orderitempb.ApiResponseOrderItemDelete{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (o *orderItemProtoMapper) ToProtoResponseOrderItemAll(status string, message string) *pb.ApiResponseOrderItemAll {
-	return &pb.ApiResponseOrderItemAll{
+func (o *orderItemProtoMapper) ToProtoResponseOrderItemAll(status string, message string) *orderitempb.ApiResponseOrderItemAll {
+	return &orderitempb.ApiResponseOrderItemAll{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (o *orderItemProtoMapper) ToProtoResponsePaginationOrderItemDeleteAt(pagination *pbcommon.PaginationMeta, status string, message string, orderItems []*response.OrderItemResponseDeleteAt) *pb.ApiResponsePaginationOrderItemDeleteAt {
-	return &pb.ApiResponsePaginationOrderItemDeleteAt{
+func (o *orderItemProtoMapper) ToProtoResponsePaginationOrderItemDeleteAt(pagination *commonpb.PaginationMeta, status string, message string, orderItems []*response.OrderItemResponseDeleteAt) *orderitempb.ApiResponsePaginationOrderItemDeleteAt {
+	return &orderitempb.ApiResponsePaginationOrderItemDeleteAt{
 		Status:     status,
 		Message:    message,
 		Data:       o.mapResponsesOrderItemDeleteAt(orderItems),
@@ -53,8 +53,8 @@ func (o *orderItemProtoMapper) ToProtoResponsePaginationOrderItemDeleteAt(pagina
 	}
 }
 
-func (o *orderItemProtoMapper) ToProtoResponsePaginationOrderItem(pagination *pbcommon.PaginationMeta, status string, message string, orderItems []*response.OrderItemResponse) *pb.ApiResponsePaginationOrderItem {
-	return &pb.ApiResponsePaginationOrderItem{
+func (o *orderItemProtoMapper) ToProtoResponsePaginationOrderItem(pagination *commonpb.PaginationMeta, status string, message string, orderItems []*response.OrderItemResponse) *orderitempb.ApiResponsePaginationOrderItem {
+	return &orderitempb.ApiResponsePaginationOrderItem{
 		Status:     status,
 		Message:    message,
 		Data:       o.mapResponsesOrderItem(orderItems),
@@ -62,8 +62,8 @@ func (o *orderItemProtoMapper) ToProtoResponsePaginationOrderItem(pagination *pb
 	}
 }
 
-func (o *orderItemProtoMapper) mapResponseOrderItem(orderItem *response.OrderItemResponse) *pb.OrderItemResponse {
-	return &pb.OrderItemResponse{
+func (o *orderItemProtoMapper) mapResponseOrderItem(orderItem *response.OrderItemResponse) *orderitempb.OrderItemResponse {
+	return &orderitempb.OrderItemResponse{
 		Id:        int32(orderItem.ID),
 		OrderId:   int32(orderItem.OrderID),
 		ProductId: int32(orderItem.ProductID),
@@ -74,8 +74,8 @@ func (o *orderItemProtoMapper) mapResponseOrderItem(orderItem *response.OrderIte
 	}
 }
 
-func (o *orderItemProtoMapper) mapResponsesOrderItem(orderItems []*response.OrderItemResponse) []*pb.OrderItemResponse {
-	var mappedOrderItems []*pb.OrderItemResponse
+func (o *orderItemProtoMapper) mapResponsesOrderItem(orderItems []*response.OrderItemResponse) []*orderitempb.OrderItemResponse {
+	var mappedOrderItems []*orderitempb.OrderItemResponse
 
 	for _, orderItem := range orderItems {
 		mappedOrderItems = append(mappedOrderItems, o.mapResponseOrderItem(orderItem))
@@ -84,13 +84,13 @@ func (o *orderItemProtoMapper) mapResponsesOrderItem(orderItems []*response.Orde
 	return mappedOrderItems
 }
 
-func (o *orderItemProtoMapper) mapResponseOrderItemDelete(orderItem *response.OrderItemResponseDeleteAt) *pb.OrderItemResponseDeleteAt {
+func (o *orderItemProtoMapper) mapResponseOrderItemDelete(orderItem *response.OrderItemResponseDeleteAt) *orderitempb.OrderItemResponseDeleteAt {
 	var deletedAt *wrapperspb.StringValue
 	if orderItem.DeleteAt != nil {
 		deletedAt = wrapperspb.String(*orderItem.DeleteAt)
 	}
 
-	return &pb.OrderItemResponseDeleteAt{
+	return &orderitempb.OrderItemResponseDeleteAt{
 		Id:        int32(orderItem.ID),
 		OrderId:   int32(orderItem.OrderID),
 		ProductId: int32(orderItem.ProductID),
@@ -102,8 +102,8 @@ func (o *orderItemProtoMapper) mapResponseOrderItemDelete(orderItem *response.Or
 	}
 }
 
-func (o *orderItemProtoMapper) mapResponsesOrderItemDeleteAt(orderItems []*response.OrderItemResponseDeleteAt) []*pb.OrderItemResponseDeleteAt {
-	var mappedOrderItems []*pb.OrderItemResponseDeleteAt
+func (o *orderItemProtoMapper) mapResponsesOrderItemDeleteAt(orderItems []*response.OrderItemResponseDeleteAt) []*orderitempb.OrderItemResponseDeleteAt {
+	var mappedOrderItems []*orderitempb.OrderItemResponseDeleteAt
 
 	for _, orderItem := range orderItems {
 		mappedOrderItems = append(mappedOrderItems, o.mapResponseOrderItemDelete(orderItem))

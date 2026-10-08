@@ -24,7 +24,7 @@ require (
 )
 
 require (
-	github.com/MamangRust/microservice-point-of-sale-pb v0.0.0
+	github.com/MamangRust/microservice-pointofsale-grpc/pb v0.0.0
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
@@ -85,4 +85,4 @@ replace github.com/MamangRust/microservice-point-of-sale-pkg => ../../pkg
 
 replace github.com/MamangRust/microservice-point-of-sale-shared => ../../shared
 
-replace github.com/MamangRust/microservice-point-of-sale-pb => ../../pb
+replace github.com/MamangRust/microservice-pointofsale-grpc/pb => ../../pb

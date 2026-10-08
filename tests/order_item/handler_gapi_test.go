@@ -8,7 +8,7 @@ import (
 	item_handler "github.com/MamangRust/microservice-point-of-sale-order-item/handler"
 	item_repo "github.com/MamangRust/microservice-point-of-sale-order-item/repository"
 	item_service "github.com/MamangRust/microservice-point-of-sale-order-item/service"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
@@ -18,7 +18,7 @@ import (
 
 type OrderItemGapiTestSuite struct {
 	tests.BaseTestSuite
-	client pb.OrderItemQueryServiceClient
+	client *grpc.ClientConn
 }
 
 func (s *OrderItemGapiTestSuite) SetupSuite() {
@@ -49,17 +49,17 @@ func (s *OrderItemGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := item_handler.NewHandler(svc, s.Log)
+	handlers := item_handler.NewHandler(svc, s.Log)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterOrderItemQueryServiceServer(server, handler)
-	pb.RegisterOrderItemCommandServiceServer(server, handler)
+	pborderitem.RegisterOrderItemQueryServiceServer(server, handlers)
+	pborderitem.RegisterOrderItemCommandServiceServer(server, handlers)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = pb.NewOrderItemQueryServiceClient(conn)
+	s.client = conn
 }
 
 func (s *OrderItemGapiTestSuite) TestOrderItemGapiLifecycle() {
@@ -74,38 +74,37 @@ func (s *OrderItemGapiTestSuite) TestOrderItemGapiLifecycle() {
 
 	// 2. Create an order item directly in DB for query testing
 	var orderItemID int
-	err := s.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?) RETURNING order_item_id`,
+	err := s.GormDB().Raw(`INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ($1, $2, $3, $4) RETURNING order_item_id`,
 		orderID, productID, 10, 700,
 	).Scan(&orderItemID).Error
 
+	queryClient := pborderitem.NewOrderItemQueryServiceClient(s.client)
+
 	// 3. FindOrderItemByOrder
-	findByOrderRes, err := s.client.FindOrderItemByOrder(ctx, &pb.FindByIdOrderItemRequest{Id: int32(orderID)})
+	findByOrderRes, err := queryClient.FindOrderItemByOrder(ctx, &pborderitem.FindByIdOrderItemRequest{Id: int32(orderID)})
 	s.Require().NoError(err)
 	s.NotEmpty(findByOrderRes.Data)
 
 	// 4. FindAll
-	allRes, err := s.client.FindAll(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	allRes, err := queryClient.FindAll(ctx, &pborderitem.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.client.FindByActive(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	activeRes, err := queryClient.FindByActive(ctx, &pborderitem.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Trash the order item directly in DB
-	err = s.GormDB().WithContext(ctx).Exec(`UPDATE order_items SET deleted_at = NOW() WHERE order_item_id = ?`, orderItemID).Error
-	s.Require().NoError(err)
+	s.Require().NoError(s.GormDB().Exec(`UPDATE order_items SET deleted_at = NOW() WHERE order_item_id = $1`, orderItemID).Error)
 
 	// 7. FindByTrashed
-	trashedRes, err := s.client.FindByTrashed(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	trashedRes, err := queryClient.FindByTrashed(ctx, &pborderitem.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
-	// 8. RestoreAll and DeleteAll (test these exist on the combined client)
-	// These are empty operations on query-only interface
-	_, err = s.client.FindAll(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	// 8. FindAll again to verify
+	_, err = queryClient.FindAll(ctx, &pborderitem.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 }
 

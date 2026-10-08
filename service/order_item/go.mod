@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/MamangRust/microservice-point-of-sale-pkg v1.0.7
 	github.com/MamangRust/microservice-point-of-sale-shared v1.0.8
-	github.com/MamangRust/microservice-point-of-sale-pb v0.0.0
+	github.com/MamangRust/microservice-pointofsale-grpc/pb v0.0.0
 	github.com/spf13/viper v1.20.1
 	go.opentelemetry.io/otel v1.46.0
 	go.uber.org/zap v1.27.1
@@ -82,4 +82,4 @@ replace github.com/MamangRust/microservice-point-of-sale-pkg => ../../pkg
 
 replace github.com/MamangRust/microservice-point-of-sale-shared => ../../shared
 
-replace github.com/MamangRust/microservice-point-of-sale-pb => ../../pb
+replace github.com/MamangRust/microservice-pointofsale-grpc/pb => ../../pb

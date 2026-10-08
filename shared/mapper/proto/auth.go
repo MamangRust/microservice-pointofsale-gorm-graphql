@@ -1,8 +1,8 @@
 package protomapper
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
-	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	authpb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	userpb "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -13,43 +13,43 @@ func NewAuthProtoMapper() *authProtoMapper {
 	return &authProtoMapper{}
 }
 
-func (s *authProtoMapper) ToProtoResponseVerifyCode(status string, message string) *pb.ApiResponseVerifyCode {
-	return &pb.ApiResponseVerifyCode{
+func (s *authProtoMapper) ToProtoResponseVerifyCode(status string, message string) *authpb.ApiResponseVerifyCode {
+	return &authpb.ApiResponseVerifyCode{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (s *authProtoMapper) ToProtoResponseForgotPassword(status string, message string) *pb.ApiResponseForgotPassword {
-	return &pb.ApiResponseForgotPassword{
+func (s *authProtoMapper) ToProtoResponseForgotPassword(status string, message string) *authpb.ApiResponseForgotPassword {
+	return &authpb.ApiResponseForgotPassword{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (s *authProtoMapper) ToProtoResponseResetPassword(status string, message string) *pb.ApiResponseResetPassword {
-	return &pb.ApiResponseResetPassword{
+func (s *authProtoMapper) ToProtoResponseResetPassword(status string, message string) *authpb.ApiResponseResetPassword {
+	return &authpb.ApiResponseResetPassword{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (s *authProtoMapper) ToProtoResponseLogin(status string, message string, response *response.TokenResponse) *pb.ApiResponseLogin {
-	return &pb.ApiResponseLogin{
+func (s *authProtoMapper) ToProtoResponseLogin(status string, message string, response *response.TokenResponse) *authpb.ApiResponseLogin {
+	return &authpb.ApiResponseLogin{
 		Status:  status,
 		Message: message,
-		Data: &pb.TokenResponse{
+		Data: &authpb.TokenResponse{
 			AccessToken:  response.AccessToken,
 			RefreshToken: response.RefreshToken,
 		},
 	}
 }
 
-func (s *authProtoMapper) ToProtoResponseRegister(status string, message string, response *response.UserResponse) *pb.ApiResponseRegister {
-	return &pb.ApiResponseRegister{
+func (s *authProtoMapper) ToProtoResponseRegister(status string, message string, response *response.UserResponse) *authpb.ApiResponseRegister {
+	return &authpb.ApiResponseRegister{
 		Status:  status,
 		Message: message,
-		Data: &pbuser.UserResponse{
+		Data: &userpb.UserResponse{
 			Id:        int32(response.ID),
 			Firstname: response.FirstName,
 			Lastname:  response.LastName,
@@ -60,22 +60,22 @@ func (s *authProtoMapper) ToProtoResponseRegister(status string, message string,
 	}
 }
 
-func (s *authProtoMapper) ToProtoResponseRefreshToken(status string, message string, response *response.TokenResponse) *pb.ApiResponseRefreshToken {
-	return &pb.ApiResponseRefreshToken{
+func (s *authProtoMapper) ToProtoResponseRefreshToken(status string, message string, response *response.TokenResponse) *authpb.ApiResponseRefreshToken {
+	return &authpb.ApiResponseRefreshToken{
 		Status:  status,
 		Message: message,
-		Data: &pb.TokenResponse{
+		Data: &authpb.TokenResponse{
 			AccessToken:  response.AccessToken,
 			RefreshToken: response.RefreshToken,
 		},
 	}
 }
 
-func (s *authProtoMapper) ToProtoResponseGetMe(status string, message string, response *response.UserResponse) *pb.ApiResponseGetMe {
-	return &pb.ApiResponseGetMe{
+func (s *authProtoMapper) ToProtoResponseGetMe(status string, message string, response *response.UserResponse) *authpb.ApiResponseGetMe {
+	return &authpb.ApiResponseGetMe{
 		Status:  status,
 		Message: message,
-		Data: &pbuser.UserResponse{
+		Data: &userpb.UserResponse{
 			Id:        int32(response.ID),
 			Firstname: response.FirstName,
 			Lastname:  response.LastName,

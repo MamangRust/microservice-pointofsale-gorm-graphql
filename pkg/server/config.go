@@ -10,14 +10,13 @@ type Config struct {
 	Port           int
 	OtelEndpoint   string
 
-	// DBCluster is the env prefix used to resolve this service's own
-	// PostgreSQL connection (e.g. "DB_ROLE" -> DB_ROLE_HOST, DB_ROLE_NAME).
-	// Empty falls back to the generic DB_* keys.
+	// DBCluster is the env key prefix of the PostgreSQL instance this service
+	// owns (e.g. "DB_SALES" for the order/order_item/transaction services). The
+	// server opens the connection via database.NewGormClientWithPrefix, which
+	// reads DB_<PREFIX>_HOST/PORT/NAME/USERNAME/PASSWORD. Each bounded context
+	// has its own instance, so this must be set to route the service to its
+	// own database rather than a shared/generic one.
 	DBCluster string
-
-	// RedisCluster is the env prefix used to resolve this service's own Redis
-	// connection. Empty falls back to the generic REDIS_* keys.
-	RedisCluster string
 }
 
 // Default constants for gRPC server

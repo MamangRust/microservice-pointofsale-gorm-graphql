@@ -17,17 +17,66 @@ import (
 
 // VerifyCode is the resolver for the verifyCode field.
 func (r *mutationResolver) VerifyCode(ctx context.Context, input model.VerifyCodeInput) (*model.APIResponseVerifyCode, error) {
-	panic(fmt.Errorf("not implemented: VerifyCode - verifyCode"))
+	return ResolverHandle(r.ResolverHandle, "VerifyCode", ctx, func(ctx context.Context) (*model.APIResponseVerifyCode, error) {
+		res, err := r.AuthGraphql.AuthClient.VerifyCode(ctx, &authpb.VerifyCodeRequest{
+			Code: input.Code,
+		})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "VerifyCode")
+		}
+
+		return r.AuthGraphql.Mapping.ToGraphqlVerifyCode(res), nil
+	})
 }
 
 // ForgotPassword is the resolver for the forgotPassword field.
 func (r *mutationResolver) ForgotPassword(ctx context.Context, input model.ForgotPasswordInput) (*model.APIResponseForgotPassword, error) {
-	panic(fmt.Errorf("not implemented: ForgotPassword - forgotPassword"))
+	return ResolverHandle(r.ResolverHandle, "ForgotPassword", ctx, func(ctx context.Context) (*model.APIResponseForgotPassword, error) {
+		request := &requests.ForgotPasswordRequest{
+			Email: input.Email,
+		}
+
+		if err := request.Validate(); err != nil {
+			validations := r.parseValidationErrors(err)
+			return nil, sharedErrors.NewValidationError(validations)
+		}
+
+		res, err := r.AuthGraphql.AuthClient.ForgotPassword(ctx, &authpb.ForgotPasswordRequest{
+			Email: request.Email,
+		})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "ForgotPassword")
+		}
+
+		return r.AuthGraphql.Mapping.ToGraphqlForgotPassword(res), nil
+	})
 }
 
 // ResetPassword is the resolver for the resetPassword field.
 func (r *mutationResolver) ResetPassword(ctx context.Context, input model.ResetPasswordInput) (*model.APIResponseResetPassword, error) {
-	panic(fmt.Errorf("not implemented: ResetPassword - resetPassword"))
+	return ResolverHandle(r.ResolverHandle, "ResetPassword", ctx, func(ctx context.Context) (*model.APIResponseResetPassword, error) {
+		request := &requests.CreateResetPasswordRequest{
+			ResetToken:      input.ResetToken,
+			Password:        input.Password,
+			ConfirmPassword: input.ConfirmPassword,
+		}
+
+		if err := request.Validate(); err != nil {
+			validations := r.parseValidationErrors(err)
+			return nil, sharedErrors.NewValidationError(validations)
+		}
+
+		res, err := r.AuthGraphql.AuthClient.ResetPassword(ctx, &authpb.ResetPasswordRequest{
+			ResetToken:      request.ResetToken,
+			Password:        request.Password,
+			ConfirmPassword: request.ConfirmPassword,
+		})
+		if err != nil {
+			return nil, r.handleGraphQLError(err, "ResetPassword")
+		}
+
+		return r.AuthGraphql.Mapping.ToGraphqlResetPassword(res), nil
+	})
 }
 
 // RegisterUser is the resolver for the registerUser field.

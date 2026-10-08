@@ -33,7 +33,6 @@ func (s *OrderRepositoryTestSuite) SetupSuite() {
 
 	s.Require().NoError(err)
 
-	// Create placeholder gRPC connections (gRPC repos not called in DB-only tests)
 	cashierLis, _ := net.Listen("tcp", "localhost:0")
 	merchantLis, _ := net.Listen("tcp", "localhost:0")
 	productLis, _ := net.Listen("tcp", "localhost:0")
@@ -54,30 +53,23 @@ func (s *OrderRepositoryTestSuite) SetupSuite() {
 		pborderitem.NewOrderItemCommandServiceClient(orderItemConn),
 	)
 
-	// Seed a merchant and cashier directly for order tests
 	var userID int
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'test-verify', true) RETURNING user_id`,
 		"Order", "Repo", "order.repo@example.com", "password123",
 	).Scan(&userID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING merchant_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING merchant_id`,
 		userID, "Order Test Merchant", "Desc", "Addr", "o@example.com", "123", "active",
 	).Scan(&s.merchantID).Error
 	s.Require().NoError(err)
 
-	// Seed a cashier (orders.cashier_id references cashiers.cashier_id)
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO cashiers (merchant_id, user_id, name) VALUES (?, ?, 'Order Test Cashier') RETURNING cashier_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO cashiers (merchant_id, user_id, name) VALUES ($1, $2, 'Order Test Cashier') RETURNING cashier_id`,
 		s.merchantID, userID,
 	).Scan(&s.cashierID).Error
 	s.Require().NoError(err)
 
-	// Seed an order for use in tests
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO orders (merchant_id, cashier_id, total_price) VALUES (?, ?, ?) RETURNING order_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO orders (merchant_id, cashier_id, total_price) VALUES ($1, $2, $3) RETURNING order_id`,
 		s.merchantID, s.cashierID, 5000,
 	).Scan(&s.orderID).Error
 	s.Require().NoError(err)
@@ -130,17 +122,14 @@ func (s *OrderRepositoryTestSuite) Test4_TrashAndRestore() {
 	s.Require().NotZero(s.orderID)
 	ctx := context.Background()
 
-	// Trash
 	trashed, err := s.repo.OrderCommand.TrashedOrder(ctx, s.orderID)
 	s.NoError(err)
 	s.NotNil(trashed)
 
-	// Restore
 	restored, err := s.repo.OrderCommand.RestoreOrder(ctx, s.orderID)
 	s.NoError(err)
 	s.NotNil(restored)
 
-	// Verify restored
 	found, err := s.repo.OrderQuery.FindById(ctx, s.orderID)
 	s.NoError(err)
 	s.NotNil(found)
@@ -150,7 +139,6 @@ func (s *OrderRepositoryTestSuite) Test5_DeletePermanent() {
 	s.Require().NotZero(s.orderID)
 	ctx := context.Background()
 
-	// Must be trashed first for permanent delete
 	_, err := s.repo.OrderCommand.TrashedOrder(ctx, s.orderID)
 	s.NoError(err)
 

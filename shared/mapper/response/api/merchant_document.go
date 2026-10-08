@@ -1,7 +1,7 @@
 package response_api
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
+	merchantdocumentpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -11,7 +11,7 @@ func NewMerchantDocumentResponseMapper() *merchantDocumentResponse {
 	return &merchantDocumentResponse{}
 }
 
-func (m *merchantDocumentResponse) ToApiResponseMerchantDocument(doc *pb.ApiResponseMerchantDocument) *response.ApiResponseMerchantDocument {
+func (m *merchantDocumentResponse) ToApiResponseMerchantDocument(doc *merchantdocumentpb.ApiResponseMerchantDocument) *response.ApiResponseMerchantDocument {
 	return &response.ApiResponseMerchantDocument{
 		Status:  doc.Status,
 		Message: doc.Message,
@@ -19,7 +19,7 @@ func (m *merchantDocumentResponse) ToApiResponseMerchantDocument(doc *pb.ApiResp
 	}
 }
 
-func (m *merchantDocumentResponse) ToApiResponsesMerchantDocument(docs *pb.ApiResponsesMerchantDocument) *response.ApiResponsesMerchantDocument {
+func (m *merchantDocumentResponse) ToApiResponsesMerchantDocument(docs *merchantdocumentpb.ApiResponsesMerchantDocument) *response.ApiResponsesMerchantDocument {
 	return &response.ApiResponsesMerchantDocument{
 		Status:  docs.Status,
 		Message: docs.Message,
@@ -27,7 +27,7 @@ func (m *merchantDocumentResponse) ToApiResponsesMerchantDocument(docs *pb.ApiRe
 	}
 }
 
-func (m *merchantDocumentResponse) ToApiResponsePaginationMerchantDocument(docs *pb.ApiResponsePaginationMerchantDocument) *response.ApiResponsePaginationMerchantDocument {
+func (m *merchantDocumentResponse) ToApiResponsePaginationMerchantDocument(docs *merchantdocumentpb.ApiResponsePaginationMerchantDocument) *response.ApiResponsePaginationMerchantDocument {
 	return &response.ApiResponsePaginationMerchantDocument{
 		Status:     docs.Status,
 		Message:    docs.Message,
@@ -36,7 +36,7 @@ func (m *merchantDocumentResponse) ToApiResponsePaginationMerchantDocument(docs 
 	}
 }
 
-func (m *merchantDocumentResponse) ToApiResponsePaginationMerchantDocumentDeleteAt(docs *pb.ApiResponsePaginationMerchantDocumentAt) *response.ApiResponsePaginationMerchantDocumentDeleteAt {
+func (m *merchantDocumentResponse) ToApiResponsePaginationMerchantDocumentDeleteAt(docs *merchantdocumentpb.ApiResponsePaginationMerchantDocumentAt) *response.ApiResponsePaginationMerchantDocumentDeleteAt {
 	return &response.ApiResponsePaginationMerchantDocumentDeleteAt{
 		Status:     docs.Status,
 		Message:    docs.Message,
@@ -45,21 +45,21 @@ func (m *merchantDocumentResponse) ToApiResponsePaginationMerchantDocumentDelete
 	}
 }
 
-func (m *merchantDocumentResponse) ToApiResponseMerchantDocumentAll(resp *pb.ApiResponseMerchantDocumentAll) *response.ApiResponseMerchantDocumentAll {
+func (m *merchantDocumentResponse) ToApiResponseMerchantDocumentAll(resp *merchantdocumentpb.ApiResponseMerchantDocumentAll) *response.ApiResponseMerchantDocumentAll {
 	return &response.ApiResponseMerchantDocumentAll{
 		Status:  resp.Status,
 		Message: resp.Message,
 	}
 }
 
-func (m *merchantDocumentResponse) ToApiResponseMerchantDocumentDeleteAt(resp *pb.ApiResponseMerchantDocumentDelete) *response.ApiResponseMerchantDocumentDelete {
+func (m *merchantDocumentResponse) ToApiResponseMerchantDocumentDeleteAt(resp *merchantdocumentpb.ApiResponseMerchantDocumentDelete) *response.ApiResponseMerchantDocumentDelete {
 	return &response.ApiResponseMerchantDocumentDelete{
 		Status:  resp.Status,
 		Message: resp.Message,
 	}
 }
 
-func (m *merchantDocumentResponse) mapMerchantDocument(doc *pb.MerchantDocument) *response.MerchantDocumentResponse {
+func (m *merchantDocumentResponse) mapMerchantDocument(doc *merchantdocumentpb.MerchantDocument) *response.MerchantDocumentResponse {
 	if doc == nil {
 		return nil
 	}
@@ -75,7 +75,7 @@ func (m *merchantDocumentResponse) mapMerchantDocument(doc *pb.MerchantDocument)
 	}
 }
 
-func (m *merchantDocumentResponse) mapMerchantDocuments(docs []*pb.MerchantDocument) []*response.MerchantDocumentResponse {
+func (m *merchantDocumentResponse) mapMerchantDocuments(docs []*merchantdocumentpb.MerchantDocument) []*response.MerchantDocumentResponse {
 	var responses []*response.MerchantDocumentResponse
 	for _, doc := range docs {
 		responses = append(responses, m.mapMerchantDocument(doc))
@@ -83,7 +83,7 @@ func (m *merchantDocumentResponse) mapMerchantDocuments(docs []*pb.MerchantDocum
 	return responses
 }
 
-func (m *merchantDocumentResponse) mapMerchantDocumentDeletedAt(doc *pb.MerchantDocumentDeleteAt) *response.MerchantDocumentResponseDeleteAt {
+func (m *merchantDocumentResponse) mapMerchantDocumentDeletedAt(doc *merchantdocumentpb.MerchantDocumentDeleteAt) *response.MerchantDocumentResponseDeleteAt {
 	if doc == nil {
 		return nil
 	}
@@ -106,7 +106,7 @@ func (m *merchantDocumentResponse) mapMerchantDocumentDeletedAt(doc *pb.Merchant
 	}
 }
 
-func (m *merchantDocumentResponse) mapMerchantDocumentsDeletedAt(docs []*pb.MerchantDocumentDeleteAt) []*response.MerchantDocumentResponseDeleteAt {
+func (m *merchantDocumentResponse) mapMerchantDocumentsDeletedAt(docs []*merchantdocumentpb.MerchantDocumentDeleteAt) []*response.MerchantDocumentResponseDeleteAt {
 	var responses []*response.MerchantDocumentResponseDeleteAt
 	for _, doc := range docs {
 		responses = append(responses, m.mapMerchantDocumentDeletedAt(doc))

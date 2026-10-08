@@ -1,18 +1,17 @@
 package response_api
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	orderpb "github.com/MamangRust/microservice-point-of-sale-pb/order"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
-type orderResponseMapper struct {
-}
+type orderResponseMapper struct{}
 
 func NewOrderResponseMapper() *orderResponseMapper {
 	return &orderResponseMapper{}
 }
 
-func (o *orderResponseMapper) ToResponseOrder(order *pb.OrderResponse) *response.OrderResponse {
+func (o *orderResponseMapper) ToResponseOrder(order *orderpb.OrderResponse) *response.OrderResponse {
 	return &response.OrderResponse{
 		ID:         int(order.Id),
 		MerchantID: int(order.MerchantId),
@@ -23,7 +22,7 @@ func (o *orderResponseMapper) ToResponseOrder(order *pb.OrderResponse) *response
 	}
 }
 
-func (o *orderResponseMapper) ToResponsesOrder(orders []*pb.OrderResponse) []*response.OrderResponse {
+func (o *orderResponseMapper) ToResponsesOrder(orders []*orderpb.OrderResponse) []*response.OrderResponse {
 	var mappedOrders []*response.OrderResponse
 
 	for _, order := range orders {
@@ -33,7 +32,7 @@ func (o *orderResponseMapper) ToResponsesOrder(orders []*pb.OrderResponse) []*re
 	return mappedOrders
 }
 
-func (o *orderResponseMapper) ToResponseOrderDeleteAt(order *pb.OrderResponseDeleteAt) *response.OrderResponseDeleteAt {
+func (o *orderResponseMapper) ToResponseOrderDeleteAt(order *orderpb.OrderResponseDeleteAt) *response.OrderResponseDeleteAt {
 	var deletedAt string
 
 	if order.DeletedAt != nil {
@@ -51,7 +50,7 @@ func (o *orderResponseMapper) ToResponseOrderDeleteAt(order *pb.OrderResponseDel
 	}
 }
 
-func (o *orderResponseMapper) ToResponsesOrderDeleteAt(orders []*pb.OrderResponseDeleteAt) []*response.OrderResponseDeleteAt {
+func (o *orderResponseMapper) ToResponsesOrderDeleteAt(orders []*orderpb.OrderResponseDeleteAt) []*response.OrderResponseDeleteAt {
 	var mappedOrders []*response.OrderResponseDeleteAt
 
 	for _, order := range orders {
@@ -61,7 +60,7 @@ func (o *orderResponseMapper) ToResponsesOrderDeleteAt(orders []*pb.OrderRespons
 	return mappedOrders
 }
 
-func (o *orderResponseMapper) ToApiResponseOrder(pbResponse *pb.ApiResponseOrder) *response.ApiResponseOrder {
+func (o *orderResponseMapper) ToApiResponseOrder(pbResponse *orderpb.ApiResponseOrder) *response.ApiResponseOrder {
 	return &response.ApiResponseOrder{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -69,7 +68,7 @@ func (o *orderResponseMapper) ToApiResponseOrder(pbResponse *pb.ApiResponseOrder
 	}
 }
 
-func (o *orderResponseMapper) ToApiResponseOrderDeleteAt(pbResponse *pb.ApiResponseOrderDeleteAt) *response.ApiResponseOrderDeleteAt {
+func (o *orderResponseMapper) ToApiResponseOrderDeleteAt(pbResponse *orderpb.ApiResponseOrderDeleteAt) *response.ApiResponseOrderDeleteAt {
 	return &response.ApiResponseOrderDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -77,7 +76,7 @@ func (o *orderResponseMapper) ToApiResponseOrderDeleteAt(pbResponse *pb.ApiRespo
 	}
 }
 
-func (o *orderResponseMapper) ToApiResponsesOrder(pbResponse *pb.ApiResponsesOrder) *response.ApiResponsesOrder {
+func (o *orderResponseMapper) ToApiResponsesOrder(pbResponse *orderpb.ApiResponsesOrder) *response.ApiResponsesOrder {
 	return &response.ApiResponsesOrder{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -85,21 +84,21 @@ func (o *orderResponseMapper) ToApiResponsesOrder(pbResponse *pb.ApiResponsesOrd
 	}
 }
 
-func (o *orderResponseMapper) ToApiResponseOrderDelete(pbResponse *pb.ApiResponseOrderDelete) *response.ApiResponseOrderDelete {
+func (o *orderResponseMapper) ToApiResponseOrderDelete(pbResponse *orderpb.ApiResponseOrderDelete) *response.ApiResponseOrderDelete {
 	return &response.ApiResponseOrderDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (o *orderResponseMapper) ToApiResponseOrderAll(pbResponse *pb.ApiResponseOrderAll) *response.ApiResponseOrderAll {
+func (o *orderResponseMapper) ToApiResponseOrderAll(pbResponse *orderpb.ApiResponseOrderAll) *response.ApiResponseOrderAll {
 	return &response.ApiResponseOrderAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (o *orderResponseMapper) ToApiResponsePaginationOrderDeleteAt(pbResponse *pb.ApiResponsePaginationOrderDeleteAt) *response.ApiResponsePaginationOrderDeleteAt {
+func (o *orderResponseMapper) ToApiResponsePaginationOrderDeleteAt(pbResponse *orderpb.ApiResponsePaginationOrderDeleteAt) *response.ApiResponsePaginationOrderDeleteAt {
 	return &response.ApiResponsePaginationOrderDeleteAt{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -108,7 +107,7 @@ func (o *orderResponseMapper) ToApiResponsePaginationOrderDeleteAt(pbResponse *p
 	}
 }
 
-func (o *orderResponseMapper) ToApiResponsePaginationOrder(pbResponse *pb.ApiResponsePaginationOrder) *response.ApiResponsePaginationOrder {
+func (o *orderResponseMapper) ToApiResponsePaginationOrder(pbResponse *orderpb.ApiResponsePaginationOrder) *response.ApiResponsePaginationOrder {
 	return &response.ApiResponsePaginationOrder{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

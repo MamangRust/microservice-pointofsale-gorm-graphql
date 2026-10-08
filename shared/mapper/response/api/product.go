@@ -1,7 +1,7 @@
 package response_api
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	productpb "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -12,7 +12,7 @@ func NewProductResponseMapper() *productResponseMapper {
 	return &productResponseMapper{}
 }
 
-func (p *productResponseMapper) ToResponseProduct(product *pb.ProductResponse) *response.ProductResponse {
+func (p *productResponseMapper) ToResponseProduct(product *productpb.ProductResponse) *response.ProductResponse {
 	return &response.ProductResponse{
 		ID:           int(product.Id),
 		MerchantID:   int(product.MerchantId),
@@ -31,7 +31,7 @@ func (p *productResponseMapper) ToResponseProduct(product *pb.ProductResponse) *
 	}
 }
 
-func (p *productResponseMapper) ToResponsesProduct(products []*pb.ProductResponse) []*response.ProductResponse {
+func (p *productResponseMapper) ToResponsesProduct(products []*productpb.ProductResponse) []*response.ProductResponse {
 	var mappedProducts []*response.ProductResponse
 
 	for _, product := range products {
@@ -41,7 +41,7 @@ func (p *productResponseMapper) ToResponsesProduct(products []*pb.ProductRespons
 	return mappedProducts
 }
 
-func (p *productResponseMapper) ToResponseProductDeleteAt(product *pb.ProductResponseDeleteAt) *response.ProductResponseDeleteAt {
+func (p *productResponseMapper) ToResponseProductDeleteAt(product *productpb.ProductResponseDeleteAt) *response.ProductResponseDeleteAt {
 	var deletedAt string
 
 	if product.DeletedAt != nil {
@@ -67,7 +67,7 @@ func (p *productResponseMapper) ToResponseProductDeleteAt(product *pb.ProductRes
 	}
 }
 
-func (p *productResponseMapper) ToResponsesProductDeleteAt(products []*pb.ProductResponseDeleteAt) []*response.ProductResponseDeleteAt {
+func (p *productResponseMapper) ToResponsesProductDeleteAt(products []*productpb.ProductResponseDeleteAt) []*response.ProductResponseDeleteAt {
 	var mappedProducts []*response.ProductResponseDeleteAt
 
 	for _, product := range products {
@@ -77,7 +77,7 @@ func (p *productResponseMapper) ToResponsesProductDeleteAt(products []*pb.Produc
 	return mappedProducts
 }
 
-func (p *productResponseMapper) ToApiResponseProduct(pbResponse *pb.ApiResponseProduct) *response.ApiResponseProduct {
+func (p *productResponseMapper) ToApiResponseProduct(pbResponse *productpb.ApiResponseProduct) *response.ApiResponseProduct {
 	return &response.ApiResponseProduct{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -85,7 +85,7 @@ func (p *productResponseMapper) ToApiResponseProduct(pbResponse *pb.ApiResponseP
 	}
 }
 
-func (p *productResponseMapper) ToApiResponsesProduct(pbResponse *pb.ApiResponsesProduct) *response.ApiResponsesProduct {
+func (p *productResponseMapper) ToApiResponsesProduct(pbResponse *productpb.ApiResponsesProduct) *response.ApiResponsesProduct {
 	return &response.ApiResponsesProduct{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -93,7 +93,7 @@ func (p *productResponseMapper) ToApiResponsesProduct(pbResponse *pb.ApiResponse
 	}
 }
 
-func (p *productResponseMapper) ToApiResponsesProductDeleteAt(pbResponse *pb.ApiResponseProductDeleteAt) *response.ApiResponseProductDeleteAt {
+func (p *productResponseMapper) ToApiResponsesProductDeleteAt(pbResponse *productpb.ApiResponseProductDeleteAt) *response.ApiResponseProductDeleteAt {
 	return &response.ApiResponseProductDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -101,21 +101,21 @@ func (p *productResponseMapper) ToApiResponsesProductDeleteAt(pbResponse *pb.Api
 	}
 }
 
-func (p *productResponseMapper) ToApiResponseProductDelete(pbResponse *pb.ApiResponseProductDelete) *response.ApiResponseProductDelete {
+func (p *productResponseMapper) ToApiResponseProductDelete(pbResponse *productpb.ApiResponseProductDelete) *response.ApiResponseProductDelete {
 	return &response.ApiResponseProductDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (p *productResponseMapper) ToApiResponseProductAll(pbResponse *pb.ApiResponseProductAll) *response.ApiResponseProductAll {
+func (p *productResponseMapper) ToApiResponseProductAll(pbResponse *productpb.ApiResponseProductAll) *response.ApiResponseProductAll {
 	return &response.ApiResponseProductAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (p *productResponseMapper) ToApiResponsePaginationProductDeleteAt(pbResponse *pb.ApiResponsePaginationProductDeleteAt) *response.ApiResponsePaginationProductDeleteAt {
+func (p *productResponseMapper) ToApiResponsePaginationProductDeleteAt(pbResponse *productpb.ApiResponsePaginationProductDeleteAt) *response.ApiResponsePaginationProductDeleteAt {
 	return &response.ApiResponsePaginationProductDeleteAt{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -124,7 +124,7 @@ func (p *productResponseMapper) ToApiResponsePaginationProductDeleteAt(pbRespons
 	}
 }
 
-func (p *productResponseMapper) ToApiResponsePaginationProduct(pbResponse *pb.ApiResponsePaginationProduct) *response.ApiResponsePaginationProduct {
+func (p *productResponseMapper) ToApiResponsePaginationProduct(pbResponse *productpb.ApiResponsePaginationProduct) *response.ApiResponsePaginationProduct {
 	return &response.ApiResponsePaginationProduct{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

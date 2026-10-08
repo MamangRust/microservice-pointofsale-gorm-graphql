@@ -6,7 +6,7 @@ import (
 
 	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
 	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	prod_cache "github.com/MamangRust/microservice-point-of-sale-product/cache"
 	prod_handler "github.com/MamangRust/microservice-point-of-sale-product/handler"
 	prod_repo "github.com/MamangRust/microservice-point-of-sale-product/repository"
@@ -19,14 +19,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type productGapiClient struct {
-	pb.ProductQueryServiceClient
-	pb.ProductCommandServiceClient
-}
-
 type ProductGapiTestSuite struct {
 	tests.BaseTestSuite
-	client productGapiClient
+	client *grpc.ClientConn
 }
 
 func (s *ProductGapiTestSuite) SetupSuite() {
@@ -45,9 +40,11 @@ func (s *ProductGapiTestSuite) SetupSuite() {
 
 	// Product dependencies
 	mencache := prod_cache.NewMencache(cacheStore)
-	categoryClient := pbcategory.NewCategoryQueryServiceClient(s.Conns["category"])
-	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
-	repos := prod_repo.NewRepositories(productQueries, categoryClient, merchantClient)
+	repos := prod_repo.NewRepositories(
+		productQueries,
+		pbcategory.NewCategoryQueryServiceClient(s.Conns["category"]),
+		pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+	)
 	svc := prod_service.NewService(&prod_service.Deps{
 		Mencache:      mencache,
 		Repositories:  repos,
@@ -57,20 +54,17 @@ func (s *ProductGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := prod_handler.NewHandler(svc)
+	handlers := prod_handler.NewHandler(svc)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterProductQueryServiceServer(server, handler)
-	pb.RegisterProductCommandServiceServer(server, handler)
+	pbproduct.RegisterProductQueryServiceServer(server, handlers)
+	pbproduct.RegisterProductCommandServiceServer(server, handlers)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = productGapiClient{
-		ProductQueryServiceClient:   pb.NewProductQueryServiceClient(conn),
-		ProductCommandServiceClient: pb.NewProductCommandServiceClient(conn),
-	}
+	s.client = conn
 }
 
 func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
@@ -81,8 +75,11 @@ func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
 	catID := s.SeedCategory(ctx)
 	merchID := s.SeedMerchant(ctx, userID)
 
+	cmdClient := pbproduct.NewProductCommandServiceClient(s.client)
+	queryClient := pbproduct.NewProductQueryServiceClient(s.client)
+
 	// 2. Create
-	createRes, err := s.client.Create(ctx, &pb.CreateProductRequest{
+	createRes, err := cmdClient.Create(ctx, &pbproduct.CreateProductRequest{
 		MerchantId:   int32(merchID),
 		CategoryId:   int32(catID),
 		Name:         "GAPI Item",
@@ -97,22 +94,22 @@ func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
 	prodID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.client.FindById(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	getRes, err := queryClient.FindById(ctx, &pbproduct.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 	s.Equal("GAPI Item", getRes.Data.Name)
 
 	// 4. FindAll
-	allRes, err := s.client.FindAll(ctx, &pb.FindAllProductRequest{Page: 1, PageSize: 10})
+	allRes, err := queryClient.FindAll(ctx, &pbproduct.FindAllProductRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.client.FindByActive(ctx, &pb.FindAllProductRequest{Page: 1, PageSize: 10})
+	activeRes, err := queryClient.FindByActive(ctx, &pbproduct.FindAllProductRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.client.Update(ctx, &pb.UpdateProductRequest{
+	updateRes, err := cmdClient.Update(ctx, &pbproduct.UpdateProductRequest{
 		ProductId:    prodID,
 		MerchantId:   int32(merchID),
 		CategoryId:   int32(catID),
@@ -128,29 +125,29 @@ func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
 	s.Equal("GAPI Item Updated", updateRes.Data.Name)
 
 	// 7. Trash
-	_, err = s.client.TrashedProduct(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	_, err = cmdClient.TrashedProduct(ctx, &pbproduct.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.client.FindByTrashed(ctx, &pb.FindAllProductRequest{Page: 1, PageSize: 10})
+	trashedRes, err := queryClient.FindByTrashed(ctx, &pbproduct.FindAllProductRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.client.RestoreProduct(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	_, err = cmdClient.RestoreProduct(ctx, &pbproduct.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.client.TrashedProduct(ctx, &pb.FindByIdProductRequest{Id: prodID})
-	_, err = s.client.DeleteProductPermanent(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	_, _ = cmdClient.TrashedProduct(ctx, &pbproduct.FindByIdProductRequest{Id: prodID})
+	_, err = cmdClient.DeleteProductPermanent(ctx, &pbproduct.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 
 	// 11. RestoreAll
-	_, err = s.client.RestoreAllProduct(ctx, &emptypb.Empty{})
+	_, err = cmdClient.RestoreAllProduct(ctx, &emptypb.Empty{})
 	s.Require().NoError(err)
 
 	// 12. DeleteAll
-	_, err = s.client.DeleteAllProductPermanent(ctx, &emptypb.Empty{})
+	_, err = cmdClient.DeleteAllProductPermanent(ctx, &emptypb.Empty{})
 	s.Require().NoError(err)
 }
 

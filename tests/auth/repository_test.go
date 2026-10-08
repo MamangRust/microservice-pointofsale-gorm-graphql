@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
@@ -9,35 +10,115 @@ import (
 	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
 	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
+	role_cache "github.com/MamangRust/microservice-point-of-sale-role/cache"
+	role_handler "github.com/MamangRust/microservice-point-of-sale-role/handler"
+	role_repo "github.com/MamangRust/microservice-point-of-sale-role/repository"
+	role_service "github.com/MamangRust/microservice-point-of-sale-role/service"
+	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
+	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
+	user_cache "github.com/MamangRust/microservice-point-of-sale-user/cache"
+	user_handler "github.com/MamangRust/microservice-point-of-sale-user/handler"
+	user_repo "github.com/MamangRust/microservice-point-of-sale-user/repository"
+	user_service "github.com/MamangRust/microservice-point-of-sale-user/service"
 
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type AuthRepositoryTestSuite struct {
-	tests.BaseTestSuite
-	repo   *repository.Repositories
-	userID int
-	email  string
+	suite.Suite
+	ts         *tests.TestSuite
+	repo       *repository.Repositories
+	userID     int
+	email      string
+	roleServer *grpc.Server
+	roleConn   *grpc.ClientConn
+	userServer *grpc.Server
+	userConn   *grpc.ClientConn
 }
 
 func (s *AuthRepositoryTestSuite) SetupSuite() {
-	s.BaseTestSuite.SetupSuite()
+	ts, err := tests.SetupTestSuite()
+	s.ts = ts
 
-	// The auth repository's User adapter talks to the real user service.
-	s.SetupUserService()
+	s.Require().NoError(err)
 
-	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
-	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
-	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
-	s.repo = repository.NewRepositories(s.GormDB(), userQueryClient, userCommandClient, roleClient, userRoleClient)
+	authQueries := s.ts.GormDB()
+
+	log, _ := logger.NewLogger("test", nil)
+	cacheMetrics, _ := observability.NewCacheMetrics("test")
+	cacheStore := cache.NewCacheStore(s.ts.RedisClient(), log, cacheMetrics)
+	obs, _ := observability.NewObservability("test", log)
+
+	roleMencache := role_cache.NewMencache(cacheStore)
+	roleRepos := role_repo.NewRepositories(authQueries)
+	roleSvc := role_service.NewService(&role_service.Deps{
+		Repositories:  roleRepos,
+		Logger:        log,
+		Mencache:      roleMencache,
+		Observability: obs,
+	})
+	roleGapi := role_handler.NewHandler(roleSvc)
+	s.roleServer = grpc.NewServer()
+	pbrole.RegisterRoleQueryServiceServer(s.roleServer, roleGapi)
+	pbrole.RegisterRoleCommandServiceServer(s.roleServer, roleGapi)
+	pbuserrole.RegisterUserRoleServiceServer(s.roleServer, roleGapi)
+	roleLis, err := net.Listen("tcp", "localhost:0")
+	s.Require().NoError(err)
+	go func() {
+		_ = s.roleServer.Serve(roleLis)
+	}()
+	s.roleConn, err = grpc.NewClient(roleLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	s.Require().NoError(err)
+	roleClient := pbrole.NewRoleQueryServiceClient(s.roleConn)
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.roleConn)
+
+	userMencache := user_cache.NewMencache(cacheStore)
+	userRepos := user_repo.NewRepositories(authQueries, roleClient, userRoleClient)
+	userSvc := user_service.NewService(&user_service.Deps{
+		Repositories:  userRepos,
+		Logger:        log,
+		Hash:          hash.NewHashingPassword(),
+		Mencache:      userMencache,
+		Observability: obs,
+	})
+	userGapi := user_handler.NewHandler(userSvc)
+	s.userServer = grpc.NewServer()
+	pbuser.RegisterUserQueryServiceServer(s.userServer, userGapi)
+	pbuser.RegisterUserCommandServiceServer(s.userServer, userGapi)
+	userLis, err := net.Listen("tcp", "localhost:0")
+	s.Require().NoError(err)
+	go func() {
+		_ = s.userServer.Serve(userLis)
+	}()
+	s.userConn, err = grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	s.Require().NoError(err)
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.userConn)
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.userConn)
+
+	s.repo = repository.NewRepositories(authQueries, userQueryClient, userCommandClient, roleClient, userRoleClient)
 	s.email = "auth.repo.test@example.com"
 }
 
 func (s *AuthRepositoryTestSuite) TearDownSuite() {
-	s.BaseTestSuite.TearDownSuite()
+	if s.roleServer != nil {
+		s.roleServer.Stop()
+	}
+	if s.roleConn != nil {
+		s.roleConn.Close()
+	}
+	if s.userServer != nil {
+		s.userServer.Stop()
+	}
+	if s.userConn != nil {
+		s.userConn.Close()
+	}
+	s.ts.Teardown()
 }
 
 func (s *AuthRepositoryTestSuite) Test1_CreateUser() {
@@ -99,14 +180,11 @@ func (s *AuthRepositoryTestSuite) Test5_UpdatePassword() {
 	s.NotNil(updated)
 	s.Equal(int32(s.userID), updated.UserID)
 
-	// The gRPC response no longer carries the password, so verify the value was
-	// actually persisted by reading it back from the database.
-	var stored string
-	err = s.GormDB().WithContext(ctx).Raw(
-		"SELECT password FROM users WHERE user_id = ?", s.userID,
-	).Scan(&stored).Error
+	// The update RPC does not echo the password back; verify via a fresh read.
+	found, err := s.repo.User.FindByEmail(ctx, s.email)
 	s.NoError(err)
-	s.Equal("newpassword123", stored)
+	s.NotNil(found)
+	s.Equal("newpassword123", found.Password)
 }
 
 func (s *AuthRepositoryTestSuite) Test6_FindByVerificationCode() {

@@ -10,7 +10,7 @@ import (
 	order_service "github.com/MamangRust/microservice-point-of-sale-order/service"
 	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
 	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
 	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
 	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
@@ -21,14 +21,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type orderGapiClient struct {
-	pb.OrderQueryServiceClient
-	pb.OrderCommandServiceClient
-}
-
 type OrderGapiTestSuite struct {
 	tests.BaseTestSuite
-	client orderGapiClient
+	client *grpc.ClientConn
 }
 
 func (s *OrderGapiTestSuite) SetupSuite() {
@@ -67,20 +62,17 @@ func (s *OrderGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := order_handler.NewHandler(svc)
+	handlers := order_handler.NewHandler(svc)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterOrderQueryServiceServer(server, handler)
-	pb.RegisterOrderCommandServiceServer(server, handler)
+	pborder.RegisterOrderQueryServiceServer(server, handlers)
+	pborder.RegisterOrderCommandServiceServer(server, handlers)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = orderGapiClient{
-		OrderQueryServiceClient:   pb.NewOrderQueryServiceClient(conn),
-		OrderCommandServiceClient: pb.NewOrderCommandServiceClient(conn),
-	}
+	s.client = conn
 }
 
 func (s *OrderGapiTestSuite) TestOrderGapiLifecycle() {
@@ -94,16 +86,18 @@ func (s *OrderGapiTestSuite) TestOrderGapiLifecycle() {
 
 	// Seed a cashier (orders.cashier_id references cashiers.cashier_id)
 	var cashierID int
-	err := s.GormDB().WithContext(ctx).Raw(
-		`INSERT INTO cashiers (merchant_id, user_id, name) VALUES (?, ?, 'Order Gapi Cashier') RETURNING cashier_id`,
+	err := s.GormDB().Raw(`INSERT INTO cashiers (merchant_id, user_id, name) VALUES ($1, $2, 'Order Gapi Cashier') RETURNING cashier_id`,
 		merchID, userID,
 	).Scan(&cashierID).Error
 
+	cmdClient := pborder.NewOrderCommandServiceClient(s.client)
+	queryClient := pborder.NewOrderQueryServiceClient(s.client)
+
 	// 2. Create
-	createRes, err := s.client.Create(ctx, &pb.CreateOrderRequest{
+	createRes, err := cmdClient.Create(ctx, &pborder.CreateOrderRequest{
 		MerchantId: int32(merchID),
 		CashierId:  int32(cashierID),
-		Items: []*pb.CreateOrderItemRequest{
+		Items: []*pborder.CreateOrderItemRequest{
 			{
 				ProductId: int32(prodID),
 				Quantity:  1,
@@ -115,17 +109,17 @@ func (s *OrderGapiTestSuite) TestOrderGapiLifecycle() {
 	orderID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.client.FindById(ctx, &pb.FindByIdOrderRequest{Id: orderID})
+	getRes, err := queryClient.FindById(ctx, &pborder.FindByIdOrderRequest{Id: orderID})
 	s.Require().NoError(err)
 	s.Equal(int32(userID), getRes.Data.CashierId)
 
 	// 4. FindAll
-	allRes, err := s.client.FindAll(ctx, &pb.FindAllOrderRequest{Page: 1, PageSize: 10})
+	allRes, err := queryClient.FindAll(ctx, &pborder.FindAllOrderRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.client.FindByActive(ctx, &pb.FindAllOrderRequest{Page: 1, PageSize: 10})
+	activeRes, err := queryClient.FindByActive(ctx, &pborder.FindAllOrderRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
@@ -137,9 +131,9 @@ func (s *OrderGapiTestSuite) TestOrderGapiLifecycle() {
 	s.NotEmpty(itemsRes.Data)
 	orderItemID := itemsRes.Data[0].Id
 
-	_, err = s.client.Update(ctx, &pb.UpdateOrderRequest{
+	_, err = cmdClient.Update(ctx, &pborder.UpdateOrderRequest{
 		OrderId: orderID,
-		Items: []*pb.UpdateOrderItemRequest{
+		Items: []*pborder.UpdateOrderItemRequest{
 			{
 				OrderItemId: orderItemID,
 				ProductId:   int32(prodID),
@@ -150,29 +144,29 @@ func (s *OrderGapiTestSuite) TestOrderGapiLifecycle() {
 	s.Require().NoError(err)
 
 	// 7. Trash
-	_, err = s.client.TrashedOrder(ctx, &pb.FindByIdOrderRequest{Id: orderID})
+	_, err = cmdClient.TrashedOrder(ctx, &pborder.FindByIdOrderRequest{Id: orderID})
 	s.Require().NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.client.FindByTrashed(ctx, &pb.FindAllOrderRequest{Page: 1, PageSize: 10})
+	trashedRes, err := queryClient.FindByTrashed(ctx, &pborder.FindAllOrderRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.client.RestoreOrder(ctx, &pb.FindByIdOrderRequest{Id: orderID})
+	_, err = cmdClient.RestoreOrder(ctx, &pborder.FindByIdOrderRequest{Id: orderID})
 	s.Require().NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.client.TrashedOrder(ctx, &pb.FindByIdOrderRequest{Id: orderID})
-	_, err = s.client.DeleteOrderPermanent(ctx, &pb.FindByIdOrderRequest{Id: orderID})
+	_, _ = cmdClient.TrashedOrder(ctx, &pborder.FindByIdOrderRequest{Id: orderID})
+	_, err = cmdClient.DeleteOrderPermanent(ctx, &pborder.FindByIdOrderRequest{Id: orderID})
 	s.Require().NoError(err)
 
 	// 11. RestoreAll
-	_, err = s.client.RestoreAllOrder(ctx, &emptypb.Empty{})
+	_, err = cmdClient.RestoreAllOrder(ctx, &emptypb.Empty{})
 	s.Require().NoError(err)
 
 	// 12. DeleteAll
-	_, err = s.client.DeleteAllOrderPermanent(ctx, &emptypb.Empty{})
+	_, err = cmdClient.DeleteAllOrderPermanent(ctx, &emptypb.Empty{})
 	s.Require().NoError(err)
 }
 

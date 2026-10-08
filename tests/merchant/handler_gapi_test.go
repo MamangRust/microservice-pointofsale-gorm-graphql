@@ -8,7 +8,7 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-merchant/handler"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/service"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
 	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
@@ -18,14 +18,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type merchantGapiClient struct {
-	pb.MerchantQueryServiceClient
-	pb.MerchantCommandServiceClient
-}
-
 type MerchantGapiTestSuite struct {
 	tests.BaseTestSuite
-	client     merchantGapiClient
+	client     *grpc.ClientConn
 	userID     int
 	merchantID int
 }
@@ -34,9 +29,10 @@ func (s *MerchantGapiTestSuite) SetupSuite() {
 	s.BaseTestSuite.SetupSuite()
 	s.SetupUserService()
 	merchantQueries := s.GormDB()
-	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
-	repos := repository.NewRepositories(merchantQueries, userQueryClient, userCommandClient)
+	repos := repository.NewRepositories(merchantQueries,
+		pbuser.NewUserQueryServiceClient(s.Conns["user"]),
+		pbuser.NewUserCommandServiceClient(s.Conns["user"]),
+	)
 
 	cacheMetrics, _ := observability.NewCacheMetrics("test")
 	cacheStore := cache.NewCacheStore(s.RedisClient(), s.Log, cacheMetrics)
@@ -50,28 +46,26 @@ func (s *MerchantGapiTestSuite) SetupSuite() {
 		Observability: s.Obs,
 	})
 
-	merchantHandler, _ := handler.NewHandler(svc)
+	merchantHandlers, merchantDocHandlers := handler.NewHandler(svc)
 	server := grpc.NewServer()
-	pb.RegisterMerchantQueryServiceServer(server, merchantHandler)
-	pb.RegisterMerchantCommandServiceServer(server, merchantHandler)
+	pbmerchant.RegisterMerchantQueryServiceServer(server, merchantHandlers)
+	pbmerchant.RegisterMerchantCommandServiceServer(server, merchantHandlers)
+	_ = merchantDocHandlers
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
-
-	s.client = merchantGapiClient{
-		MerchantQueryServiceClient:   pb.NewMerchantQueryServiceClient(conn),
-		MerchantCommandServiceClient: pb.NewMerchantCommandServiceClient(conn),
-	}
-
-	// 1. Seed dependencies
+	s.client = conn
 	s.userID = s.SeedUser(context.Background())
 }
 
 func (s *MerchantGapiTestSuite) TestMerchantGapiLifecycle() {
 	ctx := context.Background()
 
+	cmdClient := pbmerchant.NewMerchantCommandServiceClient(s.client)
+	queryClient := pbmerchant.NewMerchantQueryServiceClient(s.client)
+
 	// 1. Create
-	createReq := &pb.CreateMerchantRequest{
+	createReq := &pbmerchant.CreateMerchantRequest{
 		UserId:       int32(s.userID),
 		Name:         "Gapi Merchant",
 		Description:  "Detailed description of the merchant.",
@@ -80,28 +74,28 @@ func (s *MerchantGapiTestSuite) TestMerchantGapiLifecycle() {
 		ContactPhone: "08123456789",
 		Status:       "active",
 	}
-	res, err := s.client.Create(ctx, createReq)
+	res, err := cmdClient.Create(ctx, createReq)
 	s.NoError(err)
 	s.Equal(createReq.Name, res.Data.Name)
 	merchantID := res.Data.Id
 
 	// 2. FindById
-	found, err := s.client.FindById(ctx, &pb.FindByIdMerchantRequest{Id: merchantID})
+	found, err := queryClient.FindById(ctx, &pbmerchant.FindByIdMerchantRequest{Id: merchantID})
 	s.NoError(err)
 	s.Equal(merchantID, found.Data.Id)
 
 	// 3. FindAll
-	allRes, err := s.client.FindAll(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	allRes, err := queryClient.FindAll(ctx, &pbmerchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 4. FindByActive
-	activeRes, err := s.client.FindByActive(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	activeRes, err := queryClient.FindByActive(ctx, &pbmerchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 5. Update
-	updateReq := &pb.UpdateMerchantRequest{
+	updateReq := &pbmerchant.UpdateMerchantRequest{
 		MerchantId:   merchantID,
 		UserId:       int32(s.userID),
 		Name:         "Gapi Merchant Updated",
@@ -111,12 +105,12 @@ func (s *MerchantGapiTestSuite) TestMerchantGapiLifecycle() {
 		ContactPhone: "08987654321",
 		Status:       "waiting",
 	}
-	updateRes, err := s.client.Update(ctx, updateReq)
+	updateRes, err := cmdClient.Update(ctx, updateReq)
 	s.NoError(err)
 	s.Equal(updateReq.Name, updateRes.Data.Name)
 
 	// 6. Update Status
-	statusRes, err := s.client.UpdateMerchantStatus(ctx, &pb.UpdateMerchantStatusRequest{
+	statusRes, err := cmdClient.UpdateMerchantStatus(ctx, &pbmerchant.UpdateMerchantStatusRequest{
 		MerchantId: merchantID,
 		Status:     "active",
 	})
@@ -124,29 +118,29 @@ func (s *MerchantGapiTestSuite) TestMerchantGapiLifecycle() {
 	s.Equal("active", statusRes.Data.Status)
 
 	// 7. Trash
-	_, err = s.client.TrashedMerchant(ctx, &pb.FindByIdMerchantRequest{Id: merchantID})
+	_, err = cmdClient.TrashedMerchant(ctx, &pbmerchant.FindByIdMerchantRequest{Id: merchantID})
 	s.NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.client.FindByTrashed(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	trashedRes, err := queryClient.FindByTrashed(ctx, &pbmerchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.client.RestoreMerchant(ctx, &pb.FindByIdMerchantRequest{Id: merchantID})
+	_, err = cmdClient.RestoreMerchant(ctx, &pbmerchant.FindByIdMerchantRequest{Id: merchantID})
 	s.NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.client.TrashedMerchant(ctx, &pb.FindByIdMerchantRequest{Id: merchantID})
-	_, err = s.client.DeleteMerchantPermanent(ctx, &pb.FindByIdMerchantRequest{Id: merchantID})
+	_, _ = cmdClient.TrashedMerchant(ctx, &pbmerchant.FindByIdMerchantRequest{Id: merchantID})
+	_, err = cmdClient.DeleteMerchantPermanent(ctx, &pbmerchant.FindByIdMerchantRequest{Id: merchantID})
 	s.NoError(err)
 
 	// 11. RestoreAll
-	_, err = s.client.RestoreAllMerchant(ctx, &emptypb.Empty{})
+	_, err = cmdClient.RestoreAllMerchant(ctx, &emptypb.Empty{})
 	s.NoError(err)
 
 	// 12. DeleteAll
-	_, err = s.client.DeleteAllMerchantPermanent(ctx, &emptypb.Empty{})
+	_, err = cmdClient.DeleteAllMerchantPermanent(ctx, &emptypb.Empty{})
 	s.NoError(err)
 }
 

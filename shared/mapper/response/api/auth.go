@@ -1,7 +1,7 @@
 package response_api
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	authpb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -12,28 +12,28 @@ func NewAuthResponseMapper() *authResponseMapper {
 	return &authResponseMapper{}
 }
 
-func (s *authResponseMapper) ToResponseVerifyCode(res *pb.ApiResponseVerifyCode) *response.ApiResponseVerifyCode {
+func (s *authResponseMapper) ToResponseVerifyCode(res *authpb.ApiResponseVerifyCode) *response.ApiResponseVerifyCode {
 	return &response.ApiResponseVerifyCode{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authResponseMapper) ToResponseForgotPassword(res *pb.ApiResponseForgotPassword) *response.ApiResponseForgotPassword {
+func (s *authResponseMapper) ToResponseForgotPassword(res *authpb.ApiResponseForgotPassword) *response.ApiResponseForgotPassword {
 	return &response.ApiResponseForgotPassword{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authResponseMapper) ToResponseResetPassword(res *pb.ApiResponseResetPassword) *response.ApiResponseResetPassword {
+func (s *authResponseMapper) ToResponseResetPassword(res *authpb.ApiResponseResetPassword) *response.ApiResponseResetPassword {
 	return &response.ApiResponseResetPassword{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authResponseMapper) ToResponseLogin(res *pb.ApiResponseLogin) *response.ApiResponseLogin {
+func (s *authResponseMapper) ToResponseLogin(res *authpb.ApiResponseLogin) *response.ApiResponseLogin {
 	defaultErrorResponse := &response.ApiResponseLogin{
 		Status:  "error",
 		Message: "authentication failed",
@@ -70,7 +70,7 @@ func (s *authResponseMapper) ToResponseLogin(res *pb.ApiResponseLogin) *response
 	}
 }
 
-func (s *authResponseMapper) ToResponseRegister(res *pb.ApiResponseRegister) *response.ApiResponseRegister {
+func (s *authResponseMapper) ToResponseRegister(res *authpb.ApiResponseRegister) *response.ApiResponseRegister {
 	return &response.ApiResponseRegister{
 		Status:  res.Status,
 		Message: res.Message,
@@ -85,7 +85,7 @@ func (s *authResponseMapper) ToResponseRegister(res *pb.ApiResponseRegister) *re
 	}
 }
 
-func (s *authResponseMapper) ToResponseRefreshToken(res *pb.ApiResponseRefreshToken) *response.ApiResponseRefreshToken {
+func (s *authResponseMapper) ToResponseRefreshToken(res *authpb.ApiResponseRefreshToken) *response.ApiResponseRefreshToken {
 	return &response.ApiResponseRefreshToken{
 		Status:  res.Status,
 		Message: res.Message,
@@ -96,7 +96,7 @@ func (s *authResponseMapper) ToResponseRefreshToken(res *pb.ApiResponseRefreshTo
 	}
 }
 
-func (s *authResponseMapper) ToResponseGetMe(res *pb.ApiResponseGetMe) *response.ApiResponseGetMe {
+func (s *authResponseMapper) ToResponseGetMe(res *authpb.ApiResponseGetMe) *response.ApiResponseGetMe {
 	return &response.ApiResponseGetMe{
 		Status:  res.Status,
 		Message: res.Message,

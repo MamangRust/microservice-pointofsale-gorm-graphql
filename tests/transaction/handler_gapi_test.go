@@ -8,7 +8,7 @@ import (
 	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
 	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
 	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
+	pbtransaction "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
@@ -21,14 +21,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type transactionGapiClient struct {
-	pb.TransactionQueryServiceClient
-	pb.TransactionCommandServiceClient
-}
-
 type TransactionGapiTestSuite struct {
 	tests.BaseTestSuite
-	client transactionGapiClient
+	client *grpc.ClientConn
 }
 
 func (s *TransactionGapiTestSuite) SetupSuite() {
@@ -66,20 +61,17 @@ func (s *TransactionGapiTestSuite) SetupSuite() {
 	})
 
 	// Handler
-	handler := trans_handler.NewHandler(svc, s.Log)
+	handlers := trans_handler.NewHandler(svc, s.Log)
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterTransactionQueryServiceServer(server, handler)
-	pb.RegisterTransactionCommandServiceServer(server, handler)
+	pbtransaction.RegisterTransactionQueryServiceServer(server, handlers)
+	pbtransaction.RegisterTransactionCommandServiceServer(server, handlers)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.client = transactionGapiClient{
-		TransactionQueryServiceClient:   pb.NewTransactionQueryServiceClient(conn),
-		TransactionCommandServiceClient: pb.NewTransactionCommandServiceClient(conn),
-	}
+	s.client = conn
 }
 
 func (s *TransactionGapiTestSuite) TestTransactionGapiLifecycle() {
@@ -94,13 +86,15 @@ func (s *TransactionGapiTestSuite) TestTransactionGapiLifecycle() {
 
 	// cashier_id as seeded by SeedOrder (cashiers table)
 	var cashierID int
-	err := s.GormDB().WithContext(ctx).Raw(
-		`SELECT cashier_id FROM cashiers WHERE user_id = ? AND merchant_id = ? AND deleted_at IS NULL LIMIT 1`,
+	err := s.GormDB().Raw(`SELECT cashier_id FROM cashiers WHERE user_id = $1 AND merchant_id = $2 AND deleted_at IS NULL LIMIT 1`,
 		userID, merchID,
 	).Scan(&cashierID).Error
 
+	cmdClient := pbtransaction.NewTransactionCommandServiceClient(s.client)
+	queryClient := pbtransaction.NewTransactionQueryServiceClient(s.client)
+
 	// 2. Create
-	createRes, err := s.client.Create(ctx, &pb.CreateTransactionRequest{
+	createRes, err := cmdClient.Create(ctx, &pbtransaction.CreateTransactionRequest{
 		OrderId:       int32(orderID),
 		CashierId:     int32(cashierID),
 		PaymentMethod: "E-Wallet",
@@ -112,22 +106,22 @@ func (s *TransactionGapiTestSuite) TestTransactionGapiLifecycle() {
 	transID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.client.FindById(ctx, &pb.FindByIdTransactionRequest{Id: transID})
+	getRes, err := queryClient.FindById(ctx, &pbtransaction.FindByIdTransactionRequest{Id: transID})
 	s.Require().NoError(err)
 	s.Equal("E-Wallet", getRes.Data.PaymentMethod)
 
 	// 4. FindAll
-	allRes, err := s.client.FindAll(ctx, &pb.FindAllTransactionRequest{Page: 1, PageSize: 10})
+	allRes, err := queryClient.FindAll(ctx, &pbtransaction.FindAllTransactionRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.client.FindByActive(ctx, &pb.FindAllTransactionRequest{Page: 1, PageSize: 10})
+	activeRes, err := queryClient.FindByActive(ctx, &pbtransaction.FindAllTransactionRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.client.Update(ctx, &pb.UpdateTransactionRequest{
+	updateRes, err := cmdClient.Update(ctx, &pbtransaction.UpdateTransactionRequest{
 		TransactionId: transID,
 		OrderId:       int32(orderID),
 		CashierId:     int32(cashierID),
@@ -138,29 +132,29 @@ func (s *TransactionGapiTestSuite) TestTransactionGapiLifecycle() {
 	s.Equal("Credit Card", updateRes.Data.PaymentMethod)
 
 	// 7. Trash
-	_, err = s.client.TrashedTransaction(ctx, &pb.FindByIdTransactionRequest{Id: transID})
+	_, err = cmdClient.TrashedTransaction(ctx, &pbtransaction.FindByIdTransactionRequest{Id: transID})
 	s.Require().NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.client.FindByTrashed(ctx, &pb.FindAllTransactionRequest{Page: 1, PageSize: 10})
+	trashedRes, err := queryClient.FindByTrashed(ctx, &pbtransaction.FindAllTransactionRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.client.RestoreTransaction(ctx, &pb.FindByIdTransactionRequest{Id: transID})
+	_, err = cmdClient.RestoreTransaction(ctx, &pbtransaction.FindByIdTransactionRequest{Id: transID})
 	s.Require().NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.client.TrashedTransaction(ctx, &pb.FindByIdTransactionRequest{Id: transID})
-	_, err = s.client.DeleteTransactionPermanent(ctx, &pb.FindByIdTransactionRequest{Id: transID})
+	_, _ = cmdClient.TrashedTransaction(ctx, &pbtransaction.FindByIdTransactionRequest{Id: transID})
+	_, err = cmdClient.DeleteTransactionPermanent(ctx, &pbtransaction.FindByIdTransactionRequest{Id: transID})
 	s.Require().NoError(err)
 
 	// 11. RestoreAll
-	_, err = s.client.RestoreAllTransaction(ctx, &emptypb.Empty{})
+	_, err = cmdClient.RestoreAllTransaction(ctx, &emptypb.Empty{})
 	s.Require().NoError(err)
 
 	// 12. DeleteAll
-	_, err = s.client.DeleteAllTransactionPermanent(ctx, &emptypb.Empty{})
+	_, err = cmdClient.DeleteAllTransactionPermanent(ctx, &emptypb.Empty{})
 	s.Require().NoError(err)
 }
 

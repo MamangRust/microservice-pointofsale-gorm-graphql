@@ -7,7 +7,7 @@ import (
 	merchant_cache "github.com/MamangRust/microservice-point-of-sale-merchant/cache"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
 	"github.com/MamangRust/microservice-point-of-sale-merchant/service"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
@@ -26,18 +26,15 @@ func (s *MerchantServiceTestSuite) SetupSuite() {
 
 	merchantQueries := s.GormDB()
 
-	// User service nyata (gRPC) — CreateMerchant memvalidasi user via gRPC.
 	s.SetupUserService()
 
-	// Seed a user directly
-	_ = s.GormDB().WithContext(s.Ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
+	_ = s.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'test-verify', true) RETURNING user_id`,
 		"Merchant", "ServiceTest", "merchant.svc@example.com", "password123",
-	).Scan(&s.userID)
+	).Scan(&s.userID).Error
 
 	mencache := merchant_cache.NewMencache(s.GetCacheStore())
-	userQueryClient := pb.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := pb.NewUserCommandServiceClient(s.Conns["user"])
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
 	repos := repository.NewRepositories(merchantQueries, userQueryClient, userCommandClient)
 
 	s.merchantService = service.NewService(&service.Deps{
@@ -56,7 +53,6 @@ func (s *MerchantServiceTestSuite) TearDownSuite() {
 func (s *MerchantServiceTestSuite) TestMerchantLifecycle() {
 	ctx := context.Background()
 
-	// 1. Create
 	req := &requests.CreateMerchantRequest{
 		UserID:       s.userID,
 		Name:         "Service Merchant",
@@ -72,12 +68,10 @@ func (s *MerchantServiceTestSuite) TestMerchantLifecycle() {
 	s.Equal(req.Name, created.Name)
 	merchantID := int(created.MerchantID)
 
-	// 2. FindByID
 	found, err := s.merchantService.MerchantQuery.FindById(ctx, merchantID)
 	s.Require().NoError(err)
 	s.Equal(merchantID, int(found.MerchantID))
 
-	// 3. Update
 	updateReq := &requests.UpdateMerchantRequest{
 		MerchantID:   &merchantID,
 		UserID:       s.userID,
@@ -92,39 +86,32 @@ func (s *MerchantServiceTestSuite) TestMerchantLifecycle() {
 	s.Require().NoError(err)
 	s.Equal(updateReq.Name, updated.Name)
 
-	// 4. FindAll
 	_, total, err := s.merchantService.MerchantQuery.FindAll(ctx, &requests.FindAllMerchants{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.GreaterOrEqual(*total, 1)
 
-	// 5. Trash
 	_, err = s.merchantService.MerchantCommand.TrashedMerchant(ctx, merchantID)
 	s.Require().NoError(err)
 
-	// 6. FindTrashed
 	_, totalTrashed, err := s.merchantService.MerchantQuery.FindByTrashed(ctx, &requests.FindAllMerchants{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.GreaterOrEqual(*totalTrashed, 1)
 
-	// 7. FindActive
 	active, _, err := s.merchantService.MerchantQuery.FindByActive(ctx, &requests.FindAllMerchants{Search: "", Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	for _, m := range active {
 		s.NotEqual(merchantID, int(m.MerchantID))
 	}
 
-	// 8. Restore
 	_, err = s.merchantService.MerchantCommand.RestoreMerchant(ctx, merchantID)
 	s.Require().NoError(err)
 
-	// 9. DeletePermanent
 	_, err = s.merchantService.MerchantCommand.TrashedMerchant(ctx, merchantID)
 	s.Require().NoError(err)
 	success, err := s.merchantService.MerchantCommand.DeleteMerchantPermanent(ctx, merchantID)
 	s.Require().NoError(err)
 	s.True(success)
 
-	// 10. RestoreAll & DeleteAll
 	m1, _ := s.merchantService.MerchantCommand.CreateMerchant(ctx, &requests.CreateMerchantRequest{
 		UserID: s.userID, Name: "M1", Description: "D1", Address: "A1",
 		ContactEmail: "m1@example.com", ContactPhone: "111", Status: "active",

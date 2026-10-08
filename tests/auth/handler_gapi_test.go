@@ -2,10 +2,6 @@ package auth_test
 
 import (
 	"context"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
-	role "github.com/MamangRust/microservice-point-of-sale-pb/role"
-	user "github.com/MamangRust/microservice-point-of-sale-pb/user"
-	userrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"net"
 	"testing"
 
@@ -13,6 +9,10 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-auth/handler"
 	"github.com/MamangRust/microservice-point-of-sale-auth/repository"
 	"github.com/MamangRust/microservice-point-of-sale-auth/service"
+	pbauth "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/auth"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
@@ -39,7 +39,8 @@ type AuthHandlerGapiTestSuite struct {
 	suite.Suite
 	ts          *tests.TestSuite
 	redisClient *redis.Client
-	client      pb.AuthServiceClient
+	queryClient pbauth.AuthServiceClient
+	cmdClient   pbauth.AuthServiceClient
 	conn        *grpc.ClientConn
 	grpcServer  *grpc.Server
 	email       string
@@ -78,16 +79,15 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 	})
 	roleGapi := role_handler.NewHandler(roleSvc)
 	roleServer := grpc.NewServer()
-	role.RegisterRoleQueryServiceServer(roleServer, roleGapi)
-	role.RegisterRoleCommandServiceServer(roleServer, roleGapi)
-	userrole.RegisterUserRoleServiceServer(roleServer, roleGapi)
+	pbrole.RegisterRoleQueryServiceServer(roleServer, roleGapi)
+	pbrole.RegisterRoleCommandServiceServer(roleServer, roleGapi)
+	pbuserrole.RegisterUserRoleServiceServer(roleServer, roleGapi)
 	roleLis, _ := net.Listen("tcp", "localhost:0")
 	go roleServer.Serve(roleLis)
 
-	roleConn, err := grpc.NewClient(roleLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	s.Require().NoError(err)
-	roleClient := role.NewRoleQueryServiceClient(roleConn)
-	userRoleClient := userrole.NewUserRoleServiceClient(roleConn)
+	roleConn, _ := grpc.NewClient(roleLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	roleClient := pbrole.NewRoleQueryServiceClient(roleConn)
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(roleConn)
 
 	// 2. Setup User Service & gRPC Server
 	userMencache := user_cache.NewMencache(cacheStore)
@@ -101,15 +101,14 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 	})
 	userGapi := user_handler.NewHandler(userSvc)
 	userServer := grpc.NewServer()
-	user.RegisterUserQueryServiceServer(userServer, userGapi)
-	user.RegisterUserCommandServiceServer(userServer, userGapi)
+	pbuser.RegisterUserQueryServiceServer(userServer, userGapi)
+	pbuser.RegisterUserCommandServiceServer(userServer, userGapi)
 	userLis, _ := net.Listen("tcp", "localhost:0")
 	go userServer.Serve(userLis)
 
-	userConn, err := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	s.Require().NoError(err)
-	userQueryClient := user.NewUserQueryServiceClient(userConn)
-	userCommandClient := user.NewUserCommandServiceClient(userConn)
+	userConn, _ := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	userQueryClient := pbuser.NewUserQueryServiceClient(userConn)
+	userCommandClient := pbuser.NewUserCommandServiceClient(userConn)
 
 	// 3. Setup Auth Service
 	repos := repository.NewRepositories(authQueries, userQueryClient, userCommandClient, roleClient, userRoleClient)
@@ -128,7 +127,7 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 	h := handler.NewAuthHandleGrpc(svc, log)
 
 	s.grpcServer = grpc.NewServer()
-	pb.RegisterAuthServiceServer(s.grpcServer, h)
+	pbauth.RegisterAuthServiceServer(s.grpcServer, h)
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	s.Require().NoError(err)
@@ -140,13 +139,13 @@ func (s *AuthHandlerGapiTestSuite) SetupSuite() {
 	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	s.Require().NoError(err)
 	s.conn = conn
-	s.client = pb.NewAuthServiceClient(conn)
+	s.queryClient = pbauth.NewAuthServiceClient(conn)
+	s.cmdClient = pbauth.NewAuthServiceClient(conn)
 
 	s.email = "auth.handler.gapi.test@example.com"
 	s.password = "password123"
 
-	// Seed ROLE_ADMIN
-	s.ts.GormDB().WithContext(context.Background()).Exec("INSERT INTO roles (role_name) VALUES ('ROLE_ADMIN')")
+	_ = s.ts.GormDB().Exec("INSERT INTO roles (role_name) VALUES ('ROLE_ADMIN')").Error
 }
 
 func (s *AuthHandlerGapiTestSuite) TearDownSuite() {
@@ -159,20 +158,22 @@ func (s *AuthHandlerGapiTestSuite) TearDownSuite() {
 	if s.redisClient != nil {
 		s.redisClient.Close()
 	}
+	if s.ts != nil {
+		if sqlDB, err := s.ts.GormDB().DB(); err == nil {
+			sqlDB.Close()
+		}
+	}
 	s.ts.Teardown()
 }
 
-// verifyUser simulates the email-verification step (login only accepts
-// is_verified = true users).
 func (s *AuthHandlerGapiTestSuite) verifyUser(email string) {
-	err := s.ts.GormDB().WithContext(context.Background()).Exec(
-		"UPDATE users SET is_verified = true WHERE email = ?", email).Error
+	err := s.ts.GormDB().Exec("UPDATE users SET is_verified = true WHERE email = $1", email).Error
 	s.Require().NoError(err)
 }
 
 func (s *AuthHandlerGapiTestSuite) Test1_Register() {
 	ctx := context.Background()
-	req := &pb.RegisterRequest{
+	req := &pbauth.RegisterRequest{
 		Firstname:       "Auth",
 		Lastname:        "Handler",
 		Email:           s.email,
@@ -180,7 +181,7 @@ func (s *AuthHandlerGapiTestSuite) Test1_Register() {
 		ConfirmPassword: s.password,
 	}
 
-	res, err := s.client.RegisterUser(ctx, req)
+	res, err := s.cmdClient.RegisterUser(ctx, req)
 	s.NoError(err)
 	s.NotNil(res)
 	s.Equal("success", res.Status)
@@ -192,12 +193,12 @@ func (s *AuthHandlerGapiTestSuite) Test2_Login() {
 
 	s.verifyUser(s.email)
 
-	req := &pb.LoginRequest{
+	req := &pbauth.LoginRequest{
 		Email:    s.email,
 		Password: s.password,
 	}
 
-	res, err := s.client.LoginUser(ctx, req)
+	res, err := s.queryClient.LoginUser(ctx, req)
 	s.NoError(err)
 	s.NotNil(res)
 	s.Equal("success", res.Status)
@@ -210,31 +211,28 @@ func (s *AuthHandlerGapiTestSuite) Test4_LoginLockout() {
 	email := "locked.gapi@example.com"
 	password := "wrongpassword"
 
-	// Register user first
-	regReq := &pb.RegisterRequest{
+	regReq := &pbauth.RegisterRequest{
 		Firstname:       "Locked",
 		Lastname:        "Gapi",
 		Email:           email,
 		Password:        "correctpassword",
 		ConfirmPassword: "correctpassword",
 	}
-	_, err := s.client.RegisterUser(ctx, regReq)
+	_, err := s.cmdClient.RegisterUser(ctx, regReq)
 	s.NoError(err)
 	s.verifyUser(email)
 
-	loginReq := &pb.LoginRequest{
+	loginReq := &pbauth.LoginRequest{
 		Email:    email,
 		Password: password,
 	}
 
-	// Fail login 5 times
 	for i := 0; i < 5; i++ {
-		_, err := s.client.LoginUser(ctx, loginReq)
+		_, err := s.queryClient.LoginUser(ctx, loginReq)
 		s.Error(err)
 	}
 
-	// 6th attempt should return error
-	_, err = s.client.LoginUser(ctx, loginReq)
+	_, err = s.queryClient.LoginUser(ctx, loginReq)
 	s.Error(err)
 	s.Contains(err.Error(), "Account is locked")
 }
@@ -243,7 +241,7 @@ func (s *AuthHandlerGapiTestSuite) Test3_GetMe() {
 	s.Require().NotEmpty(s.accessToken)
 	ctx := context.Background()
 
-	res, err := s.client.GetMe(ctx, &pb.GetMeRequest{AccessToken: s.accessToken})
+	res, err := s.queryClient.GetMe(ctx, &pbauth.GetMeRequest{AccessToken: s.accessToken})
 	s.NoError(err)
 	s.NotNil(res)
 	s.Equal("success", res.Status)

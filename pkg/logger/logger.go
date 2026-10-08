@@ -2,10 +2,8 @@ package logger
 
 import (
 	"os"
-	"sync"
 
-	"go.opentelemetry.io/contrib/bridges/otelzap"
-	sdklog "go.opentelemetry.io/otel/sdk/log"
+	"go.opentelemetry.io/otel/sdk/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -25,57 +23,43 @@ type Logger struct {
 	Log *zap.Logger
 }
 
-var (
-	once     sync.Once
-	instance LoggerInterface
-)
+var instance LoggerInterface
 
-func NewLogger(service string, loggerProvider *sdklog.LoggerProvider) (LoggerInterface, error) {
-	var setupErr error
+func NewLogger(service string, loggerProvider *log.LoggerProvider) (LoggerInterface, error) {
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:        "ts",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		FunctionKey:    zapcore.OmitKey,
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
 
-	once.Do(func() {
-		encoderConfig := zapcore.EncoderConfig{
-			TimeKey:        "ts",
-			LevelKey:       "level",
-			NameKey:        "logger",
-			CallerKey:      "caller",
-			FunctionKey:    zapcore.OmitKey,
-			MessageKey:     "msg",
-			StacktraceKey:  "stacktrace",
-			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.LowercaseLevelEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
-			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
-		}
+	stdoutCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encoderConfig),
+		zapcore.AddSync(os.Stdout),
+		zapcore.DebugLevel,
+	)
 
-		stdoutCore := zapcore.NewCore(
-			zapcore.NewJSONEncoder(encoderConfig),
-			zapcore.AddSync(os.Stdout),
-			zapcore.DebugLevel,
-		)
+	// Temporary: bypass otelzap to avoid systemic protobuf panic
+	// core := zapcore.NewTee(stdoutCore, otelCore)
+	core := stdoutCore
 
-		cores := []zapcore.Core{stdoutCore}
-		if loggerProvider != nil {
-			otelCore := otelzap.NewCore(
-				service,
-				otelzap.WithLoggerProvider(loggerProvider),
-			)
-			cores = append(cores, otelCore)
-		}
+	logger := zap.New(core,
+		zap.AddCaller(),
+		zap.AddCallerSkip(1),
+		zap.AddStacktrace(zapcore.FatalLevel),
+	).With(zap.String("service", service))
 
-		core := zapcore.NewTee(cores...)
-
-		logger := zap.New(core,
-			zap.AddCaller(),
-			zap.AddCallerSkip(1),
-			zap.AddStacktrace(zapcore.FatalLevel),
-		)
-
-		instance = &Logger{Log: logger}
-	})
-
-	return instance, setupErr
+	l := &Logger{Log: logger}
+	instance = l
+	return l, nil
 }
 
 func (l *Logger) Info(message string, fields ...zap.Field) {
@@ -115,6 +99,19 @@ func GetInstance() LoggerInterface {
 }
 
 func ResetInstance() {
-	once = sync.Once{}
 	instance = nil
 }
+
+// NoopLogger discards every log call. It is used by components (e.g. the
+// dependency guard) that require a LoggerInterface but should not emit logs,
+// and by unit tests that do not want log noise.
+type NoopLogger struct{}
+
+func (NoopLogger) Info(string, ...zap.Field)                         {}
+func (NoopLogger) Fatal(string, ...zap.Field)                        {}
+func (NoopLogger) Debug(string, ...zap.Field)                        {}
+func (NoopLogger) Error(string, ...zap.Field)                        {}
+func (NoopLogger) Warn(string, ...zap.Field)                         {}
+func (NoopLogger) Check(zapcore.Level, string) *zapcore.CheckedEntry { return nil }
+func (NoopLogger) With(...zap.Field) LoggerInterface                 { return NoopLogger{} }
+func (NoopLogger) Sync() error                                       { return nil }

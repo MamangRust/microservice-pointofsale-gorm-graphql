@@ -1,8 +1,8 @@
 package response_api
 
 import (
-	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	commonpb "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	rolepb "github.com/MamangRust/microservice-point-of-sale-pb/role"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -13,21 +13,21 @@ func NewRoleResponseMapper() *roleResponseMapper {
 	return &roleResponseMapper{}
 }
 
-func (s *roleResponseMapper) ToApiResponseRoleAll(pbResponse *pb.ApiResponseRoleAll) *response.ApiResponseRoleAll {
+func (s *roleResponseMapper) ToApiResponseRoleAll(pbResponse *rolepb.ApiResponseRoleAll) *response.ApiResponseRoleAll {
 	return &response.ApiResponseRoleAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (s *roleResponseMapper) ToApiResponseRoleDelete(pbResponse *pb.ApiResponseRoleDelete) *response.ApiResponseRoleDelete {
+func (s *roleResponseMapper) ToApiResponseRoleDelete(pbResponse *rolepb.ApiResponseRoleDelete) *response.ApiResponseRoleDelete {
 	return &response.ApiResponseRoleDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (s *roleResponseMapper) ToApiResponseRole(pbResponse *pb.ApiResponseRole) *response.ApiResponseRole {
+func (s *roleResponseMapper) ToApiResponseRole(pbResponse *rolepb.ApiResponseRole) *response.ApiResponseRole {
 	return &response.ApiResponseRole{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -35,7 +35,7 @@ func (s *roleResponseMapper) ToApiResponseRole(pbResponse *pb.ApiResponseRole) *
 	}
 }
 
-func (s *roleResponseMapper) ToApiResponsesRole(pbResponse *pb.ApiResponsesRole) *response.ApiResponsesRole {
+func (s *roleResponseMapper) ToApiResponsesRole(pbResponse *rolepb.ApiResponsesRole) *response.ApiResponsesRole {
 	return &response.ApiResponsesRole{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -43,7 +43,7 @@ func (s *roleResponseMapper) ToApiResponsesRole(pbResponse *pb.ApiResponsesRole)
 	}
 }
 
-func (s *roleResponseMapper) ToApiResponsePaginationRole(pbResponse *pb.ApiResponsePaginationRole) *response.ApiResponsePaginationRole {
+func (s *roleResponseMapper) ToApiResponsePaginationRole(pbResponse *rolepb.ApiResponsePaginationRole) *response.ApiResponsePaginationRole {
 	return &response.ApiResponsePaginationRole{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -52,7 +52,7 @@ func (s *roleResponseMapper) ToApiResponsePaginationRole(pbResponse *pb.ApiRespo
 	}
 }
 
-func (s *roleResponseMapper) ToApiResponsePaginationRoleDeleteAt(pbResponse *pb.ApiResponsePaginationRoleDeleteAt) *response.ApiResponsePaginationRoleDeleteAt {
+func (s *roleResponseMapper) ToApiResponsePaginationRoleDeleteAt(pbResponse *rolepb.ApiResponsePaginationRoleDeleteAt) *response.ApiResponsePaginationRoleDeleteAt {
 	return &response.ApiResponsePaginationRoleDeleteAt{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -61,7 +61,7 @@ func (s *roleResponseMapper) ToApiResponsePaginationRoleDeleteAt(pbResponse *pb.
 	}
 }
 
-func (s *roleResponseMapper) mapResponseRole(role *pb.RoleResponse) *response.RoleResponse {
+func (s *roleResponseMapper) mapResponseRole(role *rolepb.RoleResponse) *response.RoleResponse {
 	return &response.RoleResponse{
 		ID:        int(role.Id),
 		Name:      role.Name,
@@ -70,7 +70,7 @@ func (s *roleResponseMapper) mapResponseRole(role *pb.RoleResponse) *response.Ro
 	}
 }
 
-func (s *roleResponseMapper) mapResponsesRole(roles []*pb.RoleResponse) []*response.RoleResponse {
+func (s *roleResponseMapper) mapResponsesRole(roles []*rolepb.RoleResponse) []*response.RoleResponse {
 	var responseRoles []*response.RoleResponse
 
 	for _, role := range roles {
@@ -80,17 +80,18 @@ func (s *roleResponseMapper) mapResponsesRole(roles []*pb.RoleResponse) []*respo
 	return responseRoles
 }
 
-func (s *roleResponseMapper) mapResponseRoleDeleteAt(role *pb.RoleResponseDeleteAt) *response.RoleResponseDeleteAt {
+func (s *roleResponseMapper) mapResponseRoleDeleteAt(role *rolepb.RoleResponseDeleteAt) *response.RoleResponseDeleteAt {
+	deletedAt := role.GetDeletedAt()
 	return &response.RoleResponseDeleteAt{
 		ID:        int(role.Id),
 		Name:      role.Name,
 		CreatedAt: role.CreatedAt,
 		UpdatedAt: role.UpdatedAt,
-		DeletedAt: role.DeletedAt,
+		DeletedAt: deletedAt,
 	}
 }
 
-func (s *roleResponseMapper) mapResponsesRoleDeleteAt(roles []*pb.RoleResponseDeleteAt) []*response.RoleResponseDeleteAt {
+func (s *roleResponseMapper) mapResponsesRoleDeleteAt(roles []*rolepb.RoleResponseDeleteAt) []*response.RoleResponseDeleteAt {
 	var responseRoles []*response.RoleResponseDeleteAt
 
 	for _, role := range roles {
@@ -100,7 +101,7 @@ func (s *roleResponseMapper) mapResponsesRoleDeleteAt(roles []*pb.RoleResponseDe
 	return responseRoles
 }
 
-func mapPaginationMeta(s *pbcommon.PaginationMeta) *response.PaginationMeta {
+func mapPaginationMeta(s *commonpb.PaginationMeta) *response.PaginationMeta {
 	return &response.PaginationMeta{
 		CurrentPage:  int(s.CurrentPage),
 		PageSize:     int(s.PageSize),

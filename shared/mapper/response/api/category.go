@@ -1,7 +1,7 @@
 package response_api
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	categorypb "github.com/MamangRust/microservice-point-of-sale-pb/category"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -11,7 +11,7 @@ func NewCategoryResponseMapper() *categoryResponseMapper {
 	return &categoryResponseMapper{}
 }
 
-func (c *categoryResponseMapper) ToResponseCategory(category *pb.CategoryResponse) *response.CategoryResponse {
+func (c *categoryResponseMapper) ToResponseCategory(category *categorypb.CategoryResponse) *response.CategoryResponse {
 	return &response.CategoryResponse{
 		ID:            int(category.Id),
 		Name:          category.Name,
@@ -23,7 +23,7 @@ func (c *categoryResponseMapper) ToResponseCategory(category *pb.CategoryRespons
 	}
 }
 
-func (c *categoryResponseMapper) ToResponsesCategory(categories []*pb.CategoryResponse) []*response.CategoryResponse {
+func (c *categoryResponseMapper) ToResponsesCategory(categories []*categorypb.CategoryResponse) []*response.CategoryResponse {
 	var mappedCategories []*response.CategoryResponse
 
 	for _, category := range categories {
@@ -33,7 +33,7 @@ func (c *categoryResponseMapper) ToResponsesCategory(categories []*pb.CategoryRe
 	return mappedCategories
 }
 
-func (c *categoryResponseMapper) ToResponseCategoryDelete(category *pb.CategoryResponseDeleteAt) *response.CategoryResponseDeleteAt {
+func (c *categoryResponseMapper) ToResponseCategoryDelete(category *categorypb.CategoryResponseDeleteAt) *response.CategoryResponseDeleteAt {
 	var deletedAt string
 	if category.DeletedAt != nil {
 		deletedAt = category.DeletedAt.Value
@@ -51,7 +51,7 @@ func (c *categoryResponseMapper) ToResponseCategoryDelete(category *pb.CategoryR
 	}
 }
 
-func (c *categoryResponseMapper) ToResponsesCategoryDeleteAt(categories []*pb.CategoryResponseDeleteAt) []*response.CategoryResponseDeleteAt {
+func (c *categoryResponseMapper) ToResponsesCategoryDeleteAt(categories []*categorypb.CategoryResponseDeleteAt) []*response.CategoryResponseDeleteAt {
 	var mappedCategories []*response.CategoryResponseDeleteAt
 
 	for _, category := range categories {
@@ -61,7 +61,7 @@ func (c *categoryResponseMapper) ToResponsesCategoryDeleteAt(categories []*pb.Ca
 	return mappedCategories
 }
 
-func (c *categoryResponseMapper) ToApiResponseCategory(pbResponse *pb.ApiResponseCategory) *response.ApiResponseCategory {
+func (c *categoryResponseMapper) ToApiResponseCategory(pbResponse *categorypb.ApiResponseCategory) *response.ApiResponseCategory {
 	return &response.ApiResponseCategory{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -69,7 +69,7 @@ func (c *categoryResponseMapper) ToApiResponseCategory(pbResponse *pb.ApiRespons
 	}
 }
 
-func (c *categoryResponseMapper) ToApiResponseCategoryDeleteAt(pbResponse *pb.ApiResponseCategoryDeleteAt) *response.ApiResponseCategoryDeleteAt {
+func (c *categoryResponseMapper) ToApiResponseCategoryDeleteAt(pbResponse *categorypb.ApiResponseCategoryDeleteAt) *response.ApiResponseCategoryDeleteAt {
 	return &response.ApiResponseCategoryDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -77,7 +77,7 @@ func (c *categoryResponseMapper) ToApiResponseCategoryDeleteAt(pbResponse *pb.Ap
 	}
 }
 
-func (c *categoryResponseMapper) ToApiResponsesCategory(pbResponse *pb.ApiResponsesCategory) *response.ApiResponsesCategory {
+func (c *categoryResponseMapper) ToApiResponsesCategory(pbResponse *categorypb.ApiResponsesCategory) *response.ApiResponsesCategory {
 	return &response.ApiResponsesCategory{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -85,21 +85,21 @@ func (c *categoryResponseMapper) ToApiResponsesCategory(pbResponse *pb.ApiRespon
 	}
 }
 
-func (c *categoryResponseMapper) ToApiResponseCategoryDelete(pbResponse *pb.ApiResponseCategoryDelete) *response.ApiResponseCategoryDelete {
+func (c *categoryResponseMapper) ToApiResponseCategoryDelete(pbResponse *categorypb.ApiResponseCategoryDelete) *response.ApiResponseCategoryDelete {
 	return &response.ApiResponseCategoryDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (c *categoryResponseMapper) ToApiResponseCategoryAll(pbResponse *pb.ApiResponseCategoryAll) *response.ApiResponseCategoryAll {
+func (c *categoryResponseMapper) ToApiResponseCategoryAll(pbResponse *categorypb.ApiResponseCategoryAll) *response.ApiResponseCategoryAll {
 	return &response.ApiResponseCategoryAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (c *categoryResponseMapper) ToApiResponsePaginationCategoryDeleteAt(pbResponse *pb.ApiResponsePaginationCategoryDeleteAt) *response.ApiResponsePaginationCategoryDeleteAt {
+func (c *categoryResponseMapper) ToApiResponsePaginationCategoryDeleteAt(pbResponse *categorypb.ApiResponsePaginationCategoryDeleteAt) *response.ApiResponsePaginationCategoryDeleteAt {
 	return &response.ApiResponsePaginationCategoryDeleteAt{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -108,7 +108,7 @@ func (c *categoryResponseMapper) ToApiResponsePaginationCategoryDeleteAt(pbRespo
 	}
 }
 
-func (c *categoryResponseMapper) ToApiResponsePaginationCategory(pbResponse *pb.ApiResponsePaginationCategory) *response.ApiResponsePaginationCategory {
+func (c *categoryResponseMapper) ToApiResponsePaginationCategory(pbResponse *categorypb.ApiResponsePaginationCategory) *response.ApiResponsePaginationCategory {
 	return &response.ApiResponsePaginationCategory{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

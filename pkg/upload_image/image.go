@@ -1,6 +1,7 @@
 package upload_image
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -13,14 +14,12 @@ import (
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
-
-	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
 
 type ImageUploads interface {
 	EnsureUploadDirectory(uploadDir string) error
-	ProcessImageUpload(c echo.Context, file *multipart.FileHeader) (string, error)
+	ProcessImageUpload(w http.ResponseWriter, file *multipart.FileHeader) (string, error)
 	CleanupImageOnFailure(imagePath string)
 	SaveUploadedFile(file *multipart.FileHeader, dst string) error
 }
@@ -46,7 +45,7 @@ func (h *ImageUpload) EnsureUploadDirectory(uploadDir string) error {
 	return nil
 }
 
-func (h *ImageUpload) ProcessImageUpload(c echo.Context, file *multipart.FileHeader) (string, error) {
+func (h *ImageUpload) ProcessImageUpload(w http.ResponseWriter, file *multipart.FileHeader) (string, error) {
 	allowedTypes := map[string]bool{
 		".jpg":  true,
 		".jpeg": true,
@@ -55,28 +54,37 @@ func (h *ImageUpload) ProcessImageUpload(c echo.Context, file *multipart.FileHea
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if !allowedTypes[ext] {
-		return "", c.JSON(http.StatusBadRequest, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "invalid_image_type",
 			Message: "Only JPG, JPEG, and PNG",
 			Code:    http.StatusBadRequest,
 		})
+		return "", fmt.Errorf("invalid image type")
 	}
 
 	if file.Size > 5<<20 {
-		return "", c.JSON(http.StatusBadRequest, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "invalid_image_size",
 			Message: "Image size must be less than 5MB",
 			Code:    http.StatusBadRequest,
 		})
+		return "", fmt.Errorf("invalid image size")
 	}
 
 	uploadDir := "uploads/products"
 	if err := h.EnsureUploadDirectory(uploadDir); err != nil {
-		return "", c.JSON(http.StatusInternalServerError, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "server_error",
 			Message: "Failed to prepare storage for upload",
 			Code:    http.StatusInternalServerError,
 		})
+		return "", fmt.Errorf("failed to prepare storage")
 	}
 
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
@@ -87,11 +95,14 @@ func (h *ImageUpload) ProcessImageUpload(c echo.Context, file *multipart.FileHea
 			zap.String("path", imagePath),
 			zap.Error(err),
 		)
-		return "", c.JSON(http.StatusInternalServerError, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "upload_failed",
 			Message: "Failed to save uploaded image",
 			Code:    http.StatusInternalServerError,
 		})
+		return "", fmt.Errorf("failed to save uploaded image")
 	}
 
 	h.logger.Debug("Successfully saved uploaded file",

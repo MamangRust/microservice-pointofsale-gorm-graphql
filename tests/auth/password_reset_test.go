@@ -2,23 +2,39 @@ package auth_test
 
 import (
 	"context"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
-	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
-	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
-	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
+	"net"
 	"testing"
 
 	auth_cache "github.com/MamangRust/microservice-point-of-sale-auth/cache"
 	"github.com/MamangRust/microservice-point-of-sale-auth/handler"
 	"github.com/MamangRust/microservice-point-of-sale-auth/repository"
 	"github.com/MamangRust/microservice-point-of-sale-auth/service"
+	pbauth "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/auth"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
+	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
+	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
+	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
+	role_cache "github.com/MamangRust/microservice-point-of-sale-role/cache"
+	role_handler "github.com/MamangRust/microservice-point-of-sale-role/handler"
+	role_repo "github.com/MamangRust/microservice-point-of-sale-role/repository"
+	role_service "github.com/MamangRust/microservice-point-of-sale-role/service"
+
+	user_cache "github.com/MamangRust/microservice-point-of-sale-user/cache"
+	user_handler "github.com/MamangRust/microservice-point-of-sale-user/handler"
+	user_repo "github.com/MamangRust/microservice-point-of-sale-user/repository"
+	user_service "github.com/MamangRust/microservice-point-of-sale-user/service"
+
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -28,62 +44,149 @@ import (
 // the persisted password must be a bcrypt hash (never the plaintext) and
 // login must succeed with the new password afterwards.
 type AuthPasswordResetTestSuite struct {
-	tests.BaseTestSuite
-	client pb.AuthServiceClient
-	hasher hash.HashPassword
+	suite.Suite
+	ts          *tests.TestSuite
+	redisClient *redis.Client
+	queryClient pbauth.AuthServiceClient
+	cmdClient   pbauth.AuthServiceClient
+	conn        *grpc.ClientConn
+	grpcServer  *grpc.Server
+	roleServer  *grpc.Server
+	roleConn    *grpc.ClientConn
+	userServer  *grpc.Server
+	userConn    *grpc.ClientConn
+	hasher      hash.HashPassword
 }
 
 func (s *AuthPasswordResetTestSuite) SetupSuite() {
-	s.BaseTestSuite.SetupSuite()
+	ts, err := tests.SetupTestSuite()
+	s.ts = ts
 
-	// Real in-process role + user services: RegisterUser resolves ROLE_ADMIN
-	// and persists the user through the user service adapters.
-	s.SetupUserService()
+	s.Require().NoError(err)
 
-	cacheStore := s.GetCacheStore()
-	hasher := hash.NewHashingPassword()
-	s.hasher = hasher
+	opts, err := redis.ParseURL(s.ts.RedisURL)
+	s.Require().NoError(err)
+	s.redisClient = redis.NewClient(opts)
 
-	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
-	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
-	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
+	authQueries := s.ts.GormDB()
 
-	repos := repository.NewRepositories(s.GormDB(), userQueryClient, userCommandClient, roleClient, userRoleClient)
+	log, _ := logger.NewLogger("test", nil)
+	s.hasher = hash.NewHashingPassword()
+	cacheMetrics, _ := observability.NewCacheMetrics("test")
+	cacheStore := cache.NewCacheStore(s.redisClient, log, cacheMetrics)
+	obs, _ := observability.NewObservability("test", log)
+
+	roleMencache := role_cache.NewMencache(cacheStore)
+	roleRepos := role_repo.NewRepositories(authQueries)
+	roleSvc := role_service.NewService(&role_service.Deps{
+		Repositories:  roleRepos,
+		Logger:        log,
+		Mencache:      roleMencache,
+		Observability: obs,
+	})
+	roleGapi := role_handler.NewHandler(roleSvc)
+	s.roleServer = grpc.NewServer()
+	pbrole.RegisterRoleQueryServiceServer(s.roleServer, roleGapi)
+	pbrole.RegisterRoleCommandServiceServer(s.roleServer, roleGapi)
+	pbuserrole.RegisterUserRoleServiceServer(s.roleServer, roleGapi)
+	roleLis, err := net.Listen("tcp", "localhost:0")
+	s.Require().NoError(err)
+	go func() {
+		_ = s.roleServer.Serve(roleLis)
+	}()
+	s.roleConn, err = grpc.NewClient(roleLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	s.Require().NoError(err)
+	roleClient := pbrole.NewRoleQueryServiceClient(s.roleConn)
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.roleConn)
+
+	userMencache := user_cache.NewMencache(cacheStore)
+	userRepos := user_repo.NewRepositories(authQueries, roleClient, userRoleClient)
+	userSvc := user_service.NewService(&user_service.Deps{
+		Repositories:  userRepos,
+		Logger:        log,
+		Hash:          s.hasher,
+		Mencache:      userMencache,
+		Observability: obs,
+	})
+	userGapi := user_handler.NewHandler(userSvc)
+	s.userServer = grpc.NewServer()
+	pbuser.RegisterUserQueryServiceServer(s.userServer, userGapi)
+	pbuser.RegisterUserCommandServiceServer(s.userServer, userGapi)
+	userLis, err := net.Listen("tcp", "localhost:0")
+	s.Require().NoError(err)
+	go func() {
+		_ = s.userServer.Serve(userLis)
+	}()
+	s.userConn, err = grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	s.Require().NoError(err)
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.userConn)
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.userConn)
+
+	repos := repository.NewRepositories(authQueries, userQueryClient, userCommandClient, roleClient, userRoleClient)
 	tokenManager, _ := auth.NewManager("mysecret")
 
 	svc := service.NewService(&service.Deps{
 		Repositories:  repos,
-		Logger:        s.Log,
+		Logger:        log,
 		Mencache:      auth_cache.NewMencache(cacheStore),
 		Token:         tokenManager,
 		Hash:          s.hasher,
 		Kafka:         nil,
-		Observability: s.Obs,
+		Observability: obs,
 	})
 
-	h := handler.NewAuthHandleGrpc(svc, s.Log)
-	server := grpc.NewServer()
-	pb.RegisterAuthServiceServer(server, h)
+	h := handler.NewAuthHandleGrpc(svc, log)
+	s.grpcServer = grpc.NewServer()
+	pbauth.RegisterAuthServiceServer(s.grpcServer, h)
 
-	addr := s.RegisterServer(server)
-	conn := s.GetConnection(addr)
-	s.client = pb.NewAuthServiceClient(conn)
+	lis, err := net.Listen("tcp", "localhost:0")
+	s.Require().NoError(err)
+	go func() {
+		_ = s.grpcServer.Serve(lis)
+	}()
 
-	// RegisterUser assigns ROLE_ADMIN to every new account.
-	s.GormDB().WithContext(s.Ctx).Exec(
-		`INSERT INTO roles (role_name) VALUES ('ROLE_ADMIN') ON CONFLICT (role_name) DO NOTHING`)
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	s.Require().NoError(err)
+	s.conn = conn
+	s.queryClient = pbauth.NewAuthServiceClient(conn)
+	s.cmdClient = pbauth.NewAuthServiceClient(conn)
 }
 
 func (s *AuthPasswordResetTestSuite) TearDownSuite() {
-	s.BaseTestSuite.TearDownSuite()
+	if s.conn != nil {
+		s.conn.Close()
+	}
+	if s.grpcServer != nil {
+		s.grpcServer.Stop()
+	}
+	if s.roleServer != nil {
+		s.roleServer.Stop()
+	}
+	if s.roleConn != nil {
+		s.roleConn.Close()
+	}
+	if s.userServer != nil {
+		s.userServer.Stop()
+	}
+	if s.userConn != nil {
+		s.userConn.Close()
+	}
+	if s.redisClient != nil {
+		s.redisClient.Close()
+	}
+	if s.ts != nil {
+		if sqlDB, err := s.ts.GormDB().DB(); err == nil {
+			sqlDB.Close()
+		}
+		s.ts.Teardown()
+	}
 }
 
 // registerUser creates a fresh user through the register resolver and returns
 // its user_id.
 func (s *AuthPasswordResetTestSuite) registerUser(email, password string) int32 {
 	ctx := context.Background()
-	res, err := s.client.RegisterUser(ctx, &pb.RegisterRequest{
+	res, err := s.cmdClient.RegisterUser(ctx, &pbauth.RegisterRequest{
 		Firstname:       "Reset",
 		Lastname:        "Tester",
 		Email:           email,
@@ -97,31 +200,26 @@ func (s *AuthPasswordResetTestSuite) registerUser(email, password string) int32 
 }
 
 func (s *AuthPasswordResetTestSuite) markUserVerified(userID int32) {
-	err := s.GormDB().WithContext(context.Background()).Exec(
-		"UPDATE users SET is_verified = true WHERE user_id = ?", userID).Error
-	s.Require().NoError(err)
+	s.Require().NoError(s.ts.GormDB().Exec("UPDATE users SET is_verified = true WHERE user_id = $1", userID).Error)
 }
 
 func (s *AuthPasswordResetTestSuite) fetchVerificationCode(userID int32) string {
 	var code string
-	err := s.GormDB().WithContext(context.Background()).Raw(
-		"SELECT verification_code FROM users WHERE user_id = ?", userID).Scan(&code).Error
+	err := s.ts.GormDB().Raw("SELECT verification_code FROM users WHERE user_id = $1", userID).Scan(&code).Error
 	s.Require().NoError(err)
 	return code
 }
 
 func (s *AuthPasswordResetTestSuite) fetchResetToken(userID int32) string {
 	var token string
-	err := s.GormDB().WithContext(context.Background()).Raw(
-		"SELECT token FROM reset_tokens WHERE user_id = ?", userID).Scan(&token).Error
+	err := s.ts.GormDB().Raw("SELECT token FROM reset_tokens WHERE user_id = $1", userID).Scan(&token).Error
 	s.Require().NoError(err)
 	return token
 }
 
 func (s *AuthPasswordResetTestSuite) storedPassword(userID int32) string {
 	var pw string
-	err := s.GormDB().WithContext(context.Background()).Raw(
-		"SELECT password FROM users WHERE user_id = ?", userID).Scan(&pw).Error
+	err := s.ts.GormDB().Raw("SELECT password FROM users WHERE user_id = $1", userID).Scan(&pw).Error
 	s.Require().NoError(err)
 	return pw
 }
@@ -135,20 +233,19 @@ func (s *AuthPasswordResetTestSuite) Test1_VerifyCodeResolver_Success() {
 	code := s.fetchVerificationCode(userID)
 	s.Require().NotEmpty(code)
 
-	res, err := s.client.VerifyCode(context.Background(), &pb.VerifyCodeRequest{Code: code})
+	res, err := s.queryClient.VerifyCode(context.Background(), &pbauth.VerifyCodeRequest{Code: code})
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Equal("success", res.Status)
 
 	var isVerified bool
-	err = s.GormDB().WithContext(context.Background()).Raw(
-		"SELECT is_verified FROM users WHERE user_id = ?", userID).Scan(&isVerified).Error
+	err = s.ts.GormDB().Raw("SELECT is_verified FROM users WHERE user_id = $1", userID).Scan(&isVerified).Error
 	s.Require().NoError(err)
 	s.True(isVerified)
 }
 
 func (s *AuthPasswordResetTestSuite) Test2_VerifyCodeResolver_InvalidCode() {
-	_, err := s.client.VerifyCode(context.Background(), &pb.VerifyCodeRequest{Code: "does-not-exist"})
+	_, err := s.queryClient.VerifyCode(context.Background(), &pbauth.VerifyCodeRequest{Code: "does-not-exist"})
 	s.Require().Error(err)
 	s.Equal(codes.NotFound, status.Code(err))
 }
@@ -160,7 +257,7 @@ func (s *AuthPasswordResetTestSuite) Test2_VerifyCodeResolver_InvalidCode() {
 func (s *AuthPasswordResetTestSuite) Test3_ForgotPasswordResolver_Success() {
 	userID := s.registerUser("forgot.success@example.com", "password123")
 
-	res, err := s.client.ForgotPassword(context.Background(), &pb.ForgotPasswordRequest{Email: "forgot.success@example.com"})
+	res, err := s.cmdClient.ForgotPassword(context.Background(), &pbauth.ForgotPasswordRequest{Email: "forgot.success@example.com"})
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Equal("success", res.Status)
@@ -170,7 +267,7 @@ func (s *AuthPasswordResetTestSuite) Test3_ForgotPasswordResolver_Success() {
 }
 
 func (s *AuthPasswordResetTestSuite) Test4_ForgotPasswordResolver_UnknownEmail_DoesNotRevealAccount() {
-	res, err := s.client.ForgotPassword(context.Background(), &pb.ForgotPasswordRequest{Email: "ghost@example.com"})
+	res, err := s.cmdClient.ForgotPassword(context.Background(), &pbauth.ForgotPasswordRequest{Email: "ghost@example.com"})
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Equal("success", res.Status)
@@ -185,13 +282,13 @@ func (s *AuthPasswordResetTestSuite) Test5_ResetPasswordResolver_Success_AndHash
 
 	userID := s.registerUser("reset.success@example.com", "password123")
 
-	_, err := s.client.ForgotPassword(context.Background(), &pb.ForgotPasswordRequest{Email: "reset.success@example.com"})
+	_, err := s.cmdClient.ForgotPassword(context.Background(), &pbauth.ForgotPasswordRequest{Email: "reset.success@example.com"})
 	s.Require().NoError(err)
 
 	token := s.fetchResetToken(userID)
 	s.Require().NotEmpty(token)
 
-	res, err := s.client.ResetPassword(context.Background(), &pb.ResetPasswordRequest{
+	res, err := s.cmdClient.ResetPassword(context.Background(), &pbauth.ResetPasswordRequest{
 		ResetToken:      token,
 		Password:        newPassword,
 		ConfirmPassword: newPassword,
@@ -208,14 +305,13 @@ func (s *AuthPasswordResetTestSuite) Test5_ResetPasswordResolver_Success_AndHash
 
 	// The reset token must be consumed after a successful reset.
 	var count int
-	err = s.GormDB().WithContext(context.Background()).Raw(
-		"SELECT COUNT(*) FROM reset_tokens WHERE user_id = ?", userID).Scan(&count).Error
+	err = s.ts.GormDB().Raw("SELECT COUNT(*) FROM reset_tokens WHERE user_id = $1", userID).Scan(&count).Error
 	s.Require().NoError(err)
 	s.Equal(0, count)
 
 	// --- Login with the new password must succeed after the reset ---
 	s.markUserVerified(userID)
-	loginRes, err := s.client.LoginUser(context.Background(), &pb.LoginRequest{
+	loginRes, err := s.queryClient.LoginUser(context.Background(), &pbauth.LoginRequest{
 		Email:    "reset.success@example.com",
 		Password: newPassword,
 	})
@@ -225,7 +321,7 @@ func (s *AuthPasswordResetTestSuite) Test5_ResetPasswordResolver_Success_AndHash
 }
 
 func (s *AuthPasswordResetTestSuite) Test6_ResetPasswordResolver_InvalidToken() {
-	_, err := s.client.ResetPassword(context.Background(), &pb.ResetPasswordRequest{
+	_, err := s.cmdClient.ResetPassword(context.Background(), &pbauth.ResetPasswordRequest{
 		ResetToken:      "bogus-token",
 		Password:        "newpassword123",
 		ConfirmPassword: "newpassword123",
@@ -237,13 +333,13 @@ func (s *AuthPasswordResetTestSuite) Test6_ResetPasswordResolver_InvalidToken() 
 func (s *AuthPasswordResetTestSuite) Test7_ResetPasswordResolver_PasswordMismatch() {
 	userID := s.registerUser("reset.mismatch@example.com", "password123")
 
-	_, err := s.client.ForgotPassword(context.Background(), &pb.ForgotPasswordRequest{Email: "reset.mismatch@example.com"})
+	_, err := s.cmdClient.ForgotPassword(context.Background(), &pbauth.ForgotPasswordRequest{Email: "reset.mismatch@example.com"})
 	s.Require().NoError(err)
 
 	token := s.fetchResetToken(userID)
 	s.Require().NotEmpty(token)
 
-	_, err = s.client.ResetPassword(context.Background(), &pb.ResetPasswordRequest{
+	_, err = s.cmdClient.ResetPassword(context.Background(), &pbauth.ResetPasswordRequest{
 		ResetToken:      token,
 		Password:        "newpassword123",
 		ConfirmPassword: "differentpassword",

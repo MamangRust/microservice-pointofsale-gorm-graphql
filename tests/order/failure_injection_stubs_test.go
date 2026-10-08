@@ -27,43 +27,38 @@ func (s *stubProductRepo) FindById(ctx context.Context, productID int) (*models.
 	return &models.Product{ProductID: int32(productID), Price: 10000, CountInStock: 100}, nil
 }
 
-// stubProductCommandRepo implements repository.ProductCommandRepository. Never
-// reached in the failure-injection suite (merchant fails first).
+// stubProductCommandRepo implements repository.ProductCommandRepository. It is
+// never exercised in the failure-injection suite (the merchant dependency
+// fails before any stock mutation), so it returns a minimal valid product.
 type stubProductCommandRepo struct{}
 
 func (s *stubProductCommandRepo) DecrementProductCountStock(ctx context.Context, productID int, quantity int) (*models.Product, error) {
-	return &models.Product{ProductID: int32(productID)}, nil
+	return &models.Product{ProductID: int32(productID), CountInStock: 100}, nil
 }
 
 func (s *stubProductCommandRepo) IncrementProductCountStock(ctx context.Context, productID int, quantity int) (*models.Product, error) {
-	return &models.Product{ProductID: int32(productID)}, nil
-}
-
-// stubOrderItemQueryRepo implements repository.OrderItemQueryRepository. Never
-// reached in the failure-injection suite (merchant fails first).
-type stubOrderItemQueryRepo struct{}
-
-func (s *stubOrderItemQueryRepo) FindOrderItemByOrder(ctx context.Context, orderID int) ([]*models.OrderItem, error) {
-	return nil, nil
-}
-
-func (s *stubOrderItemQueryRepo) CalculateTotalPrice(ctx context.Context, orderID int) (*int32, error) {
-	total := int32(0)
-	return &total, nil
+	return &models.Product{ProductID: int32(productID), CountInStock: 100}, nil
 }
 
 // stubOrderItemCommandRepo implements repository.OrderItemCommandRepository.
-// Never reached in the failure-injection suite (merchant fails first).
+// Likewise never reached in the failure-injection suite; it returns minimal
+// valid rows so the flow stays honest if the ordering ever changes.
 type stubOrderItemCommandRepo struct{}
 
-func (s *stubOrderItemCommandRepo) DeleteOrderItem(ctx context.Context, orderID int) error {
+func (s *stubOrderItemCommandRepo) DeleteOrderItem(ctx context.Context, orderItemID int) error {
 	return nil
 }
 
 func (s *stubOrderItemCommandRepo) CreateOrderItem(ctx context.Context, req *requests.CreateOrderItemRecordRequest) (*models.OrderItem, error) {
-	return &models.OrderItem{}, nil
+	return &models.OrderItem{
+		OrderItemID: 1,
+		OrderID:     int32(req.OrderID),
+		ProductID:   int32(req.ProductID),
+		Quantity:    int32(req.Quantity),
+		Price:       int64(req.Price),
+	}, nil
 }
 
 func (s *stubOrderItemCommandRepo) UpdateOrderItem(ctx context.Context, req *requests.UpdateOrderItemRecordRequest) (*models.OrderItem, error) {
-	return &models.OrderItem{}, nil
+	return &models.OrderItem{OrderItemID: int32(req.OrderItemID)}, nil
 }

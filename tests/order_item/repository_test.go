@@ -31,47 +31,40 @@ func (s *OrderItemRepositoryTestSuite) SetupSuite() {
 
 	// Seed data
 	var userID int
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'test-verify', true) RETURNING user_id`,
 		"OItem", "Repo", "oitem.repo@example.com", "password123",
 	).Scan(&userID).Error
 	s.Require().NoError(err)
 
 	var merchantID int
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO merchants (user_id, name, status) VALUES (?, ?, ?) RETURNING merchant_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO merchants (user_id, name, status) VALUES ($1, $2, $3) RETURNING merchant_id`,
 		userID, "OItem Merchant", "active",
 	).Scan(&merchantID).Error
 	s.Require().NoError(err)
 
 	var categoryID int
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO categories (name) VALUES (?) RETURNING category_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO categories (name) VALUES ($1) RETURNING category_id`,
 		"OItem Category",
 	).Scan(&categoryID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO products (merchant_id, category_id, name, price, count_in_stock) VALUES (?, ?, ?, ?, ?) RETURNING product_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO products (merchant_id, category_id, name, price, count_in_stock) VALUES ($1, $2, $3, $4, $5) RETURNING product_id`,
 		merchantID, categoryID, "OItem Product", 1000, 10,
 	).Scan(&s.productID).Error
 	s.Require().NoError(err)
 
 	var cashierID int
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO cashiers (merchant_id, user_id, name) VALUES (?, ?, ?) RETURNING cashier_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO cashiers (merchant_id, user_id, name) VALUES ($1, $2, $3) RETURNING cashier_id`,
 		merchantID, userID, "Test Cashier",
 	).Scan(&cashierID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO orders (merchant_id, cashier_id, total_price) VALUES (?, ?, ?) RETURNING order_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO orders (merchant_id, cashier_id, total_price) VALUES ($1, $2, $3) RETURNING order_id`,
 		merchantID, cashierID, 5000,
 	).Scan(&s.orderID).Error
 	s.Require().NoError(err)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?) RETURNING order_item_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ($1, $2, $3, $4) RETURNING order_item_id`,
 		s.orderID, s.productID, 2, 5000,
 	).Scan(&s.orderItemID).Error
 	s.Require().NoError(err)
@@ -123,8 +116,7 @@ func (s *OrderItemRepositoryTestSuite) Test4_FindByTrashed() {
 	ctx := context.Background()
 
 	// First trash the order item
-	err := s.ts.GormDB().WithContext(ctx).Exec(`UPDATE order_items SET deleted_at = NOW() WHERE order_item_id = ?`, s.orderItemID).Error
-	s.Require().NoError(err)
+	s.Require().NoError(s.ts.GormDB().Exec(`UPDATE order_items SET deleted_at = NOW() WHERE order_item_id = $1`, s.orderItemID).Error)
 
 	results, total, err := s.repo.OrderItemQuery.FindByTrashed(ctx, &requests.FindAllOrderItems{
 		Search:   "",
@@ -137,8 +129,7 @@ func (s *OrderItemRepositoryTestSuite) Test4_FindByTrashed() {
 	s.GreaterOrEqual(len(results), 1)
 
 	// Restore the order item for cleanup
-	err = s.ts.GormDB().WithContext(ctx).Exec(`UPDATE order_items SET deleted_at = NULL WHERE order_item_id = ?`, s.orderItemID).Error
-	s.Require().NoError(err)
+	s.Require().NoError(s.ts.GormDB().Exec(`UPDATE order_items SET deleted_at = NULL WHERE order_item_id = $1`, s.orderItemID).Error)
 }
 
 func TestOrderItemRepositorySuite(t *testing.T) {

@@ -3,32 +3,24 @@ package tests
 import (
 	"bytes"
 	"context"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/auth"
-	cashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
-	category "github.com/MamangRust/microservice-point-of-sale-pb/category"
-	merchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
-	merchant_document "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
-	order "github.com/MamangRust/microservice-point-of-sale-pb/order"
-	order_item "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
-	product "github.com/MamangRust/microservice-point-of-sale-pb/product"
-	role "github.com/MamangRust/microservice-point-of-sale-pb/role"
-	statspb "github.com/MamangRust/microservice-point-of-sale-pb/stats"
-	transaction "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
-	user "github.com/MamangRust/microservice-point-of-sale-pb/user"
-	user_role "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"mime/multipart"
 
-	"fmt"
+	pbauth "github.com/MamangRust/microservice-point-of-sale-pb/auth"
+	pbcashier "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	pbcategory "github.com/MamangRust/microservice-point-of-sale-pb/category"
+	pbmerchant "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	pbmerchantdoc "github.com/MamangRust/microservice-point-of-sale-pb/merchant_document"
+	pborder "github.com/MamangRust/microservice-point-of-sale-pb/order"
+	pborderitem "github.com/MamangRust/microservice-point-of-sale-pb/order_item"
+	pbproduct "github.com/MamangRust/microservice-point-of-sale-pb/product"
+	pbrole "github.com/MamangRust/microservice-point-of-sale-pb/role"
+	pbtransaction "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuserrole "github.com/MamangRust/microservice-point-of-sale-pb/user_role"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/auth"
 	"github.com/MamangRust/microservice-point-of-sale-pkg/hash"
 	"github.com/MamangRust/microservice-point-of-sale-shared/cache"
 	"github.com/MamangRust/microservice-point-of-sale-shared/observability"
-
-	clickhouseDB "github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/MamangRust/microservice-point-of-sale-pkg/clickhouse"
-	stats_handler "github.com/MamangRust/microservice-point-of-sale-stats-reader/handler"
-	stats_repo "github.com/MamangRust/microservice-point-of-sale-stats-reader/repository"
-	clickhouseTC "github.com/testcontainers/testcontainers-go/modules/clickhouse"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -107,9 +99,9 @@ func (s *BaseTestSuite) SetupRoleService() {
 	})
 	roleGapi := role_handler.NewHandler(roleSvc)
 	server := grpc.NewServer()
-	role.RegisterRoleQueryServiceServer(server, roleGapi)
-	role.RegisterRoleCommandServiceServer(server, roleGapi)
-	user_role.RegisterUserRoleServiceServer(server, roleGapi)
+	pbrole.RegisterRoleQueryServiceServer(server, roleGapi)
+	pbrole.RegisterRoleCommandServiceServer(server, roleGapi)
+	pbuserrole.RegisterUserRoleServiceServer(server, roleGapi)
 	addr, err := RunGRPCServer(server)
 
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -127,10 +119,10 @@ func (s *BaseTestSuite) SetupUserService() {
 	gormDB := s.GormDB()
 	hasher := hash.NewHashingPassword()
 
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+
 	userMencache := user_cache.NewMencache(cacheStore)
-	roleClient := role.NewRoleQueryServiceClient(s.Conns["role"])
-	userRoleClient := user_role.NewUserRoleServiceClient(s.Conns["role"])
-	userRepos := user_repo.NewRepositories(gormDB, roleClient, userRoleClient)
+	userRepos := user_repo.NewRepositories(gormDB, roleClient, pbuserrole.NewUserRoleServiceClient(s.Conns["role"]))
 	userSvc := user_service.NewService(&user_service.Deps{
 		Repositories:  userRepos,
 		Logger:        s.Log,
@@ -140,8 +132,8 @@ func (s *BaseTestSuite) SetupUserService() {
 	})
 	userGapi := user_handler.NewHandler(userSvc)
 	server := grpc.NewServer()
-	user.RegisterUserQueryServiceServer(server, userGapi)
-	user.RegisterUserCommandServiceServer(server, userGapi)
+	pbuser.RegisterUserQueryServiceServer(server, userGapi)
+	pbuser.RegisterUserCommandServiceServer(server, userGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 
@@ -152,11 +144,11 @@ func (s *BaseTestSuite) SetupUserService() {
 }
 
 func (s *BaseTestSuite) SetupAuthService() {
-	if _, ok := s.Conns["user"]; !ok {
-		s.SetupUserService()
-	}
 	if _, ok := s.Conns["role"]; !ok {
 		s.SetupRoleService()
+	}
+	if _, ok := s.Conns["user"]; !ok {
+		s.SetupUserService()
 	}
 
 	cacheStore := s.GetCacheStore()
@@ -164,10 +156,10 @@ func (s *BaseTestSuite) SetupAuthService() {
 	hasher := hash.NewHashingPassword()
 	tokenManager, _ := auth.NewManager("mysecret")
 
-	userQueryClient := user.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := user.NewUserCommandServiceClient(s.Conns["user"])
-	roleClient := role.NewRoleQueryServiceClient(s.Conns["role"])
-	userRoleClient := user_role.NewUserRoleServiceClient(s.Conns["role"])
+	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
+	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
 
 	authRepos := auth_repo.NewRepositories(gormDB, userQueryClient, userCommandClient, roleClient, userRoleClient)
 	authMencache := auth_cache.NewMencache(cacheStore)
@@ -182,7 +174,7 @@ func (s *BaseTestSuite) SetupAuthService() {
 	})
 	authGapi := auth_handler.NewAuthHandleGrpc(authSvc, s.Log)
 	server := grpc.NewServer()
-	pb.RegisterAuthServiceServer(server, authGapi)
+	pbauth.RegisterAuthServiceServer(server, authGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 
@@ -206,8 +198,8 @@ func (s *BaseTestSuite) SetupCategoryService() {
 	})
 	catGapi := category_handler.NewHandler(catSvc)
 	server := grpc.NewServer()
-	category.RegisterCategoryQueryServiceServer(server, catGapi)
-	category.RegisterCategoryCommandServiceServer(server, catGapi)
+	pbcategory.RegisterCategoryQueryServiceServer(server, catGapi)
+	pbcategory.RegisterCategoryCommandServiceServer(server, catGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["category"] = s.dial(addr)
@@ -225,9 +217,10 @@ func (s *BaseTestSuite) SetupProductService() {
 	cacheStore := s.GetCacheStore()
 	gormDB := s.GormDB()
 
+	categoryClient := pbcategory.NewCategoryQueryServiceClient(s.Conns["category"])
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+
 	prodMencache := product_cache.NewMencache(cacheStore)
-	categoryClient := category.NewCategoryQueryServiceClient(s.Conns["category"])
-	merchantClient := merchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
 	prodRepos := product_repo.NewRepositories(gormDB, categoryClient, merchantClient)
 	prodSvc := product_service.NewService(&product_service.Deps{
 		Mencache:      prodMencache,
@@ -237,8 +230,8 @@ func (s *BaseTestSuite) SetupProductService() {
 	})
 	prodGapi := product_handler.NewHandler(prodSvc)
 	server := grpc.NewServer()
-	product.RegisterProductQueryServiceServer(server, prodGapi)
-	product.RegisterProductCommandServiceServer(server, prodGapi)
+	pbproduct.RegisterProductQueryServiceServer(server, prodGapi)
+	pbproduct.RegisterProductCommandServiceServer(server, prodGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["product"] = s.dial(addr)
@@ -254,8 +247,8 @@ func (s *BaseTestSuite) SetupMerchantService() {
 	gormDB := s.GormDB()
 
 	merchantMencache := merchant_cache.NewMencache(cacheStore)
-	userQueryClient := user.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := user.NewUserCommandServiceClient(s.Conns["user"])
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
 	merchantRepos := merchant_repo.NewRepositories(gormDB, userQueryClient, userCommandClient)
 	merchantSvc := merchant_service.NewService(&merchant_service.Deps{
 		Mencache:      merchantMencache,
@@ -264,11 +257,11 @@ func (s *BaseTestSuite) SetupMerchantService() {
 		Observability: s.Obs,
 		Kafka:         nil,
 	})
-	merchantGapi, merchantDocGapi := merchant_handler.NewHandler(merchantSvc)
+	merchantHandler, merchantDocHandler := merchant_handler.NewHandler(merchantSvc)
 	server := grpc.NewServer()
-	merchant.RegisterMerchantQueryServiceServer(server, merchantGapi)
-	merchant.RegisterMerchantCommandServiceServer(server, merchantGapi)
-	merchant_document.RegisterMerchantDocumentServiceServer(server, merchantDocGapi)
+	pbmerchant.RegisterMerchantQueryServiceServer(server, merchantHandler)
+	pbmerchant.RegisterMerchantCommandServiceServer(server, merchantHandler)
+	pbmerchantdoc.RegisterMerchantDocumentServiceServer(server, merchantDocHandler)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["merchant"] = s.dial(addr)
@@ -292,12 +285,12 @@ func (s *BaseTestSuite) SetupOrderService() {
 	cacheStore := s.GetCacheStore()
 	gormDB := s.GormDB()
 
-	cashierClient := cashier.NewCashierQueryServiceClient(s.Conns["cashier"])
-	merchantClient := merchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
-	productQueryClient := product.NewProductQueryServiceClient(s.Conns["product"])
-	productCommandClient := product.NewProductCommandServiceClient(s.Conns["product"])
-	orderItemQueryClient := order_item.NewOrderItemQueryServiceClient(s.Conns["order-item"])
-	orderItemCommandClient := order_item.NewOrderItemCommandServiceClient(s.Conns["order-item"])
+	cashierClient := pbcashier.NewCashierQueryServiceClient(s.Conns["cashier"])
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+	productQueryClient := pbproduct.NewProductQueryServiceClient(s.Conns["product"])
+	productCommandClient := pbproduct.NewProductCommandServiceClient(s.Conns["product"])
+	orderItemQueryClient := pborderitem.NewOrderItemQueryServiceClient(s.Conns["order-item"])
+	orderItemCommandClient := pborderitem.NewOrderItemCommandServiceClient(s.Conns["order-item"])
 
 	orderMencache := order_cache.NewMencache(cacheStore)
 	orderRepos := order_repo.NewRepositories(gormDB, cashierClient, merchantClient, productQueryClient, productCommandClient, orderItemQueryClient, orderItemCommandClient)
@@ -309,8 +302,8 @@ func (s *BaseTestSuite) SetupOrderService() {
 	})
 	orderGapi := order_handler.NewHandler(orderSvc)
 	server := grpc.NewServer()
-	order.RegisterOrderQueryServiceServer(server, orderGapi)
-	order.RegisterOrderCommandServiceServer(server, orderGapi)
+	pborder.RegisterOrderQueryServiceServer(server, orderGapi)
+	pborder.RegisterOrderCommandServiceServer(server, orderGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["order"] = s.dial(addr)
@@ -334,11 +327,11 @@ func (s *BaseTestSuite) SetupTransactionService() {
 	cacheStore := s.GetCacheStore()
 	gormDB := s.GormDB()
 
-	cashierClient := cashier.NewCashierQueryServiceClient(s.Conns["cashier"])
-	merchantClient := merchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
-	orderClient := order.NewOrderQueryServiceClient(s.Conns["order"])
-	orderItemQueryClient := order_item.NewOrderItemQueryServiceClient(s.Conns["order-item"])
-	orderItemCommandClient := order_item.NewOrderItemCommandServiceClient(s.Conns["order-item"])
+	cashierClient := pbcashier.NewCashierQueryServiceClient(s.Conns["cashier"])
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+	orderClient := pborder.NewOrderQueryServiceClient(s.Conns["order"])
+	orderItemQueryClient := pborderitem.NewOrderItemQueryServiceClient(s.Conns["order-item"])
+	orderItemCommandClient := pborderitem.NewOrderItemCommandServiceClient(s.Conns["order-item"])
 
 	transactionMencache := transaction_cache.NewMencache(cacheStore)
 	transactionRepos := transaction_repo.NewRepositories(gormDB, cashierClient, merchantClient, orderClient, orderItemQueryClient, orderItemCommandClient)
@@ -350,8 +343,8 @@ func (s *BaseTestSuite) SetupTransactionService() {
 	})
 	transactionGapi := transaction_handler.NewHandler(transactionSvc, s.Log)
 	server := grpc.NewServer()
-	transaction.RegisterTransactionQueryServiceServer(server, transactionGapi)
-	transaction.RegisterTransactionCommandServiceServer(server, transactionGapi)
+	pbtransaction.RegisterTransactionQueryServiceServer(server, transactionGapi)
+	pbtransaction.RegisterTransactionCommandServiceServer(server, transactionGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["transaction"] = s.dial(addr)
@@ -372,8 +365,8 @@ func (s *BaseTestSuite) SetupOrderItemService() {
 	})
 	itemGapi := order_item_handler.NewHandler(itemSvc, s.Log)
 	server := grpc.NewServer()
-	order_item.RegisterOrderItemQueryServiceServer(server, itemGapi)
-	order_item.RegisterOrderItemCommandServiceServer(server, itemGapi)
+	pborderitem.RegisterOrderItemQueryServiceServer(server, itemGapi)
+	pborderitem.RegisterOrderItemCommandServiceServer(server, itemGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["order-item"] = s.dial(addr)
@@ -392,9 +385,9 @@ func (s *BaseTestSuite) SetupCashierService() {
 	gormDB := s.GormDB()
 
 	cashierMencache := mencache.NewMencache(cacheStore)
-	userQueryClient := user.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := user.NewUserCommandServiceClient(s.Conns["user"])
-	merchantClient := merchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+	userQueryClient := pbuser.NewUserQueryServiceClient(s.Conns["user"])
+	userCommandClient := pbuser.NewUserCommandServiceClient(s.Conns["user"])
+	merchantClient := pbmerchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
 	cashierRepos := cashier_repo.NewRepositories(gormDB, userQueryClient, userCommandClient, merchantClient)
 	cashierSvc := cashier_service.NewService(&cashier_service.Deps{
 		Ctx:           context.Background(),
@@ -405,8 +398,8 @@ func (s *BaseTestSuite) SetupCashierService() {
 	})
 	cashierGapi := cashier_handler.NewHandler(cashierSvc)
 	server := grpc.NewServer()
-	cashier.RegisterCashierQueryServiceServer(server, cashierGapi)
-	cashier.RegisterCashierCommandServiceServer(server, cashierGapi)
+	pbcashier.RegisterCashierQueryServiceServer(server, cashierGapi)
+	pbcashier.RegisterCashierCommandServiceServer(server, cashierGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["cashier"] = s.dial(addr)
@@ -435,68 +428,4 @@ func (s *BaseTestSuite) BuildMultipartRequestBody(fields map[string]string, fiel
 	fw.Write([]byte("dummy image content"))
 	w.Close()
 	return b.Bytes(), w.FormDataContentType()
-}
-
-func (s *BaseTestSuite) SetupStatsReaderService() {
-	// Start ClickHouse testcontainer
-	chCtx := context.Background()
-	chContainer, err := clickhouseTC.RunContainer(chCtx,
-		clickhouseTC.WithDatabase("pos_stats"),
-		clickhouseTC.WithPassword("test_password"),
-	)
-	if err != nil {
-		s.T().Skipf("Skipping stats reader tests: ClickHouse container failed to start: %v", err)
-	}
-
-	// Get the mapped host/port
-	chHost, err := chContainer.Host(chCtx)
-	if err != nil {
-		s.T().Skipf("Skipping stats reader tests: failed to get ClickHouse host: %v", err)
-	}
-	chPort, err := chContainer.MappedPort(chCtx, "9000")
-	if err != nil {
-		s.T().Skipf("Skipping stats reader tests: failed to get ClickHouse port: %v", err)
-	}
-
-	// Connect to ClickHouse
-	connStr := fmt.Sprintf("%s:%s", chHost, chPort.Port())
-	chConn, err := clickhouseDB.Open(&clickhouseDB.Options{
-		Addr: []string{connStr},
-		Auth: clickhouseDB.Auth{
-			Database: "pos_stats",
-			Username: "default",
-			Password: "test_password",
-		},
-	})
-	if err != nil {
-		s.T().Skipf("Skipping stats reader tests: failed to connect to ClickHouse: %v", err)
-	}
-
-	// Apply schema
-	if err := clickhouse.ApplySchema(chCtx, chConn, s.Log); err != nil {
-		s.T().Skipf("Skipping stats reader tests: failed to apply schema: %v", err)
-	}
-
-	// Create stats-reader repository + handlers (single ClickHouse reader
-	// implementing the full stats contract)
-	repo := stats_repo.NewClickHouseReaderRepository(chConn)
-	var statsCache *stats_handler.StatsCache // no cache in tests
-
-	server := grpc.NewServer()
-	statspb.RegisterOrderStatsServiceServer(server, stats_handler.NewOrderStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterOrderStatsByMerchantServiceServer(server, stats_handler.NewOrderStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterOrderStatsByIdServiceServer(server, stats_handler.NewOrderStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterCashierStatsServiceServer(server, stats_handler.NewCashierStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterCashierStatsByMerchantServiceServer(server, stats_handler.NewCashierStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterCashierStatsByIdServiceServer(server, stats_handler.NewCashierStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterCategoryStatsServiceServer(server, stats_handler.NewCategoryStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterCategoryStatsByMerchantServiceServer(server, stats_handler.NewCategoryStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterCategoryStatsByIdServiceServer(server, stats_handler.NewCategoryStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterTransactionStatsStatusServiceServer(server, stats_handler.NewTransactionStatsHandler(repo, statsCache, s.Log))
-	statspb.RegisterTransactionStatsMethodServiceServer(server, stats_handler.NewTransactionStatsHandler(repo, statsCache, s.Log))
-
-	addr, err := RunGRPCServer(server)
-	s.Require().NoError(err)
-	s.Conns["stats-reader"] = s.dial(addr)
-	s.Servers = append(s.Servers, server)
 }

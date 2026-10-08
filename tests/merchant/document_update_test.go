@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
@@ -16,12 +16,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// MerchantDocumentUpdateTestSuite is a regression suite for the merchant
-// document update fix: UpdateMerchantDocument and UpdateMerchantDocumentStatus
-// must target the request's DocumentID — never the MerchantID. The fixture
-// creates two documents under one merchant and updates the *second* document,
-// whose ID is guaranteed to differ from the merchant ID, so the old bug
-// (using MerchantID as DocumentID) cannot pass by coincidence.
 type MerchantDocumentUpdateTestSuite struct {
 	suite.Suite
 	ts         *tests.TestSuite
@@ -39,15 +33,16 @@ func (s *MerchantDocumentUpdateTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 
 	// Placeholder gRPC listener to satisfy NewRepositories
-	// (UserQuery gRPC methods are not called during DB-only tests).
 	userLis, _ := net.Listen("tcp", "localhost:0")
 	userConn, _ := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	merchantQueries := s.ts.GormDB()
-	s.repo = repository.NewRepositories(merchantQueries, pb.NewUserQueryServiceClient(userConn), pb.NewUserCommandServiceClient(userConn))
+	s.repo = repository.NewRepositories(merchantQueries,
+		pbuser.NewUserQueryServiceClient(userConn),
+		pbuser.NewUserCommandServiceClient(userConn),
+	)
 
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'doc-verify', true) RETURNING user_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'doc-verify', true) RETURNING user_id`,
 		"Document", "Owner", "merchant.document@example.com", "password123",
 	).Scan(&s.userID).Error
 	s.Require().NoError(err)
@@ -81,8 +76,6 @@ func (s *MerchantDocumentUpdateTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 
 	s.Require().NotEqual(s.docA.DocumentID, s.docB.DocumentID)
-	// The regression hinges on this: the update target (docB) must be
-	// distinguishable from the merchant ID.
 	s.Require().NotEqual(int(s.docB.DocumentID), s.merchantID,
 		"fixture requires the target document ID to differ from the merchant ID")
 }
@@ -106,13 +99,10 @@ func (s *MerchantDocumentUpdateTestSuite) Test1_UpdateMerchantDocument_UsesDocum
 	s.Require().NoError(err)
 	s.Require().NotNil(updated)
 
-	// The row returned must be docB — keyed by the request DocumentID,
-	// never by the merchant ID.
 	s.Equal(s.docB.DocumentID, updated.DocumentID)
 	s.Equal("doc_b_updated", updated.DocumentType)
 	s.Equal("verified", updated.Status)
 
-	// docA must be left untouched by the update.
 	docA, err := s.repo.MerchantDocumentQuery.FindById(ctx, int(s.docA.DocumentID))
 	s.Require().NoError(err)
 	s.Require().NotNil(docA)
@@ -133,11 +123,9 @@ func (s *MerchantDocumentUpdateTestSuite) Test2_UpdateMerchantDocumentStatus_Use
 	s.Require().NoError(err)
 	s.Require().NotNil(updated)
 
-	// The status change must land on docB, not on the merchant's own row.
 	s.Equal(s.docB.DocumentID, updated.DocumentID)
 	s.Equal("rejected", updated.Status)
 
-	// docA (created with status "pending") must not have been rejected.
 	docA, err := s.repo.MerchantDocumentQuery.FindById(ctx, int(s.docA.DocumentID))
 	s.Require().NoError(err)
 	s.Require().NotNil(docA)

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	commonpb "github.com/MamangRust/microservice-point-of-sale-pb/common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -23,7 +23,7 @@ func ToGrpcError(err error) error {
 
 	st := status.New(grpcCode, apiErr.Message)
 
-	detail := &pbcommon.ErrorResponse{
+	detail := &commonpb.ErrorResponse{
 		Status:  apiErr.Type.String(),
 		Message: apiErr.Message,
 		Code:    int32(apiErr.Code),
@@ -48,7 +48,7 @@ func ParseGrpcError(err error) *AppError {
 	}
 
 	for _, detail := range st.Details() {
-		if res, ok := detail.(*pbcommon.ErrorResponse); ok {
+		if res, ok := detail.(*commonpb.ErrorResponse); ok {
 			code := int(res.Code)
 			if code < http.StatusBadRequest || code > 599 {
 				code = grpcToHttpCode(st.Code())
@@ -159,7 +159,7 @@ func NewGrpcError(message string, httpCode int) error {
 
 	st := status.New(grpcCode, message)
 
-	detail := &pbcommon.ErrorResponse{
+	detail := &commonpb.ErrorResponse{
 		Status:  http.StatusText(httpCode),
 		Message: message,
 		Code:    int32(httpCode),

@@ -1,7 +1,7 @@
 package response_api
 
 import (
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
+	cashierpb "github.com/MamangRust/microservice-point-of-sale-pb/cashier"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -11,7 +11,7 @@ func NewCashierResponseMapper() *cashierResponseMapper {
 	return &cashierResponseMapper{}
 }
 
-func (c *cashierResponseMapper) ToResponseCashier(cashier *pb.CashierResponse) *response.CashierResponse {
+func (c *cashierResponseMapper) ToResponseCashier(cashier *cashierpb.CashierResponse) *response.CashierResponse {
 	return &response.CashierResponse{
 		ID:         int(cashier.Id),
 		MerchantID: int(cashier.MerchantId),
@@ -21,7 +21,7 @@ func (c *cashierResponseMapper) ToResponseCashier(cashier *pb.CashierResponse) *
 	}
 }
 
-func (c *cashierResponseMapper) ToResponsesCashier(cashiers []*pb.CashierResponse) []*response.CashierResponse {
+func (c *cashierResponseMapper) ToResponsesCashier(cashiers []*cashierpb.CashierResponse) []*response.CashierResponse {
 	var mappedCashiers []*response.CashierResponse
 
 	for _, cashier := range cashiers {
@@ -31,7 +31,7 @@ func (c *cashierResponseMapper) ToResponsesCashier(cashiers []*pb.CashierRespons
 	return mappedCashiers
 }
 
-func (c *cashierResponseMapper) ToResponseCashierDeleteAt(cashier *pb.CashierResponseDeleteAt) *response.CashierResponseDeleteAt {
+func (c *cashierResponseMapper) ToResponseCashierDeleteAt(cashier *cashierpb.CashierResponseDeleteAt) *response.CashierResponseDeleteAt {
 	var deletedAt string
 	if cashier.DeletedAt != nil {
 		deletedAt = cashier.DeletedAt.Value
@@ -47,7 +47,7 @@ func (c *cashierResponseMapper) ToResponseCashierDeleteAt(cashier *pb.CashierRes
 	}
 }
 
-func (c *cashierResponseMapper) ToResponsesCashierDeleteAt(cashiers []*pb.CashierResponseDeleteAt) []*response.CashierResponseDeleteAt {
+func (c *cashierResponseMapper) ToResponsesCashierDeleteAt(cashiers []*cashierpb.CashierResponseDeleteAt) []*response.CashierResponseDeleteAt {
 	var mappedCashiers []*response.CashierResponseDeleteAt
 
 	for _, cashier := range cashiers {
@@ -57,7 +57,7 @@ func (c *cashierResponseMapper) ToResponsesCashierDeleteAt(cashiers []*pb.Cashie
 	return mappedCashiers
 }
 
-func (c *cashierResponseMapper) ToApiResponseCashier(pbResponse *pb.ApiResponseCashier) *response.ApiResponseCashier {
+func (c *cashierResponseMapper) ToApiResponseCashier(pbResponse *cashierpb.ApiResponseCashier) *response.ApiResponseCashier {
 	return &response.ApiResponseCashier{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -65,14 +65,15 @@ func (c *cashierResponseMapper) ToApiResponseCashier(pbResponse *pb.ApiResponseC
 	}
 }
 
-func (c *cashierResponseMapper) ToApiResponsesCashier(pbResponse *pb.ApiResponsesCashier) *response.ApiResponsesCashier {
+func (c *cashierResponseMapper) ToApiResponsesCashier(pbResponse *cashierpb.ApiResponsesCashier) *response.ApiResponsesCashier {
 	return &response.ApiResponsesCashier{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 		Data:    c.ToResponsesCashier(pbResponse.Data),
 	}
 }
-func (c *cashierResponseMapper) ToApiResponseCashierDeleteAt(pbResponse *pb.ApiResponseCashierDeleteAt) *response.ApiResponseCashierDeleteAt {
+
+func (c *cashierResponseMapper) ToApiResponseCashierDeleteAt(pbResponse *cashierpb.ApiResponseCashierDeleteAt) *response.ApiResponseCashierDeleteAt {
 	return &response.ApiResponseCashierDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -80,21 +81,21 @@ func (c *cashierResponseMapper) ToApiResponseCashierDeleteAt(pbResponse *pb.ApiR
 	}
 }
 
-func (c *cashierResponseMapper) ToApiResponseCashierDelete(pbResponse *pb.ApiResponseCashierDelete) *response.ApiResponseCashierDelete {
+func (c *cashierResponseMapper) ToApiResponseCashierDelete(pbResponse *cashierpb.ApiResponseCashierDelete) *response.ApiResponseCashierDelete {
 	return &response.ApiResponseCashierDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (c *cashierResponseMapper) ToApiResponseCashierAll(pbResponse *pb.ApiResponseCashierAll) *response.ApiResponseCashierAll {
+func (c *cashierResponseMapper) ToApiResponseCashierAll(pbResponse *cashierpb.ApiResponseCashierAll) *response.ApiResponseCashierAll {
 	return &response.ApiResponseCashierAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (c *cashierResponseMapper) ToApiResponsePaginationCashierDeleteAt(pbResponse *pb.ApiResponsePaginationCashierDeleteAt) *response.ApiResponsePaginationCashierDeleteAt {
+func (c *cashierResponseMapper) ToApiResponsePaginationCashierDeleteAt(pbResponse *cashierpb.ApiResponsePaginationCashierDeleteAt) *response.ApiResponsePaginationCashierDeleteAt {
 	return &response.ApiResponsePaginationCashierDeleteAt{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -103,7 +104,7 @@ func (c *cashierResponseMapper) ToApiResponsePaginationCashierDeleteAt(pbRespons
 	}
 }
 
-func (c *cashierResponseMapper) ToApiResponsePaginationCashier(pbResponse *pb.ApiResponsePaginationCashier) *response.ApiResponsePaginationCashier {
+func (c *cashierResponseMapper) ToApiResponsePaginationCashier(pbResponse *cashierpb.ApiResponsePaginationCashier) *response.ApiResponsePaginationCashier {
 	return &response.ApiResponsePaginationCashier{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

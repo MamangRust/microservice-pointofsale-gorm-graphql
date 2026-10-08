@@ -1,10 +1,10 @@
 package protomapper
 
 import (
-	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	commonpb "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	transactionpb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/transaction"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -14,46 +14,46 @@ func NewTransactionProtoMapper() *transactionProtoMapper {
 	return &transactionProtoMapper{}
 }
 
-func (t *transactionProtoMapper) ToProtoResponseTransaction(status string, message string, trans *response.TransactionResponse) *pb.ApiResponseTransaction {
-	return &pb.ApiResponseTransaction{
+func (t *transactionProtoMapper) ToProtoResponseTransaction(status string, message string, trans *response.TransactionResponse) *transactionpb.ApiResponseTransaction {
+	return &transactionpb.ApiResponseTransaction{
 		Status:  status,
 		Message: message,
 		Data:    t.mapResponseTransaction(trans),
 	}
 }
 
-func (t *transactionProtoMapper) ToProtoResponsesTransaction(status string, message string, transList []*response.TransactionResponse) *pb.ApiResponsesTransaction {
-	return &pb.ApiResponsesTransaction{
+func (t *transactionProtoMapper) ToProtoResponsesTransaction(status string, message string, transList []*response.TransactionResponse) *transactionpb.ApiResponsesTransaction {
+	return &transactionpb.ApiResponsesTransaction{
 		Status:  status,
 		Message: message,
 		Data:    t.mapResponsesTransaction(transList),
 	}
 }
 
-func (t *transactionProtoMapper) ToProtoResponseTransactionDeleteAt(status string, message string, trans *response.TransactionResponseDeleteAt) *pb.ApiResponseTransactionDeleteAt {
-	return &pb.ApiResponseTransactionDeleteAt{
+func (t *transactionProtoMapper) ToProtoResponseTransactionDeleteAt(status string, message string, trans *response.TransactionResponseDeleteAt) *transactionpb.ApiResponseTransactionDeleteAt {
+	return &transactionpb.ApiResponseTransactionDeleteAt{
 		Status:  status,
 		Message: message,
 		Data:    t.mapResponseTransactionDeleteAt(trans),
 	}
 }
 
-func (t *transactionProtoMapper) ToProtoResponseTransactionDelete(status string, message string) *pb.ApiResponseTransactionDelete {
-	return &pb.ApiResponseTransactionDelete{
+func (t *transactionProtoMapper) ToProtoResponseTransactionDelete(status string, message string) *transactionpb.ApiResponseTransactionDelete {
+	return &transactionpb.ApiResponseTransactionDelete{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (t *transactionProtoMapper) ToProtoResponseTransactionAll(status string, message string) *pb.ApiResponseTransactionAll {
-	return &pb.ApiResponseTransactionAll{
+func (t *transactionProtoMapper) ToProtoResponseTransactionAll(status string, message string) *transactionpb.ApiResponseTransactionAll {
+	return &transactionpb.ApiResponseTransactionAll{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (t *transactionProtoMapper) ToProtoResponsePaginationTransactionDeleteAt(pagination *pbcommon.PaginationMeta, status string, message string, transactions []*response.TransactionResponseDeleteAt) *pb.ApiResponsePaginationTransactionDeleteAt {
-	return &pb.ApiResponsePaginationTransactionDeleteAt{
+func (t *transactionProtoMapper) ToProtoResponsePaginationTransactionDeleteAt(pagination *commonpb.PaginationMeta, status string, message string, transactions []*response.TransactionResponseDeleteAt) *transactionpb.ApiResponsePaginationTransactionDeleteAt {
+	return &transactionpb.ApiResponsePaginationTransactionDeleteAt{
 		Status:     status,
 		Message:    message,
 		Data:       t.mapResponsesTransactionDeleteAt(transactions),
@@ -61,8 +61,8 @@ func (t *transactionProtoMapper) ToProtoResponsePaginationTransactionDeleteAt(pa
 	}
 }
 
-func (t *transactionProtoMapper) ToProtoResponsePaginationTransaction(pagination *pbcommon.PaginationMeta, status string, message string, transactions []*response.TransactionResponse) *pb.ApiResponsePaginationTransaction {
-	return &pb.ApiResponsePaginationTransaction{
+func (t *transactionProtoMapper) ToProtoResponsePaginationTransaction(pagination *commonpb.PaginationMeta, status string, message string, transactions []*response.TransactionResponse) *transactionpb.ApiResponsePaginationTransaction {
+	return &transactionpb.ApiResponsePaginationTransaction{
 		Status:     status,
 		Message:    message,
 		Data:       t.mapResponsesTransaction(transactions),
@@ -70,8 +70,8 @@ func (t *transactionProtoMapper) ToProtoResponsePaginationTransaction(pagination
 	}
 }
 
-func (t *transactionProtoMapper) mapResponseTransaction(transaction *response.TransactionResponse) *pb.TransactionResponse {
-	return &pb.TransactionResponse{
+func (t *transactionProtoMapper) mapResponseTransaction(transaction *response.TransactionResponse) *transactionpb.TransactionResponse {
+	return &transactionpb.TransactionResponse{
 		Id:            int32(transaction.ID),
 		OrderId:       int32(transaction.OrderID),
 		MerchantId:    int32(transaction.MerchantID),
@@ -84,8 +84,8 @@ func (t *transactionProtoMapper) mapResponseTransaction(transaction *response.Tr
 	}
 }
 
-func (t *transactionProtoMapper) mapResponsesTransaction(transactions []*response.TransactionResponse) []*pb.TransactionResponse {
-	var mappedTransactions []*pb.TransactionResponse
+func (t *transactionProtoMapper) mapResponsesTransaction(transactions []*response.TransactionResponse) []*transactionpb.TransactionResponse {
+	var mappedTransactions []*transactionpb.TransactionResponse
 
 	for _, transaction := range transactions {
 		mappedTransactions = append(mappedTransactions, t.mapResponseTransaction(transaction))
@@ -94,13 +94,13 @@ func (t *transactionProtoMapper) mapResponsesTransaction(transactions []*respons
 	return mappedTransactions
 }
 
-func (t *transactionProtoMapper) mapResponseTransactionDeleteAt(transaction *response.TransactionResponseDeleteAt) *pb.TransactionResponseDeleteAt {
+func (t *transactionProtoMapper) mapResponseTransactionDeleteAt(transaction *response.TransactionResponseDeleteAt) *transactionpb.TransactionResponseDeleteAt {
 	var deletedAt *wrapperspb.StringValue
 	if transaction.DeletedAt != nil {
 		deletedAt = wrapperspb.String(*transaction.DeletedAt)
 	}
 
-	return &pb.TransactionResponseDeleteAt{
+	return &transactionpb.TransactionResponseDeleteAt{
 		Id:            int32(transaction.ID),
 		OrderId:       int32(transaction.OrderID),
 		MerchantId:    int32(transaction.MerchantID),
@@ -114,8 +114,8 @@ func (t *transactionProtoMapper) mapResponseTransactionDeleteAt(transaction *res
 	}
 }
 
-func (t *transactionProtoMapper) mapResponsesTransactionDeleteAt(transactions []*response.TransactionResponseDeleteAt) []*pb.TransactionResponseDeleteAt {
-	var mappedTransactions []*pb.TransactionResponseDeleteAt
+func (t *transactionProtoMapper) mapResponsesTransactionDeleteAt(transactions []*response.TransactionResponseDeleteAt) []*transactionpb.TransactionResponseDeleteAt {
+	var mappedTransactions []*transactionpb.TransactionResponseDeleteAt
 
 	for _, transaction := range transactions {
 		mappedTransactions = append(mappedTransactions, t.mapResponseTransactionDeleteAt(transaction))

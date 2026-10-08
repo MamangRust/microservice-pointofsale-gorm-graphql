@@ -27,9 +27,7 @@ func (s *UserRepositoryTestSuite) SetupSuite() {
 
 	userQueries := s.GormDB()
 	s.SetupRoleService()
-	roleClient := pbrole.NewRoleQueryServiceClient(s.Conns["role"])
-	userRoleClient := pbuserrole.NewUserRoleServiceClient(s.Conns["role"])
-	s.repo = repository.NewRepositories(userQueries, roleClient, userRoleClient)
+	s.repo = repository.NewRepositories(userQueries, pbrole.NewRoleQueryServiceClient(s.Conns["role"]), pbuserrole.NewUserRoleServiceClient(s.Conns["role"]))
 }
 
 func (s *UserRepositoryTestSuite) TearDownSuite() {

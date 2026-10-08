@@ -56,6 +56,17 @@ CREATE TABLE IF NOT EXISTS transaction_daily
     event_version  UInt64
 ) ENGINE = ReplacingMergeTree(event_version)
 ORDER BY (toDate(event_time), transaction_id, event_id);
+
+CREATE TABLE IF NOT EXISTS cashier_daily
+(
+    event_id      UUID,
+    event_time    DateTime,
+    cashier_id    UInt64,
+    merchant_id   UInt64,
+    status        LowCardinality(String),
+    event_version UInt64
+) ENGINE = ReplacingMergeTree(event_version)
+ORDER BY (toDate(event_time), cashier_id, event_id);
 `
 
 // ApplySchema executes the stats table DDL inside the configured database

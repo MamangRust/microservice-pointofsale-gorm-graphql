@@ -21,9 +21,9 @@ var (
 
 	ErrFindAllCategory = errors.ErrInternal.WithMessage("Failed to find all categories")
 	ErrFindById        = errors.ErrInternal.WithMessage("Failed to find category by ID")
-	ErrFindByIds       = errors.ErrInternal.WithMessage("Failed to find categories by IDs")
 	ErrFindByNameAndId = errors.ErrInternal.WithMessage("Failed to find category by name and ID")
 	ErrFindByName      = errors.ErrInternal.WithMessage("Failed to find category by name")
+	ErrFindByIds       = errors.ErrInternal.WithMessage("Failed to find categories by IDs")
 	ErrFindByActive    = errors.ErrInternal.WithMessage("Failed to find active categories")
 	ErrFindByTrashed   = errors.ErrInternal.WithMessage("Failed to find trashed categories")
 

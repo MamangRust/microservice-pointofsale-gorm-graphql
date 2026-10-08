@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/MamangRust/microservice-point-of-sale-pkg/logger"
@@ -46,6 +47,17 @@ func NewGormClientWithPrefix(log logger.LoggerInterface, prefix string) (*gorm.D
 	password := viper.GetString(fmt.Sprintf("%s_PASSWORD", prefix))
 	if password == "" {
 		password = viper.GetString("DB_PASSWORD")
+	}
+
+	// Fail fast when the resolved connection target is incomplete. Each service
+	// must target its own bounded-context instance via the DB_<CONTEXT>_* keys;
+	// silently falling back to a generic/shared instance would let a service
+	// write to the wrong database (FKs cannot cross instances anyway).
+	if host == "" || port == "" || dbname == "" {
+		return nil, fmt.Errorf(
+			"incomplete database config for prefix %q: host=%q port=%q name=%q (set DB_%s_HOST/PORT/NAME)",
+			prefix, host, port, dbname, strings.ToUpper(prefix),
+		)
 	}
 
 	dsn := fmt.Sprintf(

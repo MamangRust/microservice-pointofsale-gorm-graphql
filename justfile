@@ -14,7 +14,7 @@ seeder:
     go run service/seeder/main.go
 
 generate-proto:
-    cd proto && find . -name "*.proto" -not -path "./google/*" -exec protoc --proto_path=. --go_out=../pb --go_opt=module=github.com/MamangRust/microservice-point-of-sale-pb --go-grpc_out=../pb --go-grpc_opt=module=github.com/MamangRust/microservice-point-of-sale-pb {} +
+    cd proto && find . -name "*.proto" -not -path "./google/*" -not -path "./proto/*" -exec protoc --proto_path=. --go_out=../pb --go_opt=module=github.com/MamangRust/microservice-point-of-sale-pb --go-grpc_out=../pb --go-grpc_opt=module=github.com/MamangRust/microservice-point-of-sale-pb {} +
 
 # Build all services that contain a go.mod file
 build:

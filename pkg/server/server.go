@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/grafana/pyroscope-go"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -32,16 +32,15 @@ import (
 )
 
 type GRPCServer struct {
-	Logger logger.LoggerInterface
-	GormDB *gorm.DB
-	Ctx    context.Context
-	Cancel context.CancelFunc
-
-	CacheStore        *cache.CacheStore
-	Redis             *redis.Client
-	TelemetryShutdown func(context.Context) error
-	Config            *Config
-	RegisterServices  func(*grpc.Server)
+	Logger           logger.LoggerInterface
+	GormDB           *gorm.DB
+	Ctx              context.Context
+	Cancel           context.CancelFunc
+	CacheStore       *cache.CacheStore
+	Redis            *redis.Client
+	Telemetry        *otel_pkg.Telemetry
+	Config           *Config
+	RegisterServices func(*grpc.Server)
 }
 
 func New(cfg *Config) (*GRPCServer, error) {
@@ -57,55 +56,41 @@ func New(cfg *Config) (*GRPCServer, error) {
 	if err := telemetry.Init(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to initialize telemetry: %w", err)
 	}
-	shutdownFunc := telemetry.Shutdown
 
 	cacheMetrics, err := observability.NewCacheMetrics("cache")
 	if err != nil {
-		if shutdownFunc != nil {
-			_ = shutdownFunc(context.Background())
-		}
 		return nil, fmt.Errorf("failed to initialize cache metrics: %w", err)
 	}
 
 	l, err := logger.NewLogger(cfg.ServiceName, telemetry.GetLogger())
 	if err != nil {
-		if shutdownFunc != nil {
-			_ = shutdownFunc(context.Background())
-		}
 		return nil, fmt.Errorf("failed to initialize logger: %w", err)
+	}
+
+	gormDB, err := database.NewGormClientWithPrefix(l, cfg.DBCluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database via GORM: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	redisClient, err := initRedisServer(ctx, l, cfg.ServiceName)
+	redisClient, err := initRedisServer(ctx, l)
 	if err != nil {
 		cancel()
-		if shutdownFunc != nil {
-			_ = shutdownFunc(context.Background())
-		}
 		return nil, fmt.Errorf("failed to initialize Redis: %w", err)
 	}
 
 	cacheStore := cache.NewCacheStore(redisClient, l, cacheMetrics)
 
-	gormDB, err := database.NewGormClientWithPrefix(l, cfg.DBCluster)
-	if err != nil {
-		cancel()
-		if shutdownFunc != nil {
-			_ = shutdownFunc(context.Background())
-		}
-		return nil, fmt.Errorf("failed to connect to database via GORM: %w", err)
-	}
-
 	return &GRPCServer{
-		Logger:            l,
-		GormDB:            gormDB,
-		Ctx:               ctx,
-		Cancel:            cancel,
-		CacheStore:        cacheStore,
-		Redis:             redisClient,
-		TelemetryShutdown: shutdownFunc,
-		Config:            cfg,
+		Logger:     l,
+		GormDB:     gormDB,
+		Ctx:        ctx,
+		Cancel:     cancel,
+		CacheStore: cacheStore,
+		Redis:      redisClient,
+		Telemetry:  telemetry,
+		Config:     cfg,
 	}, nil
 }
 
@@ -134,7 +119,6 @@ func (s *GRPCServer) Run() error {
 			MinTime:             DefaultMinKeepaliveTime,
 			PermitWithoutStream: true,
 		}),
-		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			middleware.ContextMiddleware(30*time.Second, s.Logger),
 			middleware.RecoveryMiddleware(s.Logger),
@@ -233,6 +217,16 @@ func (s *GRPCServer) gracefulShutdown(
 func (s *GRPCServer) Cleanup() {
 	s.Logger.Info("Cleaning up resources...")
 
+	if s.GormDB != nil {
+		if sqlDB, err := s.GormDB.DB(); err == nil {
+			if err := sqlDB.Close(); err != nil {
+				s.Logger.Error("Failed to close GORM database connection", zap.Error(err))
+			} else {
+				s.Logger.Info("GORM database connection closed")
+			}
+		}
+	}
+
 	if s.Redis != nil {
 		if err := s.Redis.Close(); err != nil {
 			s.Logger.Error("Failed to close Redis connection", zap.Error(err))
@@ -241,21 +235,11 @@ func (s *GRPCServer) Cleanup() {
 		}
 	}
 
-	if s.TelemetryShutdown != nil {
-		if err := s.TelemetryShutdown(context.Background()); err != nil {
+	if s.Telemetry != nil {
+		if err := s.Telemetry.Shutdown(context.Background()); err != nil {
 			s.Logger.Error("Failed to shutdown telemetry", zap.Error(err))
 		} else {
 			s.Logger.Info("Telemetry shutdown successfully")
-		}
-	}
-
-	if s.GormDB != nil {
-		if sqlDB, err := s.GormDB.DB(); err == nil && sqlDB != nil {
-			if err := sqlDB.Close(); err != nil {
-				s.Logger.Error("Failed to close database connection", zap.Error(err))
-			} else {
-				s.Logger.Info("Database connection closed")
-			}
 		}
 	}
 
@@ -282,17 +266,69 @@ func initPyroscope(cfg *Config) error {
 	return err
 }
 
-func initRedisServer(ctx context.Context, logger logger.LoggerInterface, serviceName string) (*redis.Client, error) {
-	return redis.NewClient(&redis.Options{
-		Addr:         fmt.Sprintf("%s:%s", viper.GetString("REDIS_HOST"), viper.GetString("REDIS_PORT")),
-		Password:     viper.GetString("REDIS_PASSWORD"),
-		DB:           viper.GetInt("REDIS_DB"),
+func initTelemetry(cfg *Config) *otel_pkg.Telemetry {
+	return otel_pkg.NewTelemetry(otel_pkg.Config{
+		ServiceName:            cfg.ServiceName,
+		ServiceVersion:         cfg.ServiceVersion,
+		Environment:            cfg.Environment,
+		Endpoint:               cfg.OtelEndpoint,
+		Insecure:               true,
+		EnableRuntimeMetrics:   true,
+		RuntimeMetricsInterval: 15 * time.Second,
+	})
+}
+
+func initRedisServer(ctx context.Context, logger logger.LoggerInterface) (*redis.Client, error) {
+	prefix := "REDIS"
+
+	hostKey := fmt.Sprintf("%s_HOST", prefix)
+	portKey := fmt.Sprintf("%s_PORT", prefix)
+	addrsKey := fmt.Sprintf("%s_ADDRS", prefix)
+	passKey := fmt.Sprintf("%s_PASSWORD", prefix)
+	dbKey := fmt.Sprintf("%s_DB", prefix)
+
+	var addrs []string
+	if val := viper.GetString(addrsKey); val != "" {
+		addrs = strings.Split(val, ",")
+	} else if val := viper.GetString("REDIS_ADDRS"); val != "" {
+		addrs = strings.Split(val, ",")
+	} else {
+		host := viper.GetString(hostKey)
+		if host == "" {
+			host = viper.GetString("REDIS_HOST")
+		}
+		port := viper.GetString(portKey)
+		if port == "" {
+			port = viper.GetString("REDIS_PORT")
+		}
+		addrs = []string{fmt.Sprintf("%s:%s", host, port)}
+	}
+
+	password := viper.GetString(passKey)
+	if password == "" {
+		password = viper.GetString("REDIS_PASSWORD")
+	}
+	db := viper.GetInt(dbKey)
+	if !viper.IsSet(dbKey) {
+		db = viper.GetInt("REDIS_DB")
+	}
+
+	client := redis.NewClient(&redis.Options{
+		Addr:         addrs[0],
+		Password:     password,
+		DB:           db,
 		DialTimeout:  RedisDialTimeout,
 		ReadTimeout:  RedisReadTimeout,
 		WriteTimeout: RedisWriteTimeout,
 		PoolSize:     RedisPoolSize,
 		MinIdleConns: RedisMinIdleConns,
-	}), nil
+	})
+
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("failed to ping redis: %w", err)
+	}
+
+	return client, nil
 }
 
 func (s *GRPCServer) spawnMonitoringTask() <-chan struct{} {
@@ -324,18 +360,13 @@ func (s *GRPCServer) monitorCache() {
 	if refCount > CacheRefCountThreshold {
 		logLevel = zap.WarnLevel
 	}
-
-	fields := []zap.Field{
-		zap.Int64("ref_count", refCount),
-		zap.Int64("total_keys", stats.TotalKeys),
-		zap.Float64("hit_rate", stats.HitRate),
-		zap.String("memory_used", stats.MemoryUsedHuman),
-	}
-
-	if logLevel == zap.WarnLevel {
-		s.Logger.Warn("Cache statistics", fields...)
-	} else {
-		s.Logger.Info("Cache statistics", fields...)
+	if ce := s.Logger.Check(logLevel, "Cache statistics"); ce != nil {
+		ce.Write(
+			zap.Int64("ref_count", refCount),
+			zap.Int64("total_keys", stats.TotalKeys),
+			zap.Float64("hit_rate", stats.HitRate),
+			zap.String("memory_used", stats.MemoryUsedHuman),
+		)
 	}
 }
 
@@ -355,22 +386,4 @@ func (s *GRPCServer) spawnCleanupTask() <-chan struct{} {
 		}
 	}()
 	return done
-}
-
-func initTelemetry(cfg *Config) *otel_pkg.Telemetry {
-	endpoint := cfg.OtelEndpoint
-	if env := viper.GetString("OTEL_ENDPOINT"); env != "" {
-		endpoint = env
-	}
-
-	return otel_pkg.NewTelemetry(otel_pkg.Config{
-		ServiceName:            cfg.ServiceName,
-		ServiceVersion:         cfg.ServiceVersion,
-		Environment:            cfg.Environment,
-		Endpoint:               endpoint,
-		Insecure:               true,
-		EnableRuntimeMetrics:   os.Getenv("OTEL_ENABLED") != "false",
-		RuntimeMetricsInterval: 15 * time.Second,
-		Disabled:               os.Getenv("OTEL_ENABLED") == "false",
-	})
 }

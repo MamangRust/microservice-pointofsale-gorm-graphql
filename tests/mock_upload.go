@@ -2,8 +2,7 @@ package tests
 
 import (
 	"mime/multipart"
-
-	"github.com/labstack/echo/v4"
+	"net/http"
 )
 
 type MockImageUpload struct{}
@@ -12,7 +11,7 @@ func (m *MockImageUpload) EnsureUploadDirectory(uploadDir string) error {
 	return nil
 }
 
-func (m *MockImageUpload) ProcessImageUpload(c echo.Context, file *multipart.FileHeader) (string, error) {
+func (m *MockImageUpload) ProcessImageUpload(w http.ResponseWriter, file *multipart.FileHeader) (string, error) {
 	return "http://example.com/mock-image.jpg", nil
 }
 

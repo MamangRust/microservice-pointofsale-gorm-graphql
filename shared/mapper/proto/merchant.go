@@ -1,8 +1,8 @@
 package protomapper
 
 import (
-	pbcommon "github.com/MamangRust/microservice-point-of-sale-pb/common"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
+	commonpb "github.com/MamangRust/microservice-point-of-sale-pb/common"
+	merchantpb "github.com/MamangRust/microservice-point-of-sale-pb/merchant"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/response"
 )
 
@@ -12,46 +12,46 @@ func NewMerchantProtoMaper() *merchantProtoMapper {
 	return &merchantProtoMapper{}
 }
 
-func (m *merchantProtoMapper) ToProtoResponseMerchant(status string, message string, pbResponse *response.MerchantResponse) *pb.ApiResponseMerchant {
-	return &pb.ApiResponseMerchant{
+func (m *merchantProtoMapper) ToProtoResponseMerchant(status string, message string, pbResponse *response.MerchantResponse) *merchantpb.ApiResponseMerchant {
+	return &merchantpb.ApiResponseMerchant{
 		Status:  status,
 		Message: message,
 		Data:    m.mapResponseMerchant(pbResponse),
 	}
 }
 
-func (m *merchantProtoMapper) ToProtoResponsesMerchant(status string, message string, pbResponse []*response.MerchantResponse) *pb.ApiResponsesMerchant {
-	return &pb.ApiResponsesMerchant{
+func (m *merchantProtoMapper) ToProtoResponsesMerchant(status string, message string, pbResponse []*response.MerchantResponse) *merchantpb.ApiResponsesMerchant {
+	return &merchantpb.ApiResponsesMerchant{
 		Status:  status,
 		Message: message,
 		Data:    m.mapResponsesMerchant(pbResponse),
 	}
 }
 
-func (m *merchantProtoMapper) ToProtoResponseMerchantDeleteAt(status string, message string, pbResponse *response.MerchantResponseDeleteAt) *pb.ApiResponseMerchantDeleteAt {
-	return &pb.ApiResponseMerchantDeleteAt{
+func (m *merchantProtoMapper) ToProtoResponseMerchantDeleteAt(status string, message string, pbResponse *response.MerchantResponseDeleteAt) *merchantpb.ApiResponseMerchantDeleteAt {
+	return &merchantpb.ApiResponseMerchantDeleteAt{
 		Status:  status,
 		Message: message,
 		Data:    m.mapResponseMerchantDeleteAt(pbResponse),
 	}
 }
 
-func (m *merchantProtoMapper) ToProtoResponseMerchantDelete(status string, message string) *pb.ApiResponseMerchantDelete {
-	return &pb.ApiResponseMerchantDelete{
+func (m *merchantProtoMapper) ToProtoResponseMerchantDelete(status string, message string) *merchantpb.ApiResponseMerchantDelete {
+	return &merchantpb.ApiResponseMerchantDelete{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (m *merchantProtoMapper) ToProtoResponseMerchantAll(status string, message string) *pb.ApiResponseMerchantAll {
-	return &pb.ApiResponseMerchantAll{
+func (m *merchantProtoMapper) ToProtoResponseMerchantAll(status string, message string) *merchantpb.ApiResponseMerchantAll {
+	return &merchantpb.ApiResponseMerchantAll{
 		Status:  status,
 		Message: message,
 	}
 }
 
-func (m *merchantProtoMapper) ToProtoResponsePaginationMerchantDeleteAt(pagination *pbcommon.PaginationMeta, status string, message string, merchants []*response.MerchantResponseDeleteAt) *pb.ApiResponsePaginationMerchantDeleteAt {
-	return &pb.ApiResponsePaginationMerchantDeleteAt{
+func (m *merchantProtoMapper) ToProtoResponsePaginationMerchantDeleteAt(pagination *commonpb.PaginationMeta, status string, message string, merchants []*response.MerchantResponseDeleteAt) *merchantpb.ApiResponsePaginationMerchantDeleteAt {
+	return &merchantpb.ApiResponsePaginationMerchantDeleteAt{
 		Status:     status,
 		Message:    message,
 		Data:       m.mapResponsesMerchantDeleteAt(merchants),
@@ -59,8 +59,8 @@ func (m *merchantProtoMapper) ToProtoResponsePaginationMerchantDeleteAt(paginati
 	}
 }
 
-func (m *merchantProtoMapper) ToProtoResponsePaginationMerchant(pagination *pbcommon.PaginationMeta, status string, message string, merchants []*response.MerchantResponse) *pb.ApiResponsePaginationMerchant {
-	return &pb.ApiResponsePaginationMerchant{
+func (m *merchantProtoMapper) ToProtoResponsePaginationMerchant(pagination *commonpb.PaginationMeta, status string, message string, merchants []*response.MerchantResponse) *merchantpb.ApiResponsePaginationMerchant {
+	return &merchantpb.ApiResponsePaginationMerchant{
 		Status:     status,
 		Message:    message,
 		Data:       m.mapResponsesMerchant(merchants),
@@ -68,8 +68,8 @@ func (m *merchantProtoMapper) ToProtoResponsePaginationMerchant(pagination *pbco
 	}
 }
 
-func (m *merchantProtoMapper) mapResponseMerchant(merchant *response.MerchantResponse) *pb.MerchantResponse {
-	return &pb.MerchantResponse{
+func (m *merchantProtoMapper) mapResponseMerchant(merchant *response.MerchantResponse) *merchantpb.MerchantResponse {
+	return &merchantpb.MerchantResponse{
 		Id:           int32(merchant.ID),
 		UserId:       int32(merchant.UserID),
 		Name:         merchant.Name,
@@ -83,8 +83,8 @@ func (m *merchantProtoMapper) mapResponseMerchant(merchant *response.MerchantRes
 	}
 }
 
-func (m *merchantProtoMapper) mapResponsesMerchant(merchants []*response.MerchantResponse) []*pb.MerchantResponse {
-	var mappedMerchants []*pb.MerchantResponse
+func (m *merchantProtoMapper) mapResponsesMerchant(merchants []*response.MerchantResponse) []*merchantpb.MerchantResponse {
+	var mappedMerchants []*merchantpb.MerchantResponse
 
 	for _, merchant := range merchants {
 		mappedMerchants = append(mappedMerchants, m.mapResponseMerchant(merchant))
@@ -93,8 +93,8 @@ func (m *merchantProtoMapper) mapResponsesMerchant(merchants []*response.Merchan
 	return mappedMerchants
 }
 
-func (m *merchantProtoMapper) mapResponseMerchantDeleteAt(merchant *response.MerchantResponseDeleteAt) *pb.MerchantResponseDeleteAt {
-	return &pb.MerchantResponseDeleteAt{
+func (m *merchantProtoMapper) mapResponseMerchantDeleteAt(merchant *response.MerchantResponseDeleteAt) *merchantpb.MerchantResponseDeleteAt {
+	return &merchantpb.MerchantResponseDeleteAt{
 		Id:           int32(merchant.ID),
 		UserId:       int32(merchant.UserID),
 		Name:         merchant.Name,
@@ -109,8 +109,8 @@ func (m *merchantProtoMapper) mapResponseMerchantDeleteAt(merchant *response.Mer
 	}
 }
 
-func (m *merchantProtoMapper) mapResponsesMerchantDeleteAt(merchants []*response.MerchantResponseDeleteAt) []*pb.MerchantResponseDeleteAt {
-	var mappedMerchants []*pb.MerchantResponseDeleteAt
+func (m *merchantProtoMapper) mapResponsesMerchantDeleteAt(merchants []*response.MerchantResponseDeleteAt) []*merchantpb.MerchantResponseDeleteAt {
+	var mappedMerchants []*merchantpb.MerchantResponseDeleteAt
 
 	for _, merchant := range merchants {
 		mappedMerchants = append(mappedMerchants, m.mapResponseMerchantDeleteAt(merchant))

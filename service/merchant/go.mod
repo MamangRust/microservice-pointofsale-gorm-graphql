@@ -22,7 +22,7 @@ require (
 
 require (
 	github.com/IBM/sarama v1.46.3 // indirect
-	github.com/MamangRust/microservice-point-of-sale-pb v0.0.0
+	github.com/MamangRust/microservice-pointofsale-grpc/pb v0.0.0
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -99,4 +99,4 @@ replace github.com/MamangRust/microservice-point-of-sale-pkg => ../../pkg
 
 replace github.com/MamangRust/microservice-point-of-sale-shared => ../../shared
 
-replace github.com/MamangRust/microservice-point-of-sale-pb => ../../pb
+replace github.com/MamangRust/microservice-pointofsale-grpc/pb => ../../pb

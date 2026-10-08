@@ -13,7 +13,11 @@ import (
 )
 
 type Deps struct {
-	DB     *gorm.DB
+	// DBs maps a bounded context to its own PostgreSQL instance
+	// (keys: "identity", "merchant", "catalog", "sales", "email"). Each domain
+	// seeder receives the instance(s) it actually reads/writes, since foreign
+	// keys cannot cross instances.
+	DBs    map[string]*gorm.DB
 	Ctx    context.Context
 	Logger logger.LoggerInterface
 	Hash   hash.HashPassword
@@ -32,17 +36,17 @@ type Seeder struct {
 }
 
 func NewSeeder(deps Deps) *Seeder {
-	db := deps.DB
+	dbs := deps.DBs
 	return &Seeder{
-		User:        NewUserSeeder(db, deps.Hash, deps.Ctx, deps.Logger),
-		Role:        NewRoleSeeder(db, deps.Ctx, deps.Logger),
-		UserRole:    NewUserRoleSeeder(db, deps.Ctx, deps.Logger),
-		Merchant:    NewMerchantSeeder(db, deps.Ctx, deps.Logger),
-		Cashier:     NewCashierSeeder(db, deps.Ctx, deps.Logger),
-		Category:    NewCategorySeeder(db, deps.Ctx, deps.Logger),
-		Product:     NewProductSeeder(db, deps.Ctx, deps.Logger),
-		Order:       NewOrderSeeder(db, deps.Ctx, deps.Logger),
-		Transaction: NewTransactionSeeder(db, deps.Ctx, deps.Logger),
+		User:        NewUserSeeder(dbs["identity"], deps.Hash, deps.Ctx, deps.Logger),
+		Role:        NewRoleSeeder(dbs["identity"], deps.Ctx, deps.Logger),
+		UserRole:    NewUserRoleSeeder(dbs["identity"], deps.Ctx, deps.Logger),
+		Merchant:    NewMerchantSeeder(dbs["merchant"], dbs["identity"], deps.Ctx, deps.Logger),
+		Cashier:     NewCashierSeeder(dbs["merchant"], dbs["identity"], deps.Ctx, deps.Logger),
+		Category:    NewCategorySeeder(dbs["catalog"], deps.Ctx, deps.Logger),
+		Product:     NewProductSeeder(dbs["catalog"], dbs["merchant"], deps.Ctx, deps.Logger),
+		Order:       NewOrderSeeder(dbs["sales"], dbs["merchant"], dbs["catalog"], deps.Ctx, deps.Logger),
+		Transaction: NewTransactionSeeder(dbs["sales"], dbs["merchant"], deps.Ctx, deps.Logger),
 	}
 }
 

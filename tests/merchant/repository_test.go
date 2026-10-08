@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/MamangRust/microservice-point-of-sale-merchant/repository"
-	pb "github.com/MamangRust/microservice-point-of-sale-pb/user"
+	pbuser "github.com/MamangRust/microservice-point-of-sale-pb/user"
 	"github.com/MamangRust/microservice-point-of-sale-shared/domain/requests"
 	tests "github.com/MamangRust/microservice-point-of-sale-test"
 
@@ -30,17 +30,16 @@ func (s *MerchantRepositoryTestSuite) SetupSuite() {
 
 	s.Require().NoError(err)
 
-	// Create a placeholder gRPC listener to satisfy NewRepositories
-	// (UserQuery gRPC methods are not called during DB-only tests)
 	userLis, _ := net.Listen("tcp", "localhost:0")
 	userConn, _ := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	merchantQueries := s.ts.GormDB()
-	s.repo = repository.NewRepositories(merchantQueries, pb.NewUserQueryServiceClient(userConn), pb.NewUserCommandServiceClient(userConn))
+	s.repo = repository.NewRepositories(merchantQueries,
+		pbuser.NewUserQueryServiceClient(userConn),
+		pbuser.NewUserCommandServiceClient(userConn),
+	)
 
-	// Seed a user ID directly for merchant tests
-	err = s.ts.GormDB().WithContext(s.ts.Ctx).Raw(
-		`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES (?, ?, ?, ?, 'test-verify', true) RETURNING user_id`,
+	err = s.ts.GormDB().Raw(`INSERT INTO users (firstname, lastname, email, password, verification_code, is_verified) VALUES ($1, $2, $3, $4, 'test-verify', true) RETURNING user_id`,
 		"Merchant", "RepoTest", "merchant.repo@example.com", "password123",
 	).Scan(&s.userID).Error
 	s.Require().NoError(err)
@@ -106,17 +105,14 @@ func (s *MerchantRepositoryTestSuite) Test4_TrashAndRestore() {
 	s.Require().NotZero(s.merchantID)
 	ctx := context.Background()
 
-	// Trash
 	trashed, err := s.repo.MerchantCommand.TrashedMerchant(ctx, s.merchantID)
 	s.NoError(err)
 	s.NotNil(trashed)
 
-	// Restore
 	restored, err := s.repo.MerchantCommand.RestoreMerchant(ctx, s.merchantID)
 	s.NoError(err)
 	s.NotNil(restored)
 
-	// Verify restored
 	found, err := s.repo.MerchantQuery.FindById(ctx, s.merchantID)
 	s.NoError(err)
 	s.NotNil(found)
@@ -126,7 +122,6 @@ func (s *MerchantRepositoryTestSuite) Test5_DeletePermanent() {
 	s.Require().NotZero(s.merchantID)
 	ctx := context.Background()
 
-	// Must be trashed first for permanent delete
 	_, err := s.repo.MerchantCommand.TrashedMerchant(ctx, s.merchantID)
 	s.NoError(err)
 

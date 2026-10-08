@@ -54,30 +54,32 @@ func (r *categorySeeder) Seed() error {
 	return nil
 }
 
-type cashierSeeder struct {
-	db     *gorm.DB
-	ctx    context.Context
-	logger logger.LoggerInterface
-}
-
-func NewCashierSeeder(db *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *cashierSeeder {
-	return &cashierSeeder{db: db, ctx: ctx, logger: logger}
-}
-
+// merchantRow is shared by the cashier/product/order/transaction seeders.
 type merchantRow struct {
 	MerchantID int
 }
 
+type cashierSeeder struct {
+	merchantDB *gorm.DB
+	identityDB *gorm.DB
+	ctx        context.Context
+	logger     logger.LoggerInterface
+}
+
+func NewCashierSeeder(merchantDB, identityDB *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *cashierSeeder {
+	return &cashierSeeder{merchantDB: merchantDB, identityDB: identityDB, ctx: ctx, logger: logger}
+}
+
 func (r *cashierSeeder) Seed() error {
 	var merchants []merchantRow
-	err := r.db.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
+	err := r.merchantDB.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
 	if err != nil {
 		r.logger.Error("Failed to fetch merchants:", zap.Error(err))
 		return err
 	}
 
 	var users []userRow
-	err = r.db.WithContext(r.ctx).Raw(`SELECT user_id FROM users WHERE deleted_at IS NULL LIMIT 20`).Scan(&users).Error
+	err = r.identityDB.WithContext(r.ctx).Raw(`SELECT user_id FROM users WHERE deleted_at IS NULL LIMIT 20`).Scan(&users).Error
 	if err != nil {
 		r.logger.Error("Failed to fetch users:", zap.Error(err))
 		return err
@@ -94,7 +96,7 @@ func (r *cashierSeeder) Seed() error {
 		user := users[rand.Intn(len(users))]
 		cashierName := fmt.Sprintf("Cashier %d", i)
 
-		err := r.db.WithContext(r.ctx).Exec(
+		err := r.merchantDB.WithContext(r.ctx).Exec(
 			`INSERT INTO cashiers (merchant_id, user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
 			merchant.MerchantID, user.UserID, cashierName, now, now,
 		).Error
@@ -109,18 +111,19 @@ func (r *cashierSeeder) Seed() error {
 }
 
 type merchantSeeder struct {
-	db     *gorm.DB
-	ctx    context.Context
-	logger logger.LoggerInterface
+	merchantDB *gorm.DB
+	identityDB *gorm.DB
+	ctx        context.Context
+	logger     logger.LoggerInterface
 }
 
-func NewMerchantSeeder(db *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *merchantSeeder {
-	return &merchantSeeder{db: db, ctx: ctx, logger: logger}
+func NewMerchantSeeder(merchantDB, identityDB *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *merchantSeeder {
+	return &merchantSeeder{merchantDB: merchantDB, identityDB: identityDB, ctx: ctx, logger: logger}
 }
 
 func (r *merchantSeeder) Seed() error {
 	var users []userRow
-	err := r.db.WithContext(r.ctx).Raw(`SELECT user_id FROM users WHERE deleted_at IS NULL LIMIT 20`).Scan(&users).Error
+	err := r.identityDB.WithContext(r.ctx).Raw(`SELECT user_id FROM users WHERE deleted_at IS NULL LIMIT 20`).Scan(&users).Error
 	if err != nil {
 		r.logger.Error("Failed to fetch users:", zap.Error(err))
 		return err
@@ -130,7 +133,7 @@ func (r *merchantSeeder) Seed() error {
 	for i := 1; i <= 10; i++ {
 		userID := users[i%len(users)].UserID
 
-		err = r.db.WithContext(r.ctx).Exec(
+		err = r.merchantDB.WithContext(r.ctx).Exec(
 			`INSERT INTO merchants (user_id, name, description, address, contact_email, contact_phone, status, created_at, updated_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			userID,
@@ -153,13 +156,14 @@ func (r *merchantSeeder) Seed() error {
 }
 
 type productSeeder struct {
-	db     *gorm.DB
-	ctx    context.Context
-	logger logger.LoggerInterface
+	catalogDB  *gorm.DB
+	merchantDB *gorm.DB
+	ctx        context.Context
+	logger     logger.LoggerInterface
 }
 
-func NewProductSeeder(db *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *productSeeder {
-	return &productSeeder{db: db, ctx: ctx, logger: logger}
+func NewProductSeeder(catalogDB, merchantDB *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *productSeeder {
+	return &productSeeder{catalogDB: catalogDB, merchantDB: merchantDB, ctx: ctx, logger: logger}
 }
 
 type categoryRow struct {
@@ -168,14 +172,14 @@ type categoryRow struct {
 
 func (r *productSeeder) Seed() error {
 	var merchants []merchantRow
-	err := r.db.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
+	err := r.merchantDB.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
 	if err != nil {
 		r.logger.Error("Failed to get merchants:", zap.Error(err))
 		return err
 	}
 
 	var categories []categoryRow
-	err = r.db.WithContext(r.ctx).Raw(`SELECT category_id FROM categories WHERE deleted_at IS NULL LIMIT 20`).Scan(&categories).Error
+	err = r.catalogDB.WithContext(r.ctx).Raw(`SELECT category_id FROM categories WHERE deleted_at IS NULL LIMIT 20`).Scan(&categories).Error
 	if err != nil {
 		r.logger.Error("Failed to get categories:", zap.Error(err))
 		return err
@@ -209,7 +213,7 @@ func (r *productSeeder) Seed() error {
 		image := images[rand.Intn(len(images))]
 		barcode := fmt.Sprintf("BC-%d", rand.Intn(9999999))
 
-		err := r.db.WithContext(r.ctx).Exec(
+		err := r.catalogDB.WithContext(r.ctx).Exec(
 			`INSERT INTO products (merchant_id, category_id, name, description, price, count_in_stock, brand, weight, slug_product, image_product, barcode, created_at, updated_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			merchant.MerchantID, category.CategoryID, name,
@@ -227,13 +231,15 @@ func (r *productSeeder) Seed() error {
 }
 
 type orderSeeder struct {
-	db     *gorm.DB
-	ctx    context.Context
-	logger logger.LoggerInterface
+	salesDB    *gorm.DB
+	merchantDB *gorm.DB
+	catalogDB  *gorm.DB
+	ctx        context.Context
+	logger     logger.LoggerInterface
 }
 
-func NewOrderSeeder(db *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *orderSeeder {
-	return &orderSeeder{db: db, ctx: ctx, logger: logger}
+func NewOrderSeeder(salesDB, merchantDB, catalogDB *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *orderSeeder {
+	return &orderSeeder{salesDB: salesDB, merchantDB: merchantDB, catalogDB: catalogDB, ctx: ctx, logger: logger}
 }
 
 type cashierRow struct {
@@ -247,14 +253,14 @@ type productRow struct {
 
 func (r *orderSeeder) Seed() error {
 	var merchants []merchantRow
-	err := r.db.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
+	err := r.merchantDB.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
 	if err != nil {
 		r.logger.Error("Failed to get merchants", zap.Error(err))
 		return err
 	}
 
 	var cashiers []cashierRow
-	err = r.db.WithContext(r.ctx).Raw(`SELECT cashier_id FROM cashiers WHERE deleted_at IS NULL LIMIT 20`).Scan(&cashiers).Error
+	err = r.merchantDB.WithContext(r.ctx).Raw(`SELECT cashier_id FROM cashiers WHERE deleted_at IS NULL LIMIT 20`).Scan(&cashiers).Error
 	if err != nil {
 		r.logger.Error("Failed to get cashiers", zap.Error(err))
 		return err
@@ -272,7 +278,7 @@ func (r *orderSeeder) Seed() error {
 		totalPrice := int64(rand.Intn(500000) + 50000)
 
 		var orderID int
-		err := r.db.WithContext(r.ctx).Raw(
+		err := r.salesDB.WithContext(r.ctx).Raw(
 			`INSERT INTO orders (merchant_id, cashier_id, total_price, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING order_id`,
 			merchant.MerchantID, cashier.CashierID, totalPrice, now, now,
 		).Scan(&orderID).Error
@@ -282,7 +288,7 @@ func (r *orderSeeder) Seed() error {
 		}
 
 		var products []productRow
-		err = r.db.WithContext(r.ctx).Raw(
+		err = r.catalogDB.WithContext(r.ctx).Raw(
 			`SELECT product_id, price FROM products WHERE merchant_id = ? AND deleted_at IS NULL LIMIT 10`, merchant.MerchantID,
 		).Scan(&products).Error
 		if err != nil {
@@ -300,7 +306,7 @@ func (r *orderSeeder) Seed() error {
 			quantity := int32(rand.Intn(5) + 1)
 			price := product.Price * quantity
 
-			err := r.db.WithContext(r.ctx).Exec(
+			err := r.salesDB.WithContext(r.ctx).Exec(
 				`INSERT INTO order_items (order_id, product_id, quantity, price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
 				orderID, product.ProductID, quantity, price, now, now,
 			).Error
@@ -316,13 +322,14 @@ func (r *orderSeeder) Seed() error {
 }
 
 type transactionSeeder struct {
-	db     *gorm.DB
-	ctx    context.Context
-	logger logger.LoggerInterface
+	salesDB    *gorm.DB
+	merchantDB *gorm.DB
+	ctx        context.Context
+	logger     logger.LoggerInterface
 }
 
-func NewTransactionSeeder(db *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *transactionSeeder {
-	return &transactionSeeder{db: db, ctx: ctx, logger: logger}
+func NewTransactionSeeder(salesDB, merchantDB *gorm.DB, ctx context.Context, logger logger.LoggerInterface) *transactionSeeder {
+	return &transactionSeeder{salesDB: salesDB, merchantDB: merchantDB, ctx: ctx, logger: logger}
 }
 
 type orderRow struct {
@@ -331,14 +338,14 @@ type orderRow struct {
 
 func (r *transactionSeeder) Seed() error {
 	var orders []orderRow
-	err := r.db.WithContext(r.ctx).Raw(`SELECT order_id FROM orders WHERE deleted_at IS NULL LIMIT 20`).Scan(&orders).Error
+	err := r.salesDB.WithContext(r.ctx).Raw(`SELECT order_id FROM orders WHERE deleted_at IS NULL LIMIT 20`).Scan(&orders).Error
 	if err != nil {
 		r.logger.Error("Failed to get orders:", zap.Error(err))
 		return err
 	}
 
 	var merchants []merchantRow
-	err = r.db.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
+	err = r.merchantDB.WithContext(r.ctx).Raw(`SELECT merchant_id FROM merchants WHERE deleted_at IS NULL LIMIT 20`).Scan(&merchants).Error
 	if err != nil {
 		r.logger.Error("Failed to get merchants:", zap.Error(err))
 		return err
@@ -351,7 +358,7 @@ func (r *transactionSeeder) Seed() error {
 		amount := int32(100 + i)
 		changeAmount := int32(5 + i)
 
-		err := r.db.WithContext(r.ctx).Exec(
+		err := r.salesDB.WithContext(r.ctx).Exec(
 			`INSERT INTO transactions (order_id, merchant_id, payment_method, amount, change_amount, payment_status, created_at, updated_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			selectedOrder.OrderID, selectedMerchant.MerchantID, "Credit Card", amount, &changeAmount, "Completed", now, now,

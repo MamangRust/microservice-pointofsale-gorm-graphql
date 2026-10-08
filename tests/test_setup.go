@@ -11,7 +11,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
@@ -122,7 +122,7 @@ func SetupTestSuite() (*TestSuite, error) {
 // (register assigns ROLE_ADMIN by default). Migration only creates the
 // schema — fixture roles must exist for integration tests.
 func (ts *TestSuite) SeedMinimalRoles() error {
-	return ts.GormDB().WithContext(ts.Ctx).Exec(`
+	return ts.GormDB().Exec(`
 		INSERT INTO roles (role_name)
 		VALUES ('ROLE_ADMIN'), ('ROLE_CASHIER')
 		ON CONFLICT (role_name) DO NOTHING
@@ -154,7 +154,7 @@ func collectServiceMigrations(root, dest string) error {
 }
 
 func (ts *TestSuite) RunMigrations(migrationsDir string) error {
-	db, err := goose.OpenDBWithDriver("pgx", ts.DBURL)
+	db, err := goose.OpenDBWithDriver("postgres", ts.DBURL)
 	if err != nil {
 		return fmt.Errorf("failed to open db: %w", err)
 	}

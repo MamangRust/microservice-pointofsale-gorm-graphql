@@ -1,6 +1,5 @@
 package response
 
-// RoleResponsePayload is a Kafka payload for role validation responses.
 type RoleResponsePayload struct {
 	CorrelationID string   `json:"correlation_id"`
 	Valid         bool     `json:"valid"`
